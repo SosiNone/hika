@@ -3,8 +3,8 @@
 What data HIKA has, and how much of it the app shows. Use it to plan features: a ✗ or ◐ row in
 section 1 needs only app work, section 2 needs a pipeline change, and section 3 needs a new source.
 
-Checked against v0.2.0 and the `alpstein` bundle. When you add a bundle field, a panel or a source,
-update the matching row.
+Counts are from v0.2.0 and the `alpstein` bundle; v0.7.0 added the `jungfrau` bundle, which has the
+same fields. When you add a bundle field, a panel or a source, update the matching row.
 
 **Legend:** ✅ shown · ◐ partly shown · ✗ in the bundle but not shown
 
@@ -72,9 +72,10 @@ appear as a route waypoint (panel B, profile ticks, trail log, footer ticker).
 
 | Data | Bundle field | Shown | Where | Unused / ideas |
 |---|---|---|---|---|
-| Title, cantons | `title`, `cantons` | ✅ | Brand line, stage head, locator | — |
-| Subtitle | `subtitle` | ✗ | — | "Säntis · Seealpsee · Hoher Kasten" is never displayed |
+| Title, cantons | `title`, `cantons` | ✅ | Region picker (brand line), stage head, locator, classics group in the route list | — |
+| Subtitle | `subtitle` | ◐ | Tooltip on the region picker and on other regions in the locator | "Säntis · Seealpsee · Hoher Kasten" is never on screen without hovering |
 | Bounding box | `bbox` | ✅ | Locator box, LV95 and WGS84 readouts, sunrise / sunset | — |
+| Region index: every built region's title, cantons, bbox, default route and route count | `public/data/regions.json` (not in the bundle) | ✅ | Region picker; the other regions' boxes in the locator (G), which open them | No overview of all regions at once (e.g. a start screen comparing them) |
 | Source list | `sources` | ✗ | — | The footer hard-codes "© swisstopo · SchweizMobil · geo.admin.ch"; an about panel could list and link them |
 | Build time | `generated` | ✗ | — | Data freshness ("trails as of …") |
 

@@ -1,0 +1,50 @@
+{
+  "id": "jungfrau",
+  "title": "Jungfrau",
+  "subtitle": "Eiger · Grindelwald · Lauterbrunnen",
+  "cantons": ["BE", "VS"],
+  "bbox": [2628000, 1153000, 2652000, 1172000],
+  "cell": 20,
+  "orthoZoom": 20,
+  "orthoWidth": 2048,
+  "minInside": 0.3,
+  "minInsideKm": 2,
+  "defaultRoute": "sm-353.00",
+  "excludeRoutes": [],
+  "curated": [
+    {
+      "id": "maennlichen-kleine-scheidegg",
+      "name": "Männlichen – Kleine Scheidegg",
+      "via": [
+        { "name": "Berghaus Männlichen", "kind": "inn" },
+        { "name": "Kleine Scheidegg", "kind": "stop" }
+      ]
+    },
+    {
+      "id": "pfingstegg-baeregg",
+      "name": "Pfingstegg – Berghaus Bäregg",
+      "via": [
+        { "name": "Pfingstegg", "kind": "lift" },
+        { "name": "Berghaus Bäregg", "kind": "inn" }
+      ]
+    },
+    {
+      "id": "muerren-schilthorn",
+      "name": "Mürren – Schilthornhütte – Schilthorn",
+      "via": [
+        { "name": "Mürren BLM", "kind": "stop" },
+        { "name": "Schilthornhütte", "kind": "inn" },
+        { "name": "Schilthorn", "kind": "summit" }
+      ]
+    },
+    {
+      "id": "lauterbrunnen-stechelberg",
+      "name": "Lauterbrunnen – Trümmelbach – Stechelberg",
+      "via": [
+        { "name": "Lauterbrunnen", "kind": "stop" },
+        { "name": "Restaurant Trümmelbach", "kind": "inn" },
+        { "name": "Stechelberg (Schilthornbahn)", "kind": "lift" }
+      ]
+    }
+  ]
+}

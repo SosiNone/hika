@@ -1,6 +1,6 @@
 import { cumulativeMinutes } from '../geo/hikingTime';
 import { routeClimb } from '../geo/track';
-import type { Place, RegionBundle, Route } from './types';
+import type { Place, RegionBundle, RegionIndex, Route } from './types';
 
 /** A route with per-sample cumulative series derived on load. */
 export interface RouteView extends Route {
@@ -28,9 +28,14 @@ export interface Region {
   routes: RouteView[];
 }
 
+/** The regions the app offers (public/data/regions.json). */
+export function loadRegionIndex(): Promise<RegionIndex> {
+  return json<RegionIndex>(`${import.meta.env.BASE_URL}data/regions.json`);
+}
+
 export async function loadRegion(id: string): Promise<Region> {
   const base = `${import.meta.env.BASE_URL}data/${id}/`;
-  const bundle = (await (await fetch(`${base}region.json`)).json()) as RegionBundle;
+  const bundle = await json<RegionBundle>(`${base}region.json`);
   const [heights, swiss, trailsBuf, ortho] = await Promise.all([
     binary(`${base}terrain.u16`).then((b) => new Uint16Array(b)),
     binary(`${base}${bundle.locator.file}`).then((b) => new Uint16Array(b)),
@@ -46,6 +51,12 @@ export async function loadRegion(id: string): Promise<Region> {
     places: new Map(bundle.places.map((p) => [p.id, p])),
     routes: bundle.routes.map(deriveRoute),
   };
+}
+
+async function json<T>(url: string): Promise<T> {
+  const res = await fetch(url);
+  if (!res.ok) throw new Error(`${url}: HTTP ${res.status}`);
+  return (await res.json()) as T;
 }
 
 async function binary(url: string): Promise<ArrayBuffer> {

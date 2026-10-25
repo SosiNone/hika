@@ -1,0 +1,7 @@
+{
+  "version": 1,
+  "regions": [
+    {"id":"alpstein","title":"Alpstein","subtitle":"Säntis · Seealpsee · Hoher Kasten","cantons":["AI","AR","SG"],"bbox":[2736000,1227000,2758000,1246000],"defaultRoute":"c-saentis-lisengrat","routes":25},
+    {"id":"jungfrau","title":"Jungfrau","subtitle":"Eiger · Grindelwald · Lauterbrunnen","cantons":["BE","VS"],"bbox":[2628000,1153000,2652000,1172000],"defaultRoute":"sm-353.00","routes":19}
+  ]
+}

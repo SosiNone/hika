@@ -110,12 +110,32 @@ export interface Locator {
   lakes: number[][];
 }
 
+/** public/data/regions.json: every built region, written by the pipeline (scripts/lib/regions.ts). */
+export interface RegionIndex {
+  version: 1;
+  /** Sorted by title. */
+  regions: RegionSummary[];
+}
+
+export interface RegionSummary {
+  id: string;
+  title: string;
+  subtitle: string;
+  cantons: string[];
+  bbox: BBox;
+  /** Route id selected when a link names no route (or one the region doesn't have). */
+  defaultRoute: string;
+  routes: number;
+}
+
 export interface RegionConfig {
   id: string;
   title: string;
   subtitle: string;
   cantons: string[];
   bbox: BBox;
+  /** Route id (`sm-…` or `c-…`) to open by default; the first curated hike otherwise. */
+  defaultRoute?: string;
   cell: number;
   orthoZoom: number;
   orthoWidth: number;

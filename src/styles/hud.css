@@ -50,6 +50,14 @@ table { border-collapse: collapse; width: 100%; }
 .brand svg { width: 28px; height: 28px; fill: none; stroke: var(--accent); stroke-width: 1.6; border: 1px solid var(--line-2); padding: 3px; }
 .brand-title { font-weight: 400; font-size: 17px; letter-spacing: 0.42em; line-height: 1; }
 .brand-sub { color: var(--text-2); font-size: var(--fs-xs); letter-spacing: 0.2em; margin-top: 4px; }
+/* The region picker reads as the subtitle line, with a caret and a hairline under it. */
+.region-pick { position: relative; display: inline-block; }
+.region-pick::after { content: '▾'; position: absolute; right: 0; top: 0; color: var(--text-3); pointer-events: none; }
+.region-pick select { appearance: none; font: inherit; letter-spacing: inherit; color: inherit; background: none; border: 0; border-bottom: 1px solid var(--line-2); border-radius: 0; margin: 0; padding: 0 14px 1px 0; cursor: pointer; }
+.region-pick select:hover { color: var(--text); border-color: var(--line-3); }
+.region-pick select:focus { outline: none; }
+.region-pick select:focus-visible { outline: 1px solid var(--text); outline-offset: 2px; }
+.region-pick option { background: var(--bg-2); color: var(--text); }
 .topbar-ticker { overflow: hidden; white-space: nowrap; color: var(--text-2); font-size: var(--fs-s); mask-image: linear-gradient(90deg, #000 calc(100% - 48px), transparent); }
 .topbar-ticker span { margin-right: 28px; }
 .topbar-ticker b { color: var(--text); font-weight: 400; }

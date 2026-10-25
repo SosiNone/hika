@@ -1,4 +1,5 @@
 import type { Region, RouteView } from '../data/load';
+import type { RegionSummary } from '../data/types';
 import { lv95ToWgs84 } from '../geo/lv95';
 import { esc, num } from '../panels/common';
 import type { Store } from '../state';
@@ -12,6 +13,25 @@ export function showVersion(el: HTMLAnchorElement) {
   el.textContent = import.meta.env.DEV ? `${tag}-DEV` : tag;
   el.href = import.meta.env.DEV ? REPO : `${REPO}/releases/tag/${tag}`;
   el.title = 'HIKA version';
+}
+
+/**
+ * The brand's subtitle line, "ALPSTEIN · AI / AR / SG": a region picker once there is more than one
+ * region. Picking one calls `go`, which loads that region's page.
+ */
+export function mountRegionPicker(el: HTMLElement, regions: RegionSummary[], current: RegionSummary, go: (id: string) => void) {
+  const label = (r: RegionSummary) => `${r.title.toUpperCase()} · ${r.cantons.join(' / ')}`;
+  el.title = current.subtitle;
+  if (regions.length < 2) {
+    el.textContent = label(current);
+    return;
+  }
+  el.innerHTML = `<label class="region-pick"><select aria-label="Region">${regions.map((r) => `<option value="${esc(r.id)}" title="${esc(r.subtitle)}">${esc(label(r))}</option>`).join('')}</select></label>`;
+  const select = el.querySelector('select')!;
+  select.value = current.id;
+  select.onchange = () => go(select.value);
+  // Back from the next region may restore this page from the bfcache with that region still picked.
+  window.addEventListener('pageshow', () => { select.value = current.id; });
 }
 
 /** Footer dark / light switch; the store owns the choice, main.ts applies it. */

@@ -1,17 +1,36 @@
 import type { RouteView } from '../data/load';
-import { OFF_NETWORK, TRAIL_CLASSES } from '../data/types';
+import { OFF_NETWORK, TRAIL_CLASSES, type RegionSummary } from '../data/types';
 import { smoothAltitudes } from '../geo/hikingTime';
 import { lv95ToWgs84 } from '../geo/lv95';
 import { pointer } from '../hud/pointer';
 import { chart, COLORS, esc, FONT, frame, hm, num, type Ctx } from './common';
 
-/** G · Switzerland locator: a swaying point-cloud relief of the country with the region boxed. */
+/**
+ * G · Switzerland locator: a swaying point-cloud relief of the country with the region boxed. The
+ * other regions are boxed too, dimmer; hovering one highlights it and a click opens it.
+ */
 export function mountLocator(el: HTMLElement, c: Ctx) {
   const { body, meta } = frame(el, 'G', 'Switzerland');
   body.style.height = '150px';
   body.style.flex = 'none';
   const ch = chart(body);
   const L = c.region.bundle.locator, bb = c.region.bundle.bbox;
+  const others = c.regions.filter((r) => r.id !== c.region.bundle.id);
+  /** Screen rectangles [x0, y0, x1, y1] of the other regions' boxes and labels, as last drawn. */
+  let targets: { region: RegionSummary; rect: number[] }[] = [];
+  let hover: string | null = null;
+  const at = (e: MouseEvent) => {
+    const r = ch.canvas.getBoundingClientRect(), x = e.clientX - r.left, y = e.clientY - r.top;
+    return targets.find(({ rect }) => x >= rect[0] && x <= rect[2] && y >= rect[1] && y <= rect[3])?.region ?? null;
+  };
+  ch.canvas.addEventListener('pointermove', (e) => {
+    const r = at(e);
+    hover = r?.id ?? null;
+    ch.canvas.style.cursor = r ? 'pointer' : '';
+    ch.canvas.title = r ? `${r.title}: ${r.subtitle} · ${r.routes} routes` : '';
+  });
+  ch.canvas.addEventListener('pointerleave', () => { hover = null; });
+  ch.canvas.addEventListener('click', (e) => { const r = at(e); if (r) c.goToRegion(r.id); });
   const cE = (L.bbox[0] + L.bbox[2]) / 2, cN = (L.bbox[1] + L.bbox[3]) / 2;
   const [lon, lat] = lv95ToWgs84((bb[0] + bb[2]) / 2, (bb[1] + bb[3]) / 2);
   meta.textContent = `${lat.toFixed(2)}N ${lon.toFixed(2)}E`;
@@ -56,10 +75,21 @@ export function mountLocator(el: HTMLElement, c: Ctx) {
       ctx.strokeStyle = color;
       ctx.stroke();
     };
+    const box = (b: number[]) => [b[0], b[1], b[2], b[1], b[2], b[3], b[0], b[3]];
     ctx.lineWidth = 1;
     for (const r of L.cantons) ring(r, COLORS.ink(0.12));
     for (const r of L.border) ring(r, COLORS.ink(0.55));
-    ring([bb[0], bb[1], bb[2], bb[1], bb[2], bb[3], bb[0], bb[3]], COLORS.accent);
+    targets = others.map((r) => {
+      const corners = box(r.bbox), xs: number[] = [], ys: number[] = [];
+      ring(corners, r.id === hover ? COLORS.text : COLORS.ink(0.55));
+      for (let k = 0; k < 8; k += 2) {
+        const [sx, sy] = P(corners[k] - cE, cN - corners[k + 1], 0);
+        xs.push(sx); ys.push(sy);
+      }
+      // Padded: a box is only a dozen pixels across.
+      return { region: r, rect: [Math.min(...xs) - 6, Math.min(...ys) - 6, Math.max(...xs) + 6, Math.max(...ys) + 6] };
+    });
+    ring(box(bb), COLORS.accent);
     const [rx, ry] = P((bb[0] + bb[2]) / 2 - cE, cN - (bb[1] + bb[3]) / 2, 0);
     const pulse = (t * 0.8) % 1;
     ctx.strokeStyle = COLORS.ac(1 - pulse);
@@ -67,6 +97,17 @@ export function mountLocator(el: HTMLElement, c: Ctx) {
     ctx.font = FONT(8);
     ctx.fillStyle = COLORS.accent;
     ctx.fillText(c.region.bundle.title.toUpperCase(), rx + 10, ry - 8);
+    // The hovered region's name, on a plate like the map's hover readout: other regions often sit on
+    // the brightest relief.
+    const hovered = targets.find((tg) => tg.region.id === hover);
+    if (hovered) {
+      const name = hovered.region.title.toUpperCase(), tw = ctx.measureText(name).width;
+      const lx = Math.min(w - tw - 4, hovered.rect[2] + 2), ly = hovered.rect[1] + 2;
+      ctx.fillStyle = COLORS.bg;
+      ctx.fillRect(lx - 3, ly - 2, tw + 6, 12);
+      ctx.fillStyle = COLORS.text;
+      ctx.fillText(name, lx, ly + 7);
+    }
   };
 }
 

@@ -9,6 +9,7 @@
   "orthoWidth": 2048,
   "minInside": 0.3,
   "minInsideKm": 2,
+  "defaultRoute": "c-saentis-lisengrat",
   "excludeRoutes": ["974.00"],
   "curated": [
     {

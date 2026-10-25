@@ -1,6 +1,7 @@
 /**
  * Builds a region bundle from swisstopo open data: `npm run build:region alpstein`.
- * Reads regions/<id>.json, writes public/data/<id>/. Downloads are cached in .cache/.
+ * Reads regions/<id>.json, writes public/data/<id>/ and refreshes public/data/regions.json.
+ * Downloads are cached in .cache/.
  */
 import { mkdirSync, readFileSync, writeFileSync } from 'node:fs';
 import { OFF_NETWORK, type Place, type RegionBundle, type RegionConfig, type Route, type Waypoint } from '../src/data/types';
@@ -11,6 +12,7 @@ import { buildLocator } from './lib/locator';
 import { inBox, loadPlaces, resolvePlace } from './lib/names';
 import { buildOrtho } from './lib/ortho';
 import { profileHeights } from './lib/profile';
+import { INDEX_FILE, writeRegionIndex } from './lib/regions';
 import { buildTerrain, encodeU16, sampleGrid } from './lib/terrain';
 import { encodeTrails, loadTrails, SegmentIndex, type TrailLine } from './lib/trails';
 import { clipRoute, fetchRoute, listRoutes } from './lib/wanderland';
@@ -139,6 +141,7 @@ const bundle: RegionBundle = {
 };
 writeFileSync(`${out}/region.json`, JSON.stringify(bundle));
 log(`wrote ${out}/region.json: ${routes.length} routes, ${places.length} places`);
+log(`wrote ${INDEX_FILE}: ${writeRegionIndex().regions.map((r) => r.id).join(', ')}`);
 
 function round1(v: number) { return Math.round(v * 10) / 10; }
 

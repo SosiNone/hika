@@ -16,7 +16,7 @@ HIKA: a sci-fi HUD for exploring Swiss hiking routes, built only on swisstopo / 
 
 There are two halves joined by a static data bundle:
 
-- **`scripts/`: build-time pipeline (Node, run with tsx).** `build-region.ts` orchestrates `scripts/lib/*` and writes `public/data/<id>/`.
+- **`scripts/`: build-time pipeline (Node, run with tsx).** `build-region.ts` orchestrates `scripts/lib/*`, writes `public/data/<id>/` and refreshes the region index `public/data/regions.json`.
 - **`src/`: the browser app.** It only reads that bundle and never calls geo.admin.ch at runtime.
 
 `src/data/types.ts` (`RegionBundle`, `Route`, `Place`, `RegionConfig`) is the contract between them. The pipeline imports from `src/geo/*` and `src/data/types.ts`; keep those modules free of DOM code.
@@ -27,7 +27,8 @@ There are two halves joined by a static data bundle:
 - `terrain.u16` / `switzerland.u16`: Uint16 **decimetres**, row-major, row 0 = **north** edge, values at cell centres, `0` = no data.
 - `trails.bin`: custom layout written by `encodeTrails` (scripts/lib/trails.ts) and read by `decodeTrails` (src/data/load.ts). The two must change together.
 - `region.json`: places and routes. Place `e/n` and route `e/n` arrays are **metres relative to the bbox SW corner**; absolute LV95 (EPSG:2056) only appears in `bbox` and `locator`.
-- Route ids are `sm-<SchweizMobil id>` (e.g. `sm-951.00`) or `c-<curated id>`. The app reads and writes `#route=<id>` in the URL, plus `&reverse=1` when the hike is walked to → from.
+- Route ids are `sm-<SchweizMobil id>` (e.g. `sm-951.00`) or `c-<curated id>`. The app reads and writes `#route=<id>` in the URL, plus `&reverse=1` when the hike is walked to → from. Ids are only unique within a region: neighbouring regions can share a clipped SchweizMobil route.
+- `public/data/regions.json` (`RegionIndex`) lists every built region with its title, cantons, bbox and `defaultRoute`. `scripts/lib/regions.ts` derives it from the bundles plus `defaultRoute` from `regions/<id>.json`; `build-region` rewrites it, `npm run index:regions` rewrites it on its own, and `check:region` fails when it is stale.
 
 ### Pipeline facts that were learned the hard way
 - swissALTI3D 2 m COGs (found via STAC) have a single 4 m internal overview. `terrain.ts` reads that overview and box-averages it, so `cell` must be a multiple of 4 that divides 1000.
@@ -55,7 +56,7 @@ Route `stats` are computed in the pipeline (`finishRoute`). The per-sample cumul
 
 ### Theming (`src/theme/`)
 - One visual language, **paperlab** (flat greys ported from LosEcher/hud-console-framework, with a glacier-cyan accent), in two **schemes**: dark (the default, `DEFAULT_DISPLAY`) and light. The owner chose to drop the theme (accent) and style layers and the old teal `phosphor` look. Don't bring back a theme or style picker.
-- `tokens.ts` is pure data (`SCHEMES`, `TRAILS`) plus `resolve()`. The saved choice (localStorage) is overridden by `?scheme=`; the hash belongs to `#route=`.
+- `tokens.ts` is pure data (`SCHEMES`, `TRAILS`) plus `resolve()`. The saved choice (localStorage) is overridden by `?scheme=`; `?region=` picks the region and the hash belongs to `#route=`.
 - `apply.ts` sets the CSS variables and mutates the shared `palette` (re-exported as `COLORS` in `panels/common.ts`). Canvas and WebGL code reads `palette` / `palette.gl` and never hard-codes a colour; inline HTML uses `var(--…)`. The `:root` values in `hud.css` mirror the default display for the first paint.
 - The light scheme draws the terrain with premultiplied over-blending (`gl.blend: 'over'`), because additive light washes out on paper.
 - Trail-class colours (`TRAILS`) are the official Swiss signpost colours. They are adjusted only for contrast per scheme and never follow the accent. The owner wants the accent to stay clear of them: `test/theme.test.ts` checks contrast for both schemes and requires the accent to keep its distance from every trail colour, also for red-green colour-blind viewers. That rules out reds, oranges, yellows, blues and violets.
@@ -65,8 +66,12 @@ Route `stats` are computed in the pipeline (`finishRoute`). The per-sample cumul
 - The preview position `store.state.minute` is **mutated directly** in the render loop, without notifying, for performance.
 - Panel A (Route player) plays the region's routes as a playlist (`Playlist` in `src/playlist.ts`, in the route list's `CATEGORY_ORDER`). `ctx.skip(±1)` changes route; "previous" first rewinds a route that has played for over 2 s. At the finish the loop holds 2.5 s, then repeats the route (`repeat`) or moves on. `shuffle` walks a random queue that starts at the current route. Space and ← / → are handled on `window` unless a control has focus.
 - Each `mount*` function in `src/panels/` builds its DOM once and returns an update callback. `main.ts` polls all of them about every 50 ms, and they rebuild static parts only when the route id changes.
-- `main.ts` hard-codes `loadRegion('alpstein')` and `DEFAULT_ROUTE`. A second region needs a selector there, as well as a `regions/<id>.json`.
+
+### Regions
+- The app boots from `regions.json`: `pickRegion` (src/regions.ts) takes `?region=<id>`, else `DEFAULT_REGION` (`alpstein`, so links from before regions existed still open the right hike), else the first region. The route comes from `#route=`, else the region's `defaultRoute`.
+- One region is loaded at a time. Switching (`ctx.goToRegion`) is a page load of the `?region=` URL (`regionHref` keeps `?scheme=` and drops the hash), so nothing has to be torn down and the back button returns to the previous region. The picker is the brand subtitle in the top bar (`mountRegionPicker`, a native `<select>` once there are two regions); the Switzerland locator (G) also boxes the other regions, and clicking one opens it.
+- To add a region: write `regions/<id>.json` (bbox, `cell`, `defaultRoute`, curated hikes), run `task region REGION=<id>`, and commit `public/data/<id>/` with the updated `regions.json`. Keep the bbox inside Switzerland (swissALTI3D has no data abroad, and `check:region` allows under 1 % empty cells) and the bundle under its 6 MB budget. Curated hikes should add something SchweizMobil doesn't already have: check the build log's route list first.
 
 ## Deploy
 
-`.github/workflows/pages.yml` deploys on release tags (`v*`, plus manual `workflow_dispatch`), not on pushes to `main`. It fails unless the tag equals `v` + the `package.json` version, runs the same checks as CI, builds with `BASE=/<repo>/` and publishes `dist/` to GitHub Pages. Release from `main` with `task release BUMP=<patch|minor|major>` (`npm version` + `git push --follow-tags`); the `create-release` skill in `.claude/skills/` walks through the whole flow. `.github/workflows/ci.yml` runs `typecheck`, `test`, `check:region` and `build` on pull requests and on every branch push (tags don't trigger it).
+`.github/workflows/pages.yml` deploys on release tags (`v*`, plus manual `workflow_dispatch`), not on pushes to `main`. It fails unless the tag equals `v` + the `package.json` version, runs the same checks as CI, builds with `BASE=/<repo>/` and publishes `dist/` to GitHub Pages. Release from `main` with `task release BUMP=<patch|minor|major>` (`npm version` + `git push --follow-tags`); the `create-release` skill in `.claude/skills/` walks through the whole flow. `.github/workflows/ci.yml` runs `typecheck`, `test`, `check:region` (every region) and `build` on pull requests and on every branch push (tags don't trigger it).
