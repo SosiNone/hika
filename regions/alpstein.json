@@ -1,0 +1,57 @@
+{
+  "id": "alpstein",
+  "title": "Alpstein",
+  "subtitle": "Säntis · Seealpsee · Hoher Kasten",
+  "cantons": ["AI", "AR", "SG"],
+  "bbox": [2736000, 1227000, 2758000, 1246000],
+  "cell": 20,
+  "orthoZoom": 20,
+  "orthoWidth": 2048,
+  "minInside": 0.3,
+  "minInsideKm": 2,
+  "excludeRoutes": ["974.00"],
+  "curated": [
+    {
+      "id": "ebenalp-seealpsee",
+      "name": "Ebenalp – Äscher – Seealpsee",
+      "via": [
+        { "name": "Berggasthaus Ebenalp", "kind": "inn" },
+        { "name": "Äscher", "kind": "view" },
+        { "name": "Berggasthaus Seealpsee", "kind": "inn" },
+        { "name": "Wasserauen", "kind": "stop" }
+      ]
+    },
+    {
+      "id": "saentis-lisengrat",
+      "name": "Säntis – Lisengrat – Meglisalp",
+      "via": [
+        { "name": "Säntis", "kind": "summit" },
+        { "name": "Rotsteinpass", "kind": "pass" },
+        { "name": "Berggasthaus Meglisalp", "kind": "inn" },
+        { "name": "Berggasthaus Seealpsee", "kind": "inn" },
+        { "name": "Wasserauen", "kind": "stop" }
+      ]
+    },
+    {
+      "id": "schwaegalp-saentis",
+      "name": "Schwägalp – Tierwis – Säntis",
+      "via": [
+        { "name": "Schwägalp", "kind": "stop" },
+        { "name": "Berggasthaus Tierwis", "kind": "inn" },
+        { "name": "Säntis", "kind": "summit" }
+      ]
+    },
+    {
+      "id": "bruelisau-wildhaus",
+      "name": "Brülisau – Fählensee – Zwinglipass – Wildhaus",
+      "via": [
+        { "name": "Brülisau", "kind": "stop" },
+        { "name": "Sämtisersee", "kind": "lake" },
+        { "name": "Berggasthaus Bollenwees", "kind": "inn" },
+        { "name": "Fählensee", "kind": "lake" },
+        { "name": "Zwinglipass", "kind": "pass" },
+        { "name": "Wildhaus", "kind": "stop" }
+      ]
+    }
+  ]
+}

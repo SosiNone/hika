@@ -1,0 +1,134 @@
+/** Shape of a generated region bundle (public/data/<region>/region.json + binaries). */
+
+/** LV95 [minE, minN, maxE, maxN] in metres. */
+export type BBox = [number, number, number, number];
+
+/** swissTLM3D hiking trail class: Wanderweg (yellow), Bergwanderweg (white-red-white), Alpinwanderweg (white-blue-white). */
+export const TRAIL_CLASSES = ['Wanderweg', 'Bergwanderweg', 'Alpinwanderweg'] as const;
+export type TrailClass = 0 | 1 | 2;
+/** Route samples further than this from any trail segment are marked off-network. */
+export const OFF_NETWORK = 255;
+
+export type PlaceKind = 'summit' | 'pass' | 'lake' | 'inn' | 'stop' | 'lift' | 'view' | 'water' | 'cave' | 'village' | 'ridge';
+
+export interface Place {
+  id: string;
+  name: string;
+  kind: PlaceKind;
+  e: number;
+  n: number;
+  alt: number;
+  /** Label priority, higher wins when labels collide. */
+  prio: number;
+}
+
+export type RouteCategory = 'national' | 'regional' | 'local' | 'classic';
+
+export interface Waypoint {
+  place: string;
+  km: number;
+  alt: number;
+  /** Cumulative hiking minutes from the start. */
+  time: number;
+}
+
+export interface RouteStats {
+  km: number;
+  up: number;
+  down: number;
+  /** Hiking minutes in route direction and reversed. */
+  time: number;
+  timeBack: number;
+  minAlt: number;
+  maxAlt: number;
+  /** Kilometres per trail class (index = TrailClass), plus off-network. */
+  classKm: [number, number, number, number];
+  hardKm: number;
+  /** Kilometres steeper than ±40 %, where the Swiss time model is extrapolated. */
+  steepKm: number;
+}
+
+export interface Route {
+  id: string;
+  /** SchweizMobil route number such as "3.03" or "951"; null for curated hikes. */
+  number: string | null;
+  name: string;
+  from: string;
+  to: string;
+  source: 'schweizmobil' | 'curated';
+  category: RouteCategory;
+  /** Whether the route continues beyond the region at its start / end. */
+  clipped: [boolean, boolean];
+  /** Metres between samples. */
+  step: number;
+  /** Sample coordinates in metres relative to the bbox south-west corner. */
+  e: number[];
+  n: number[];
+  /** swissALTI3D (DTM2) altitude per sample from the geo.admin.ch profile service. */
+  alt: number[];
+  cls: number[];
+  /** 1 = hard surface (asphalt, concrete), 0 = natural. */
+  surf: number[];
+  stats: RouteStats;
+  waypoints: Waypoint[];
+}
+
+export interface Source {
+  name: string;
+  owner: string;
+  url: string;
+}
+
+export interface RegionBundle {
+  version: 1;
+  id: string;
+  title: string;
+  subtitle: string;
+  cantons: string[];
+  bbox: BBox;
+  /** terrain.u16: row-major, row 0 at the north edge, cell centres, decimetres; 0 = no data. */
+  grid: { cols: number; rows: number; cell: number; minAlt: number; maxAlt: number };
+  ortho: { file: string; width: number; height: number };
+  trails: { file: string; lines: number; vertices: number; km: [number, number, number]; hardKm: number };
+  places: Place[];
+  routes: Route[];
+  locator: Locator;
+  sources: Source[];
+  generated: string;
+}
+
+export interface Locator {
+  /** switzerland.u16: coarse national relief, same encoding as terrain.u16. */
+  file: string;
+  bbox: BBox;
+  cols: number;
+  rows: number;
+  cell: number;
+  /** Simplified national border and canton borders as flat [e0, n0, e1, n1, …] LV95 rings. */
+  border: number[][];
+  cantons: number[][];
+  lakes: number[][];
+}
+
+export interface RegionConfig {
+  id: string;
+  title: string;
+  subtitle: string;
+  cantons: string[];
+  bbox: BBox;
+  cell: number;
+  orthoZoom: number;
+  orthoWidth: number;
+  /** Drop official routes with less than this share of their length inside the bbox. */
+  minInside: number;
+  minInsideKm: number;
+  excludeRoutes: string[];
+  curated: CuratedHike[];
+}
+
+export interface CuratedHike {
+  id: string;
+  name: string;
+  /** Waypoint names resolved through swissNAMES3D; `kind` or `near` disambiguate. */
+  via: { name: string; kind?: PlaceKind; near?: [number, number] }[];
+}
