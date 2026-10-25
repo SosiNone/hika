@@ -121,7 +121,6 @@ function start(region: Region) {
       else if (now > holdUntil) { store.state.minute = 0; holdUntil = 0; }
     }
     const hiker = indexAtMinute(r, store.state.minute);
-    view.doneMetres = hiker * r.step;
     const info = view.render(t, dt);
     lastVp = info.vp;
     labels.draw(info, r, hiker, store.state.hoverIndex, ids);
