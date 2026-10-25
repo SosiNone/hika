@@ -34,8 +34,11 @@ describe('display tokens', () => {
   });
 
   it.each(all.map((d) => [`${d.theme} · ${d.style} · ${d.scheme}`, d] as const))('%s keeps readable contrast', (_, d) => {
-    const { ladder: L, accent, trails } = resolve(d);
+    const { ladder: L, accent, accentTint, trails } = resolve(d);
     const bg = hexRgb(L.bg), panel = over(L.panel, bg);
+    // Map labels sit on a halo of the background colour, as trail lines sit on their casing.
+    for (const t of [L.text, accentTint]) expect(contrast(hexRgb(t), bg)).toBeGreaterThanOrEqual(7);
+    for (const t of [L.text2, accent]) expect(contrast(hexRgb(t), bg)).toBeGreaterThanOrEqual(4.5);
     for (const surface of [bg, panel]) {
       expect(contrast(hexRgb(L.text), surface)).toBeGreaterThanOrEqual(7);
       expect(contrast(hexRgb(L.text2), surface)).toBeGreaterThanOrEqual(4.5);

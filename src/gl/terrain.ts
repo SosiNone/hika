@@ -61,29 +61,58 @@ void main() {
   o = vec4(vColor * a, a);
 }`;
 
-const LINES_VS = `#version 300 es
+const CONTOURS_VS = `#version 300 es
 precision highp float;
 in vec3 aPos; in float aWeight;
-uniform mat4 uVP; uniform vec2 uSize; uniform float uCell, uExag, uBase, uLift; uniform int uGridSpace;
+uniform mat4 uVP; uniform vec2 uSize; uniform float uCell, uExag, uBase;
 out float vWeight; out float vAlt;
 void main() {
-  vec3 p = uGridSpace == 1 ? vec3((aPos.x + 0.5) * uCell - uSize.x * 0.5, aPos.y, (aPos.z + 0.5) * uCell - uSize.y * 0.5) : aPos;
-  gl_Position = uVP * vec4(p.x, (p.y - uBase) * uExag + uLift, p.z, 1.0);
+  // Vertices are in grid units: (column, altitude, row).
+  vec3 p = vec3((aPos.x + 0.5) * uCell - uSize.x * 0.5, aPos.y, (aPos.z + 0.5) * uCell - uSize.y * 0.5);
+  gl_Position = uVP * vec4(p.x, (p.y - uBase) * uExag, p.z, 1.0);
   vWeight = aWeight; vAlt = p.y;
 }`;
 
-const LINES_FS = `#version 300 es
+const CONTOURS_FS = `#version 300 es
 precision mediump float;
 in float vWeight; in float vAlt; out vec4 o;
-uniform vec3 uColors[4]; uniform float uAlpha; uniform int uMode; uniform float uScan;
+uniform vec3 uColor; uniform float uAlpha, uScan;
+void main() { // minor / major
+  float a = uAlpha * mix(0.35, 1.0, vWeight) * (1.0 + exp(-pow((vAlt - uScan) / 12.0, 2.0)) * 2.0);
+  o = vec4(uColor * a, a);
+}`;
+
+// The trail network: one instance per segment, extruded to a quad in screen space so lines keep
+// their width at any DPR (GL_LINES is 1 device pixel everywhere).
+const NETWORK_VS = `#version 300 es
+precision highp float;
+in vec3 aA; in vec3 aB; in float aClass;
+uniform mat4 uVP; uniform vec2 uViewport; uniform vec3 uEye; uniform float uHalf, uExag, uBase, uFocus;
+out float vSide; out float vClass; out float vFade;
+const vec2 CORNER[6] = vec2[6](vec2(0, -1), vec2(1, -1), vec2(0, 1), vec2(0, 1), vec2(1, -1), vec2(1, 1));
 void main() {
-  if (uMode == 0) { // contours: minor / major
-    float a = uAlpha * mix(0.35, 1.0, vWeight) * (1.0 + exp(-pow((vAlt - uScan) / 12.0, 2.0)) * 2.0);
-    o = vec4(uColors[0] * a, a);
-  } else {           // trail network, weight = class
-    vec3 c = uColors[int(vWeight + 0.5)];
-    o = vec4(c * uAlpha, uAlpha);
-  }
+  vec2 k = CORNER[gl_VertexID];
+  vec3 wa = vec3(aA.x, (aA.y - uBase) * uExag, aA.z), wb = vec3(aB.x, (aB.y - uBase) * uExag, aB.z);
+  vec4 a = uVP * vec4(wa, 1.0), b = uVP * vec4(wb, 1.0);
+  if (a.w <= 0.0 || b.w <= 0.0) { gl_Position = vec4(2.0, 2.0, 2.0, 1.0); return; }
+  vec2 dir = normalize((b.xy / b.w - a.xy / a.w) * uViewport + vec2(1e-5)), nrm = vec2(-dir.y, dir.x);
+  vec4 p = k.x < 0.5 ? a : b;
+  // One pixel beyond the half-width on each side, for the antialiased edge.
+  p.xy += nrm * k.y * (uHalf + 1.0) / uViewport * p.w;
+  gl_Position = p;
+  vSide = k.y; vClass = aClass;
+  vFade = mix(1.0, 0.35, smoothstep(uFocus * 0.9, uFocus * 2.4, distance(k.x < 0.5 ? wa : wb, uEye)));
+}`;
+
+const NETWORK_FS = `#version 300 es
+precision highp float; // uHalf is shared with the vertex shader, so precisions must match
+in float vSide; in float vClass; in float vFade; out vec4 o;
+uniform vec3 uColors[3]; uniform vec3 uCasing; uniform float uHalf, uAlpha; uniform int uPass;
+void main() {
+  float cover = clamp(uHalf + 0.5 - abs(vSide) * (uHalf + 1.0), 0.0, 1.0);
+  vec3 c = uPass == 0 ? uCasing : uColors[int(vClass + 0.5)];
+  float a = uAlpha * cover * vFade;
+  o = vec4(c * a, a);
 }`;
 
 const RIBBON_VS = `#version 300 es
@@ -104,13 +133,15 @@ void main() {
 const RIBBON_FS = `#version 300 es
 precision mediump float;
 in float vDist; in float vSide; out vec4 o;
-uniform vec3 uColor, uFlash; uniform float uTime, uAlpha, uFlow, uDone;
+uniform vec3 uColor, uFlash; uniform float uTime, uAlpha, uFlow, uDone, uCore;
 void main() {
   float edge = 1.0 - smoothstep(0.55, 1.0, abs(vSide));
+  // A bright centre line sets the route apart from network lines of a similar hue.
+  float core = uCore * (1.0 - smoothstep(0.12, 0.4, abs(vSide)));
   float dash = fract((vDist - uTime * 180.0) / 240.0);
   float pulse = uFlow * smoothstep(0.0, 0.08, dash) * smoothstep(0.45, 0.08, dash);
   float walked = step(vDist, uDone);
-  vec3 c = mix(uColor, uFlash, pulse * 0.6 + walked * 0.25);
+  vec3 c = mix(uColor, uFlash, min(1.0, pulse * 0.6 + walked * 0.25 + core));
   float a = uAlpha * edge * (0.75 + pulse * 0.25 + walked * 0.2);
   o = vec4(c * a, a);
 }`;
@@ -132,10 +163,12 @@ export class TerrainView {
   mode = 0;
   private points: Program;
   private lines: Program;
+  private trails: Program;
   private ribbon: Program;
   private heightTex: WebGLTexture;
   private orthoTex: WebGLTexture;
   private contours: { vao: WebGLVertexArrayObject; count: number } | null = null;
+  /** `count` is the number of segments (instances). */
   private network: { vao: WebGLVertexArrayObject; count: number };
   private selected: Ribbon | null = null;
   private hovered: Ribbon | null = null;
@@ -155,7 +188,8 @@ export class TerrainView {
     this.size = [bbox[2] - bbox[0], bbox[3] - bbox[1]];
     this.base = grid.minAlt;
     this.points = createProgram(gl, POINTS_VS, POINTS_FS);
-    this.lines = createProgram(gl, LINES_VS, LINES_FS);
+    this.lines = createProgram(gl, CONTOURS_VS, CONTOURS_FS);
+    this.trails = createProgram(gl, NETWORK_VS, NETWORK_FS);
     this.ribbon = createProgram(gl, RIBBON_VS, RIBBON_FS);
     this.emptyVao = gl.createVertexArray()!;
 
@@ -197,18 +231,24 @@ export class TerrainView {
 
   private buildNetwork() {
     const { offsets, cls, xy } = this.region.trails;
-    const pos: number[] = [], weight: number[] = [];
+    const P = new Float32Array(xy.length * 1.5);
+    for (let k = 0; k < xy.length / 2; k++) {
+      const e = xy[k * 2], n = xy[k * 2 + 1];
+      P.set([e - this.size[0] / 2, this.heightAt(e, n) + 3, this.size[1] / 2 - n], k * 3);
+    }
+    let count = 0;
+    for (let l = 0; l < cls.length; l++) count += Math.max(0, offsets[l + 1] - offsets[l] - 1);
+    const A = new Float32Array(count * 3), B = new Float32Array(count * 3), K = new Float32Array(count);
+    let s = 0;
     for (let l = 0; l < cls.length; l++) {
-      for (let v = offsets[l] + 1; v < offsets[l + 1]; v++) {
-        for (const k of [v - 1, v]) {
-          const e = xy[k * 2], n = xy[k * 2 + 1];
-          pos.push(e - this.size[0] / 2, this.heightAt(e, n) + 3, this.size[1] / 2 - n);
-          weight.push(cls[l]);
-        }
+      for (let v = offsets[l] + 1; v < offsets[l + 1]; v++, s++) {
+        A.set(P.subarray((v - 1) * 3, v * 3), s * 3);
+        B.set(P.subarray(v * 3, v * 3 + 3), s * 3);
+        K[s] = cls[l];
       }
     }
-    const vao = createVao(this.gl, this.lines, { aPos: [new Float32Array(pos), 3], aWeight: [new Float32Array(weight), 1] });
-    return { vao, count: pos.length / 3 };
+    const vao = createVao(this.gl, this.trails, { aA: [A, 3, 1], aB: [B, 3, 1], aClass: [K, 1, 1] });
+    return { vao, count };
   }
 
   private buildContours() {
@@ -296,32 +336,42 @@ export class TerrainView {
     gl.bindVertexArray(this.emptyVao);
     gl.drawArrays(gl.POINTS, 0, count);
 
-    // Contours and the trail network.
-    const L = this.lines;
-    gl.useProgram(L.program);
-    gl.uniformMatrix4fv(L.u.uVP, false, vp);
-    gl.uniform2f(L.u.uSize, this.size[0], this.size[1]);
-    gl.uniform1f(L.u.uCell, grid.cell);
-    gl.uniform1f(L.u.uExag, this.exaggeration);
-    gl.uniform1f(L.u.uBase, this.base);
-    gl.uniform1f(L.u.uScan, scanAlt);
+    // Contours.
     if (this.contours) {
-      gl.uniform1i(L.u.uGridSpace, 1);
-      gl.uniform1i(L.u.uMode, 0);
-      gl.uniform1f(L.u.uLift, 0);
+      const L = this.lines;
+      gl.useProgram(L.program);
+      gl.uniformMatrix4fv(L.u.uVP, false, vp);
+      gl.uniform2f(L.u.uSize, this.size[0], this.size[1]);
+      gl.uniform1f(L.u.uCell, grid.cell);
+      gl.uniform1f(L.u.uExag, this.exaggeration);
+      gl.uniform1f(L.u.uBase, this.base);
+      gl.uniform1f(L.u.uScan, scanAlt);
       gl.uniform1f(L.u.uAlpha, this.mode ? 0.06 : 0.16);
-      gl.uniform3fv(L.u.uColors, new Float32Array([...pal.contour, 0, 0, 0, 0, 0, 0, 0, 0, 0]));
+      gl.uniform3fv(L.u.uColor, pal.contour);
       gl.bindVertexArray(this.contours.vao);
       gl.drawArrays(gl.LINES, 0, this.contours.count);
     }
+
+    // The trail network, as on a printed map: a casing in the background colour clears the
+    // point cloud underneath, then the class colours go on top.
     gl.blendFunc(gl.ONE, gl.ONE_MINUS_SRC_ALPHA);
-    gl.uniform1i(L.u.uGridSpace, 0);
-    gl.uniform1i(L.u.uMode, 1);
-    gl.uniform1f(L.u.uLift, 0);
-    gl.uniform1f(L.u.uAlpha, this.selected ? 0.16 : 0.3);
-    gl.uniform3fv(L.u.uColors, new Float32Array([...pal.trails.flat(), ...pal.hover]));
+    const N = this.trails;
+    gl.useProgram(N.program);
+    gl.uniformMatrix4fv(N.u.uVP, false, vp);
+    gl.uniform2f(N.u.uViewport, w / 2, h / 2);
+    gl.uniform3fv(N.u.uEye, eye);
+    gl.uniform1f(N.u.uExag, this.exaggeration);
+    gl.uniform1f(N.u.uBase, this.base);
+    gl.uniform1f(N.u.uFocus, focus);
+    gl.uniform3fv(N.u.uColors, new Float32Array(pal.trails.flat()));
+    gl.uniform3fv(N.u.uCasing, pal.clear);
     gl.bindVertexArray(this.network.vao);
-    gl.drawArrays(gl.LINES, 0, this.network.count);
+    for (const [pass, half, alpha] of [[0, 1.8, 0.5], [1, 0.7, this.selected ? 0.6 : 0.9]]) {
+      gl.uniform1i(N.u.uPass, pass);
+      gl.uniform1f(N.u.uHalf, half * dpr);
+      gl.uniform1f(N.u.uAlpha, alpha);
+      gl.drawArraysInstanced(gl.TRIANGLES, 0, 6, this.network.count);
+    }
 
     // Route ribbons.
     const R = this.ribbon;
@@ -333,23 +383,21 @@ export class TerrainView {
     gl.uniform1f(R.u.uLift, 0);
     gl.uniform1f(R.u.uTime, t);
     gl.uniform3fv(R.u.uFlash, pal.flash);
-    if (this.hovered) {
-      gl.uniform3fv(R.u.uColor, pal.hover);
-      gl.uniform1f(R.u.uWidth, 1.4 * dpr);
-      gl.uniform1f(R.u.uAlpha, 0.7);
-      gl.uniform1f(R.u.uFlow, 0);
-      gl.uniform1f(R.u.uDone, -1);
-      gl.bindVertexArray(this.hovered.vao);
-      gl.drawArrays(gl.TRIANGLES, 0, this.hovered.count);
-    }
+    const ribbon = (r: Ribbon, color: number[], width: number, alpha: number, flow = 0, done = -1, core = 0) => {
+      gl.uniform3fv(R.u.uColor, color);
+      gl.uniform1f(R.u.uWidth, width * dpr);
+      gl.uniform1f(R.u.uAlpha, alpha);
+      gl.uniform1f(R.u.uFlow, flow);
+      gl.uniform1f(R.u.uDone, done);
+      gl.uniform1f(R.u.uCore, core);
+      gl.bindVertexArray(r.vao);
+      gl.drawArrays(gl.TRIANGLES, 0, r.count);
+    };
+    if (this.hovered) ribbon(this.hovered, pal.hover, 1.4, 0.7);
     if (this.selected) {
-      gl.uniform3fv(R.u.uColor, pal.accent);
-      gl.uniform1f(R.u.uWidth, 2.2 * dpr);
-      gl.uniform1f(R.u.uAlpha, 1);
-      gl.uniform1f(R.u.uFlow, 1);
-      gl.uniform1f(R.u.uDone, this.doneMetres);
-      gl.bindVertexArray(this.selected.vao);
-      gl.drawArrays(gl.TRIANGLES, 0, this.selected.count);
+      // Casing first, so the route stands clear of the network and the point cloud.
+      ribbon(this.selected, pal.clear, 3.4, 0.8);
+      ribbon(this.selected, pal.accent, 2.2, 1, 1, this.doneMetres, 0.5);
     }
     gl.bindVertexArray(null);
 

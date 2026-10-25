@@ -61,7 +61,7 @@ export function applyDisplay(d: Display): Resolved {
     text: L.text, text2: L.text2, text3: L.text3, line: L.line, line2: L.line2, accent: r.accent, bg: L.bg,
     classes: [r.trails.wander, r.trails.berg, r.trails.alpin, L.text3],
     gl: r.gl,
-    accentTint: rgba(accentRgb.map((c, i) => Math.round(c * 0.45 + textRgb[i] * 0.55)) as RGB, 1),
+    accentTint: r.accentTint,
   });
   return r;
 }
