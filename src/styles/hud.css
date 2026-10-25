@@ -204,6 +204,14 @@ table.list tr.next td:first-child { box-shadow: inset 2px 0 var(--accent); }
 .bar-row .fillbar { position: absolute; inset: 0 auto 0 0; }
 .bar-row .ghost { position: absolute; top: -3px; bottom: -3px; width: 1px; background: var(--line-3); }
 .bar-row .val { text-align: right; color: var(--text); font-variant-numeric: tabular-nums; }
+/* Live rows (terrain analysis): the route total faint, the walked part on top, a cursor at the hiker. */
+.bar-row .fillbar.total { opacity: 0.25; }
+.bar-row .cursor { display: none; position: absolute; top: -4px; bottom: -4px; width: 1px; margin-left: -1px; background: var(--accent); }
+.bar-row.now .cursor, .alt-row .cursor { display: block; }
+.bar-row.now > span:first-child, .bar-row.now .val, .alt-row .val { color: var(--accent); }
+.alt-range { display: flex; justify-content: space-between; gap: 12px; margin: -3px 0 0 70px; font-size: var(--fs-xs); letter-spacing: 0.1em; color: var(--text-3); font-variant-numeric: tabular-nums; white-space: nowrap; }
+.alt-range span:first-child { flex: none; }
+.alt-range span:last-child { min-width: 0; overflow: hidden; text-overflow: ellipsis; }
 .stack { display: flex; height: 10px; border: 1px solid var(--line-2); margin: 2px 0 9px; }
 .stack div { height: 100%; }
 
