@@ -1,0 +1,51 @@
+{
+  "id": "zermatt",
+  "title": "Zermatt",
+  "subtitle": "Matterhorn · Gornergrat · Saas-Fee",
+  "cantons": ["VS"],
+  "bbox": [2614000, 1089000, 2641000, 1108000],
+  "cell": 20,
+  "orthoZoom": 20,
+  "orthoWidth": 2048,
+  "minInside": 0.3,
+  "minInsideKm": 2,
+  "defaultRoute": "c-gornergrat-riffelberg",
+  "excludeRoutes": [],
+  "curated": [
+    {
+      "id": "gornergrat-riffelberg",
+      "name": "Gornergrat – Riffelsee – Riffelberg",
+      "via": [
+        { "name": "Gornergrat", "kind": "stop" },
+        { "name": "Rotenboden", "kind": "stop" },
+        { "name": "Riffelsee", "kind": "lake" },
+        { "name": "Riffelberg", "kind": "stop" }
+      ]
+    },
+    {
+      "id": "schwarzsee-hoernlihuette",
+      "name": "Schwarzsee – Hörnlihütte",
+      "via": [
+        { "name": "Zermatt Schwarzsee", "kind": "lift" },
+        { "name": "Hörnlihütte", "kind": "inn" }
+      ]
+    },
+    {
+      "id": "zermatt-trift",
+      "name": "Zermatt – Triftschlucht – Berggasthaus Trift",
+      "via": [
+        { "name": "Zermatt", "kind": "stop" },
+        { "name": "Berggasthaus Trift", "kind": "inn" }
+      ]
+    },
+    {
+      "id": "sunnegga-findeln",
+      "name": "Sunnegga – Findeln – Zermatt",
+      "via": [
+        { "name": "Sunnegga", "kind": "stop" },
+        { "name": "Findeln", "kind": "lift" },
+        { "name": "Zermatt", "kind": "stop" }
+      ]
+    }
+  ]
+}

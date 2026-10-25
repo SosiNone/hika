@@ -1,0 +1,32 @@
+{
+  "id": "nationalpark",
+  "title": "National Park",
+  "subtitle": "Zernez · Il Fuorn · Scuol",
+  "cantons": ["GR"],
+  "bbox": [2800000, 1170000, 2824000, 1189000],
+  "cell": 20,
+  "orthoZoom": 20,
+  "orthoWidth": 2048,
+  "minInside": 0.3,
+  "minInsideKm": 2,
+  "defaultRoute": "sm-45.06",
+  "excludeRoutes": [],
+  "curated": [
+    {
+      "id": "scuol-lischana",
+      "name": "Scuol – Chamonna Lischana",
+      "via": [
+        { "name": "Scuol-Tarasp", "kind": "stop" },
+        { "name": "Chamonna Lischana CAS", "kind": "inn" }
+      ]
+    },
+    {
+      "id": "tarasp-plavna",
+      "name": "Lai da Tarasp – Val Plavna – Alp Plavna",
+      "via": [
+        { "name": "Lai da Tarasp", "kind": "lake" },
+        { "name": "Alp Plavna", "kind": "inn" }
+      ]
+    }
+  ]
+}

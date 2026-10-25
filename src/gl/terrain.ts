@@ -270,8 +270,13 @@ export class TerrainView {
     const { cols, rows, cell } = this.region.bundle.grid;
     const x = Math.min(cols - 1.001, Math.max(0, e / cell - 0.5)), y = Math.min(rows - 1.001, Math.max(0, (this.size[1] - n) / cell - 0.5));
     const i = Math.floor(x), j = Math.floor(y), fx = x - i, fy = y - j, h = this.region.heights;
-    const at = (a: number, b: number) => h[b * cols + a] * 0.1;
-    return (at(i, j) * (1 - fx) + at(i + 1, j) * fx) * (1 - fy) + (at(i, j + 1) * (1 - fx) + at(i + 1, j + 1) * fx) * fy;
+    // Bilinear over the corners that have data: cells beyond the national border are 0.
+    let sum = 0, weight = 0;
+    for (const [a, b, w] of [[i, j, (1 - fx) * (1 - fy)], [i + 1, j, fx * (1 - fy)], [i, j + 1, (1 - fx) * fy], [i + 1, j + 1, fx * fy]]) {
+      const v = h[b * cols + a];
+      if (v) { sum += v * 0.1 * w; weight += w; }
+    }
+    return weight > 0 ? sum / weight : this.base;
   }
 
   private buildNetwork() {

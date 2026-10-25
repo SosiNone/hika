@@ -1,5 +1,6 @@
 import './styles/hud.css';
-import { indexAtMinute, loadRegion, reverseRoute, type Region, type RouteView } from './data/load';
+import { indexAtMinute, loadRegion, loadRegionIndex, reverseRoute, type Region, type RouteView } from './data/load';
+import type { RegionSummary } from './data/types';
 import { project } from './gl/glkit';
 import { TerrainView, type TrailMode } from './gl/terrain';
 import { LabelLayer } from './hud/labels';
@@ -8,11 +9,10 @@ import type { Ctx } from './panels/common';
 import { mountPreview, mountRoutes, mountTrailClass, mountWaypoints } from './panels/left';
 import { mountLocator, mountLog, mountTerrainStats } from './panels/right';
 import { Playlist } from './playlist';
+import { pickRegion, regionHref } from './regions';
 import { Store } from './state';
 import { applyDisplay, loadDisplay, palette, saveDisplay } from './theme/apply';
-import { mountDisplaySwitch, renderTickers, showVersion, startClock } from './ui/chrome';
-
-const DEFAULT_ROUTE = 'c-saentis-lisengrat';
+import { mountDisplaySwitch, mountRegionPicker, renderTickers, showVersion, startClock } from './ui/chrome';
 
 // Before the region loads, so the boot screen already wears the chosen scheme.
 const initialDisplay = loadDisplay();
@@ -22,8 +22,13 @@ showVersion(document.getElementById('version') as HTMLAnchorElement);
 async function boot() {
   const bootEl = document.getElementById('boot')!;
   try {
-    const region = await loadRegion('alpstein');
-    start(region);
+    const { regions } = await loadRegionIndex();
+    const summary = pickRegion(regions, location.search);
+    if (!summary) throw new Error('data/regions.json lists no regions');
+    bootEl.textContent = `LOADING ${summary.title.toUpperCase()}…`;
+    document.title = `HIKA · ${summary.title}`;
+    const region = await loadRegion(summary.id);
+    start(region, summary, regions);
     bootEl.classList.add('done');
     setTimeout(() => bootEl.remove(), 700);
   } catch (err) {
@@ -33,11 +38,11 @@ async function boot() {
   }
 }
 
-function start(region: Region) {
+function start(region: Region, summary: RegionSummary, regions: RegionSummary[]) {
   const hash = new URLSearchParams(location.hash.slice(1));
   const fromHash = hash.get('route');
   const store = new Store({
-    routeId: region.routes.some((r) => r.id === fromHash) ? fromHash! : region.routes.find((r) => r.id === DEFAULT_ROUTE)?.id ?? region.routes[0].id,
+    routeId: region.routes.some((r) => r.id === fromHash) ? fromHash! : region.routes.find((r) => r.id === summary.defaultRoute)?.id ?? region.routes[0].id,
     reversed: region.routes.some((r) => r.id === fromHash) && hash.get('reverse') === '1',
     hoverRouteId: null,
     hoverIndex: null,
@@ -73,8 +78,10 @@ function start(region: Region) {
   const view = new TerrainView(canvas, region);
   view.palette = palette.gl;
   const labels = new LabelLayer(document.getElementById('terrain-hud') as HTMLCanvasElement, region, view);
-  const ctx: Ctx = { region, store, view, route, hikerIndex: () => indexAtMinute(route(), store.state.minute), waypointIds: () => ids, playlist, skip };
-  document.getElementById('brand-sub')!.textContent = `${region.bundle.title.toUpperCase()} · ${region.bundle.cantons.join(' / ')}`;
+  // A region is a different bundle, so switching is a page load: the back button returns to the last one.
+  const goToRegion = (id: string) => { if (id !== region.bundle.id) location.assign(regionHref(id, location.href)); };
+  const ctx: Ctx = { region, regions, goToRegion, store, view, route, hikerIndex: () => indexAtMinute(route(), store.state.minute), waypointIds: () => ids, playlist, skip };
+  mountRegionPicker(document.getElementById('brand-sub')!, regions, summary, goToRegion);
   const overlay = mountStageOverlay(region, store, view);
 
   const panels = [

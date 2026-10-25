@@ -1,0 +1,42 @@
+{
+  "id": "engadin",
+  "title": "Engadin",
+  "subtitle": "St. Moritz · Pontresina · Bernina",
+  "cantons": ["GR"],
+  "bbox": [2776000, 1139000, 2800000, 1158000],
+  "cell": 20,
+  "orthoZoom": 20,
+  "orthoWidth": 2048,
+  "minInside": 0.3,
+  "minInsideKm": 2,
+  "defaultRoute": "sm-53.03",
+  "excludeRoutes": [],
+  "curated": [
+    {
+      "id": "muottas-muragl-languard",
+      "name": "Muottas Muragl – Segantinihütte – Alp Languard",
+      "via": [
+        { "name": "Muottas Muragl", "kind": "stop" },
+        { "name": "Chamanna Segantini", "kind": "inn" },
+        { "name": "Restaurant Alp Languard", "kind": "inn" }
+      ]
+    },
+    {
+      "id": "surlej-coaz",
+      "name": "Murtèl – Fuorcla Surlej – Chamanna Coaz",
+      "via": [
+        { "name": "Murtèl", "kind": "lift" },
+        { "name": "Berghaus Fuorcla Surlej", "kind": "inn" },
+        { "name": "Chamanna Coaz CAS", "kind": "inn" }
+      ]
+    },
+    {
+      "id": "morteratsch-boval",
+      "name": "Morteratsch – Chamanna da Boval",
+      "via": [
+        { "name": "Morteratsch", "kind": "stop" },
+        { "name": "Chamanna da Boval CAS", "kind": "inn" }
+      ]
+    }
+  ]
+}

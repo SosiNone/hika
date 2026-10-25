@@ -15,22 +15,25 @@
 
 </div>
 
-The first region is the **Alpstein** (Säntis, Seealpsee, Hoher Kasten): about 1 070 km of signposted
-trail rendered as a 3D point cloud, every SchweizMobil route that crosses it, and a few classic hikes
-routed on the trail graph. Pick a route and HIKA previews it with a hiker marker, signpost times and
-live instruments.
+HIKA covers **17 hiking regions** across Switzerland, from the Matterhorn and the Bernina to the
+Jura and Lake Lucerne (see [Regions](#regions)). Each one is its signposted trail network rendered
+as a 3D point cloud, every SchweizMobil route that crosses it, and a few classic hikes routed on the
+trail graph. Pick a route and HIKA previews it with a hiker marker, signpost times and live
+instruments.
 
 ## Features
 
 - **Holographic terrain.** swissALTI3D elevation as a point cloud with depth-of-field and contour
   lines, an optional SWISSIMAGE overlay and adjustable vertical exaggeration.
 - **The whole trail network.** Every Wanderweg, Bergwanderweg and Alpinwanderweg from swissTLM3D,
-  drawn in the official signpost colours, with over 1 100 named summits, passes, inns, stops and
-  lakes from swissNAMES3D. By default only the trails branching off the selected route show,
+  drawn in the official signpost colours, with the named summits, passes, huts, stops and lakes
+  from swissNAMES3D. By default only the trails branching off the selected route show,
   fading out over 5 km along each branch; the TRAILS button switches the whole network on
   or off.
-- **25 routes.** 21 SchweizMobil "Wanderland" stages and 4 curated Alpstein classics, such as
-  Schwägalp – Säntis and Säntis – Lisengrat – Meglisalp.
+- **17 regions, 330 routes.** 279 SchweizMobil "Wanderland" routes, from the Via Alpina to the Eiger
+  Trail and the 5-Seenweg, and 51 curated classics, such as Säntis – Lisengrat – Meglisalp and
+  Gornergrat – Riffelsee. Switch region with the picker under the HIKA logo, or click a region's box
+  on the Switzerland locator.
 - **Route player.** A hiker walks the route at signpost pace, past each waypoint with its distance,
   altitude and expected time. The region's routes play like a playlist: previous / next, repeat,
   shuffle, and the next route starts when the hiker arrives (Space and ← / → work too).
@@ -39,7 +42,8 @@ live instruments.
 - **Real Swiss hiking times,** from a pace table digitised from the official Schweizer Wanderwege
   chart (see [Hiking time](#hiking-time)).
 - **Shareable.** Every route has its own link, e.g.
-  [`#route=sm-951.00`](https://sosinone.github.io/hika/#route=sm-951.00).
+  [`?region=jungfrau#route=sm-353.00`](https://sosinone.github.io/hika/?region=jungfrau#route=sm-353.00)
+  for the Eiger Trail. Links without `?region=` open the Alpstein.
 - **No backend.** The app reads a static data bundle and never calls geo.admin.ch at runtime.
 
 ### Controls
@@ -51,6 +55,37 @@ live instruments.
 | Wheel | Zoom |
 | Click | Select route |
 | Double-click | Reset camera |
+
+## Regions
+
+Each region is a 24 × 19 km box (Zermatt is 27 km wide, to take in Saas-Fee). They were chosen from
+the data, not by hand: `task regions:scout` scores every box in Switzerland by its mountain trails,
+huts, summits, lakes and lifts. Each region is then anchored on a well-known hiking area, and the box
+goes wherever around it scores best. Routes are SchweizMobil routes + curated classics that
+SchweizMobil doesn't have.
+
+| Region | Cantons | Highlights | Routes | Trails |
+|---|---|---|---|---|
+| [Aletsch](https://sosinone.github.io/hika/?region=aletsch) | VS | Riederalp · Bettmeralp · Eggishorn | 11 + 3 | 938 km |
+| [Alpes vaudoises](https://sosinone.github.io/hika/?region=alpes-vaudoises) | VD, BE | Les Diablerets · Leysin · Château-d'Oex | 17 + 3 | 996 km |
+| [Alpstein](https://sosinone.github.io/hika/?region=alpstein) | AI, AR, SG | Säntis · Seealpsee · Hoher Kasten | 21 + 4 | 1 074 km |
+| [Davos](https://sosinone.github.io/hika/?region=davos) | GR | Weissfluh · Klosters · Arosa | 24 + 3 | 1 076 km |
+| [Engadin](https://sosinone.github.io/hika/?region=engadin) | GR | St. Moritz · Pontresina · Bernina | 22 + 3 | 718 km |
+| [Engelberg](https://sosinone.github.io/hika/?region=engelberg) | OW, NW, UR | Titlis · Surenenpass · Altdorf | 23 + 3 | 859 km |
+| [Flims](https://sosinone.github.io/hika/?region=flims) | GR, GL | Laax · Caumasee · Vorab | 16 + 3 | 1 122 km |
+| [Glarus](https://sosinone.github.io/hika/?region=glarus) | GL, SG | Vrenelisgärtli · Klöntal · Walensee | 21 + 2 | 828 km |
+| [Jungfrau](https://sosinone.github.io/hika/?region=jungfrau) | BE, VS | Eiger · Grindelwald · Lauterbrunnen | 15 + 4 | 780 km |
+| [Jura](https://sosinone.github.io/hika/?region=jura) | NE, VD | Creux du Van · Chasseron · Val-de-Travers | 10 + 2 | 564 km |
+| [Kandersteg](https://sosinone.github.io/hika/?region=kandersteg) | BE, VS | Oeschinensee · Adelboden · Leukerbad | 12 + 3 | 756 km |
+| [Lake Lucerne](https://sosinone.github.io/hika/?region=lucerne) | LU, NW, OW, SZ | Rigi · Pilatus · Luzern | 28 + 3 | 1 109 km |
+| [Leventina](https://sosinone.github.io/hika/?region=leventina) | TI | Campo Tencia · Strada Alta · Ritom | 11 + 3 | 806 km |
+| [National Park](https://sosinone.github.io/hika/?region=nationalpark) | GR | Zernez · Il Fuorn · Scuol | 19 + 2 | 679 km |
+| [Verbier](https://sosinone.github.io/hika/?region=verbier) | VS | Val de Bagnes · Mont Fort · Nendaz | 15 + 3 | 1 158 km |
+| [Verzasca](https://sosinone.github.io/hika/?region=verzasca) | TI | Valle Verzasca · Maggia · Locarno | 8 + 3 | 879 km |
+| [Zermatt](https://sosinone.github.io/hika/?region=zermatt) | VS | Matterhorn · Gornergrat · Saas-Fee | 6 + 4 | 596 km |
+
+swissALTI3D stops at the border, so Zermatt and Aletsch, which reach into Italy, show that side
+empty.
 
 ## Dark and light
 
@@ -73,7 +108,7 @@ task dev
 `task` lists every command. Each one wraps an npm script in `package.json`, so `npm run <script>`
 works too.
 
-The generated Alpstein bundle is committed under `public/data/alpstein/`, so the app runs without
+The generated region bundles are committed under `public/data/<id>/`, so the app runs without
 rebuilding data.
 
 ## How it works
@@ -88,15 +123,26 @@ WebGL 2.
 task region REGION=alpstein
 ```
 
-`task region:build` and `task region:check` run the two steps on their own.
+`task region:build` and `task region:check` run the two steps on their own, and `task regions:check`
+validates every region.
 
-`regions/<id>.json` defines a region: LV95 bbox, grid cell, curated hikes (waypoint names resolved
-through swissNAMES3D) and routes to exclude. The pipeline caches downloads in `.cache/` (about
-300 MB on first run, mostly the national trail and names datasets) and takes about 30 s afterwards.
+`regions/<id>.json` defines a region: LV95 bbox, grid cell, default route, curated hikes (waypoint
+names resolved through swissNAMES3D) and routes to exclude. The pipeline caches downloads in `.cache/`
+(about 300 MB on first run, mostly the national trail and names datasets) and takes about 30 s
+afterwards. Each build also refreshes `public/data/regions.json`, the list of regions the app offers,
+so adding a region is a new `regions/<id>.json` plus `task region REGION=<id>`.
+
+Rebuilds are reproducible: a rebuild from unchanged swisstopo data leaves every file byte-identical,
+so the bundles in git only grow when the source data changes. The terrain and trail files are
+delta-encoded (`src/data/codec.ts`), which roughly halves what git and the web server store and send.
+
+To find a box for a new region, run `task regions:scout`. With no arguments it ranks the best boxes
+that overlap no existing region. `-- --at E,N` places one near an LV95 point, and `-- --places <id>`
+lists a region's huts, lifts, stops and lakes for writing curated hikes.
 
 | Step | Source | Output |
 |---|---|---|
-| Terrain | swissALTI3D 2 m COGs via STAC, box-averaged from the 4 m overview | `terrain.u16` (decimetres, row 0 = north) |
+| Terrain | swissALTI3D 2 m COGs via STAC, box-averaged from the 4 m overview | `terrain.bin` (decimetres, row 0 = north, delta-encoded) |
 | Colour | SWISSIMAGE WMTS, 10 m/px | `ortho.jpg` |
 | Trails | swissTLM3D Wanderwege GeoPackage (class, surface) | `trails.bin` |
 | Places | swissNAMES3D (summits, passes, inns, stops, lakes …) | `region.json` |

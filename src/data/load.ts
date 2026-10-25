@@ -1,6 +1,9 @@
 import { cumulativeMinutes } from '../geo/hikingTime';
 import { routeClimb } from '../geo/track';
-import type { Place, RegionBundle, Route } from './types';
+import { decodeGrid, decodeTrails, type Trails } from './codec';
+import { BUNDLE_VERSION, type Place, type RegionBundle, type RegionIndex, type Route } from './types';
+
+export type { Trails };
 
 /** A route with per-sample cumulative series derived on load. */
 export interface RouteView extends Route {
@@ -8,14 +11,6 @@ export interface RouteView extends Route {
   minutes: Float64Array;
   up: Float64Array;
   down: Float64Array;
-}
-
-export interface Trails {
-  offsets: Uint32Array;
-  cls: Uint8Array;
-  hard: Uint8Array;
-  /** Uint16 metre pairs (e, n) relative to the bbox south-west corner. */
-  xy: Uint16Array;
 }
 
 export interface Region {
@@ -28,11 +23,18 @@ export interface Region {
   routes: RouteView[];
 }
 
+/** The regions the app offers (public/data/regions.json). */
+export function loadRegionIndex(): Promise<RegionIndex> {
+  return json<RegionIndex>(`${import.meta.env.BASE_URL}data/regions.json`);
+}
+
 export async function loadRegion(id: string): Promise<Region> {
   const base = `${import.meta.env.BASE_URL}data/${id}/`;
-  const bundle = (await (await fetch(`${base}region.json`)).json()) as RegionBundle;
+  const bundle = await json<RegionBundle>(`${base}region.json`);
+  if (bundle.version !== BUNDLE_VERSION) throw new Error(`${id}: bundle format ${bundle.version}, but this app reads ${BUNDLE_VERSION}; rebuild it with \`task region REGION=${id}\``);
+  const { grid } = bundle;
   const [heights, swiss, trailsBuf, ortho] = await Promise.all([
-    binary(`${base}terrain.u16`).then((b) => new Uint16Array(b)),
+    binary(`${base}${grid.file}`).then((b) => decodeGrid(new Uint8Array(b), grid.cols, grid.rows)),
     binary(`${base}${bundle.locator.file}`).then((b) => new Uint16Array(b)),
     binary(`${base}${bundle.trails.file}`),
     image(`${base}${bundle.ortho.file}`),
@@ -48,6 +50,12 @@ export async function loadRegion(id: string): Promise<Region> {
   };
 }
 
+async function json<T>(url: string): Promise<T> {
+  const res = await fetch(url);
+  if (!res.ok) throw new Error(`${url}: HTTP ${res.status}`);
+  return (await res.json()) as T;
+}
+
 async function binary(url: string): Promise<ArrayBuffer> {
   const res = await fetch(url);
   if (!res.ok) throw new Error(`${url}: HTTP ${res.status}`);
@@ -61,17 +69,6 @@ function image(url: string): Promise<HTMLImageElement> {
     img.onerror = () => reject(new Error(`${url}: failed to load`));
     img.src = url;
   });
-}
-
-function decodeTrails(buf: ArrayBuffer): Trails {
-  const head = new DataView(buf);
-  const nLines = head.getUint32(4, true), nVerts = head.getUint32(8, true);
-  const offsets = new Uint32Array(buf, 12, nLines + 1);
-  const metaStart = 12 + (nLines + 1) * 4;
-  const cls = new Uint8Array(buf, metaStart, nLines);
-  const hard = new Uint8Array(buf, metaStart + nLines, nLines);
-  const xy = new Uint16Array(buf, metaStart + Math.ceil((nLines * 2) / 4) * 4, nVerts * 2);
-  return { offsets, cls, hard, xy };
 }
 
 function deriveRoute(r: Route): RouteView {

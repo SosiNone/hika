@@ -1,0 +1,41 @@
+{
+  "id": "verzasca",
+  "title": "Verzasca",
+  "subtitle": "Valle Verzasca · Maggia · Locarno",
+  "cantons": ["TI"],
+  "bbox": [2693000, 1111000, 2717000, 1130000],
+  "cell": 20,
+  "orthoZoom": 20,
+  "orthoWidth": 2048,
+  "minInside": 0.3,
+  "minInsideKm": 2,
+  "defaultRoute": "sm-74.02",
+  "excludeRoutes": [],
+  "curated": [
+    {
+      "id": "cardada-cimetta",
+      "name": "Cardada – Cimetta",
+      "via": [
+        { "name": "Cardada", "kind": "view" },
+        { "name": "Cimetta", "kind": "view" }
+      ]
+    },
+    {
+      "id": "rasa-intragna",
+      "name": "Rasa – Intragna",
+      "via": [
+        { "name": "Rasa", "kind": "lift" },
+        { "name": "Intragna", "kind": "stop" }
+      ]
+    },
+    {
+      "id": "locarno-madonna-del-sasso",
+      "name": "Locarno – Madonna del Sasso – Brè",
+      "via": [
+        { "name": "Locarno", "kind": "stop" },
+        { "name": "Orselina Madonna del Sasso", "kind": "stop" },
+        { "name": "Brè sopra Locarno/S. Bernardo", "kind": "lift" }
+      ]
+    }
+  ]
+}

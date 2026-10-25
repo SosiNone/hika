@@ -1,9 +1,11 @@
 /**
  * Builds a region bundle from swisstopo open data: `npm run build:region alpstein`.
- * Reads regions/<id>.json, writes public/data/<id>/. Downloads are cached in .cache/.
+ * Reads regions/<id>.json, writes public/data/<id>/ and refreshes public/data/regions.json.
+ * Downloads are cached in .cache/. Rebuilding from unchanged data leaves every file as it was.
  */
-import { mkdirSync, readFileSync, writeFileSync } from 'node:fs';
-import { OFF_NETWORK, type Place, type RegionBundle, type RegionConfig, type Route, type Waypoint } from '../src/data/types';
+import { existsSync, mkdirSync, readFileSync, rmSync, writeFileSync } from 'node:fs';
+import { encodeGrid, encodeTrails } from '../src/data/codec';
+import { BUNDLE_VERSION, OFF_NETWORK, type Place, type RegionBundle, type RegionConfig, type Route, type Waypoint } from '../src/data/types';
 import { cumulativeMinutes, MAX_SLOPE, smoothAltitudes } from '../src/geo/hikingTime';
 import { polylineLength, resample, routeClimb, type XY } from '../src/geo/track';
 import { TrailGraph } from './lib/graph';
@@ -11,8 +13,9 @@ import { buildLocator } from './lib/locator';
 import { inBox, loadPlaces, resolvePlace } from './lib/names';
 import { buildOrtho } from './lib/ortho';
 import { profileHeights } from './lib/profile';
+import { INDEX_FILE, writeRegionIndex } from './lib/regions';
 import { buildTerrain, encodeU16, sampleGrid } from './lib/terrain';
-import { encodeTrails, loadTrails, SegmentIndex, type TrailLine } from './lib/trails';
+import { loadTrails, SegmentIndex, trailsData, type TrailLine } from './lib/trails';
 import { clipRoute, fetchRoute, listRoutes } from './lib/wanderland';
 
 const STEP = 10;
@@ -25,6 +28,16 @@ const [minE, minN, maxE, maxN] = cfg.bbox;
 const centre: [number, number] = [(minE + maxE) / 2, (minN + maxN) / 2];
 const t0 = Date.now();
 const log = (msg: string) => console.log(`[${((Date.now() - t0) / 1000).toFixed(1)}s] ${msg}`);
+/** Whether any file differs from what was on disk; only then does `generated` move. */
+let changed = false;
+const write = (name: string, data: ArrayBufferView | string) => {
+  const file = `${out}/${name}`, bytes = typeof data === 'string' ? Buffer.from(data) : Buffer.from(data.buffer, data.byteOffset, data.byteLength);
+  if (existsSync(file) && readFileSync(file).equals(bytes)) return;
+  writeFileSync(file, bytes);
+  changed = true;
+};
+// Bundle format 1 stored the grid raw.
+rmSync(`${out}/terrain.u16`, { force: true });
 
 log(`terrain ${cfg.cell} m`);
 const grid = await buildTerrain(cfg.bbox, cfg.cell);
@@ -33,17 +46,17 @@ for (const v of grid.data) {
   if (Number.isNaN(v)) empty++;
   else { minAlt = Math.min(minAlt, v); maxAlt = Math.max(maxAlt, v); }
 }
-writeFileSync(`${out}/terrain.u16`, encodeU16(grid.data));
+write('terrain.bin', encodeGrid(encodeU16(grid.data), grid.cols));
 log(`  ${grid.cols}×${grid.rows}, ${minAlt.toFixed(0)}–${maxAlt.toFixed(0)} m, ${empty} empty cells`);
 
 log('orthophoto');
 const ortho = await buildOrtho(cfg.bbox, cfg.orthoZoom, cfg.orthoWidth);
-writeFileSync(`${out}/ortho.jpg`, ortho.jpeg);
+write('ortho.jpg', ortho.jpeg);
 log(`  ${ortho.width}×${ortho.height}, ${(ortho.jpeg.length / 1024).toFixed(0)} KB`);
 
 log('hiking trails');
 const trails = await loadTrails(cfg.bbox);
-writeFileSync(`${out}/trails.bin`, encodeTrails(trails, cfg.bbox));
+write('trails.bin', encodeTrails(trailsData(trails, cfg.bbox)));
 const trailKm: [number, number, number] = [0, 0, 0];
 let hardKm = 0;
 for (const t of trails) {
@@ -111,16 +124,16 @@ for (const hike of cfg.curated) {
 
 log('Switzerland locator');
 const { locator, heights } = await buildLocator(2000);
-writeFileSync(`${out}/switzerland.u16`, encodeU16(heights));
+write('switzerland.u16', encodeU16(heights));
 
 const bundle: RegionBundle = {
-  version: 1,
+  version: BUNDLE_VERSION,
   id: cfg.id,
   title: cfg.title,
   subtitle: cfg.subtitle,
   cantons: cfg.cantons,
   bbox: cfg.bbox,
-  grid: { cols: grid.cols, rows: grid.rows, cell: grid.cell, minAlt: Math.round(minAlt), maxAlt: Math.round(maxAlt) },
+  grid: { file: 'terrain.bin', cols: grid.cols, rows: grid.rows, cell: grid.cell, minAlt: Math.round(minAlt), maxAlt: Math.round(maxAlt) },
   ortho: { file: 'ortho.jpg', width: ortho.width, height: ortho.height },
   trails: { file: 'trails.bin', lines: trails.length, vertices: trails.reduce((s, t) => s + t.pts.length, 0), km: trailKm.map(round1) as [number, number, number], hardKm: round1(hardKm) },
   places: places.map((p) => ({ ...p, e: Math.round(p.e - minE), n: Math.round(p.n - minN) })),
@@ -137,8 +150,20 @@ const bundle: RegionBundle = {
   ],
   generated: new Date().toISOString(),
 };
-writeFileSync(`${out}/region.json`, JSON.stringify(bundle));
-log(`wrote ${out}/region.json: ${routes.length} routes, ${places.length} places`);
+// Unchanged data keeps its build time, so the rebuild leaves region.json byte-identical too and
+// adds nothing to git.
+const previous = existsSync(`${out}/region.json`) ? (JSON.parse(readFileSync(`${out}/region.json`, 'utf8')) as RegionBundle) : null;
+const sameData = previous && JSON.stringify({ ...previous, generated: '' }) === JSON.stringify({ ...bundle, generated: '' });
+if (!changed && sameData) bundle.generated = previous.generated;
+write('region.json', JSON.stringify(bundle));
+log(`${changed ? 'wrote' : 'unchanged:'} ${out}: ${routes.length} routes, ${places.length} places`);
+// Another region's config can be ahead of its bundle (a new defaultRoute, say): that must not fail
+// this build. check:region still fails on a stale index.
+try {
+  log(`wrote ${INDEX_FILE}: ${writeRegionIndex().regions.map((r) => r.id).join(', ')}`);
+} catch (err) {
+  log(`${INDEX_FILE} not updated: ${(err as Error).message}; run \`npm run index:regions\` once that is fixed`);
+}
 
 function round1(v: number) { return Math.round(v * 10) / 10; }
 

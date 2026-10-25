@@ -1,4 +1,5 @@
 import { DatabaseSync } from 'node:sqlite';
+import type { Trails } from '../../src/data/codec';
 import type { BBox, TrailClass } from '../../src/data/types';
 import { segmentDistance2 } from '../../src/geo/track';
 import { downloadAsset } from './download';
@@ -9,12 +10,17 @@ export interface TrailLine { id: number; cls: TrailClass; hard: boolean; pts: XY
 
 const CLASS: Record<string, TrailClass> = { Wanderweg: 0, Bergwanderweg: 1, Alpinwanderweg: 2 };
 
-/** swissTLM3D hiking trails (the whole signposted network) clipped to `bbox`. */
-export async function loadTrails(bbox: BBox): Promise<TrailLine[]> {
+/** The swissTLM3D Wanderwege GeoPackage, downloaded once into .cache/. */
+async function wanderwegeGpkg(): Promise<string> {
   const item = await latestItem('ch.swisstopo.swisstlm3d-wanderwege');
   const asset = Object.values(item.assets).find((a) => a.href.endsWith('.gpkg.zip'))!;
   const [gpkg] = await downloadAsset(asset.href, 'wanderwege', (name) => name.endsWith('.gpkg'));
-  const db = new DatabaseSync(gpkg, { readOnly: true });
+  return gpkg;
+}
+
+/** swissTLM3D hiking trails (the whole signposted network) clipped to `bbox`. */
+export async function loadTrails(bbox: BBox): Promise<TrailLine[]> {
+  const db = new DatabaseSync(await wanderwegeGpkg(), { readOnly: true });
   const rows = db.prepare(`
     SELECT t.id, t.geom, t.wanderwege, t.belagsart FROM tlm_strassen_strasse t
     JOIN rtree_tlm_strassen_strasse_geom r ON t.id = r.id
@@ -33,25 +39,33 @@ export async function loadTrails(bbox: BBox): Promise<TrailLine[]> {
   return lines;
 }
 
-/** trails.bin: header, vertex offsets, class and surface bytes, then Uint16 metre coordinates from the bbox SW corner. */
-export function encodeTrails(lines: TrailLine[], bbox: BBox): Buffer {
-  const nLines = lines.length, nVerts = lines.reduce((s, l) => s + l.pts.length, 0);
-  const metaBytes = Math.ceil((nLines * 2) / 4) * 4;
-  const buf = Buffer.alloc(12 + (nLines + 1) * 4 + metaBytes + nVerts * 4);
-  buf.write('HKTR', 0, 'ascii');
-  buf.writeUInt32LE(nLines, 4);
-  buf.writeUInt32LE(nVerts, 8);
-  let off = 12, v = 0;
-  for (const l of lines) { buf.writeUInt32LE(v, off); off += 4; v += l.pts.length; }
-  buf.writeUInt32LE(v, off); off += 4;
-  lines.forEach((l, i) => { buf[off + i] = l.cls; buf[off + nLines + i] = l.hard ? 1 : 0; });
-  off += metaBytes;
-  for (const l of lines) for (const [e, n] of l.pts) {
-    buf.writeUInt16LE(Math.round(e - bbox[0]), off);
-    buf.writeUInt16LE(Math.round(n - bbox[1]), off + 2);
-    off += 4;
-  }
-  return buf;
+/**
+ * Every signposted segment in Switzerland as the centre and diagonal of its R-tree box: a cheap
+ * stand-in for its position and length (segments are short), for scoring the whole country
+ * without parsing geometry (scripts/scout-regions.ts).
+ */
+export async function trailSketch(): Promise<{ cls: TrailClass; e: number; n: number; km: number }[]> {
+  const db = new DatabaseSync(await wanderwegeGpkg(), { readOnly: true });
+  const rows = db.prepare(`
+    SELECT t.wanderwege, r.minx, r.maxx, r.miny, r.maxy FROM tlm_strassen_strasse t
+    JOIN rtree_tlm_strassen_strasse_geom r ON t.id = r.id`).all() as { wanderwege: string; minx: number; maxx: number; miny: number; maxy: number }[];
+  db.close();
+  return rows.flatMap((r) => {
+    const cls = CLASS[r.wanderwege];
+    return cls === undefined ? [] : [{ cls, e: (r.minx + r.maxx) / 2, n: (r.miny + r.maxy) / 2, km: Math.hypot(r.maxx - r.minx, r.maxy - r.miny) / 1000 }];
+  });
+}
+
+/** The network as the bundle stores it (encoded by `encodeTrails` in src/data/codec.ts): whole metres from the bbox SW corner. */
+export function trailsData(lines: TrailLine[], bbox: BBox): Trails {
+  const offsets = new Uint32Array(lines.length + 1), xy = new Uint16Array(lines.reduce((s, l) => s + l.pts.length, 0) * 2);
+  let v = 0;
+  lines.forEach((l, i) => {
+    offsets[i] = v;
+    for (const [e, n] of l.pts) { xy[2 * v] = Math.round(e - bbox[0]); xy[2 * v + 1] = Math.round(n - bbox[1]); v++; }
+  });
+  offsets[lines.length] = v;
+  return { offsets, cls: Uint8Array.from(lines, (l) => l.cls), hard: Uint8Array.from(lines, (l) => (l.hard ? 1 : 0)), xy };
 }
 
 /** Bucketed segment index for "which trail is this point on" lookups. */

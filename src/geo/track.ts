@@ -78,6 +78,16 @@ export function segmentDistance2(px: number, py: number, ax: number, ay: number,
   return [x * x + y * y, t];
 }
 
+/** Whether (x, y) lies inside a set of rings, by the even-odd rule (holes and islands both work). */
+export function insideRings(rings: XY[][], x: number, y: number): boolean {
+  let inside = false;
+  for (const ring of rings) for (let i = 0, j = ring.length - 1; i < ring.length; j = i++) {
+    const [xi, yi] = ring[i], [xj, yj] = ring[j];
+    if (yi > y !== yj > y && x < ((xj - xi) * (y - yi)) / (yj - yi) + xi) inside = !inside;
+  }
+  return inside;
+}
+
 /** Douglas–Peucker simplification. */
 export function simplify(pts: XY[], tolerance: number): XY[] {
   if (pts.length < 3) return pts;

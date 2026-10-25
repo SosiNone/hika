@@ -53,10 +53,11 @@ tasks:
       - npm run typecheck
 
   check:
-    desc: Type-check and run the tests (what CI runs before building)
+    desc: Type-check, run the tests and validate every region bundle (what CI runs before building)
     cmds:
       - task: typecheck
       - task: test
+      - task: regions:check
 
   release:
     desc: 'Bump the version, tag and push to deploy to GitHub Pages, e.g. `task release BUMP=minor` (default patch)'
@@ -72,7 +73,7 @@ tasks:
       - git push --follow-tags
 
   region:build:
-    desc: 'Rebuild a region bundle from swisstopo data (REGION={{.REGION}})'
+    desc: 'Rebuild a region bundle from swisstopo data and refresh the region index (REGION={{.REGION}})'
     deps: [install]
     cmds:
       - npm run build:region -- {{.REGION}}
@@ -84,10 +85,28 @@ tasks:
       - npm run check:region -- {{.REGION}}
 
   region:
-    desc: 'Rebuild and validate a region bundle, e.g. `task region REGION=alpstein`'
+    desc: 'Rebuild and validate a region bundle, e.g. `task region REGION=jungfrau`'
     cmds:
       - task: region:build
       - task: region:check
+
+  regions:check:
+    desc: Validate every region bundle in public/data/ and the region index
+    deps: [install]
+    cmds:
+      - npm run check:region
+
+  regions:scout:
+    desc: 'Rank good region boxes from the cached national data, e.g. `task regions:scout -- --places zermatt` (see scripts/scout-regions.ts)'
+    deps: [install]
+    cmds:
+      - npm run scout:regions -- {{.CLI_ARGS}}
+
+  regions:index:
+    desc: Rewrite public/data/regions.json from the built bundles (after deleting one or changing a defaultRoute)
+    deps: [install]
+    cmds:
+      - npm run index:regions
 
   clean:
     desc: Remove build output

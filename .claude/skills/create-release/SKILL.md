@@ -75,12 +75,11 @@ short grouped summary of the commits (features / fixes / other) for the final re
 
 ## 4. Run the checks
 
-`task release` runs `task check` itself, but also run the region check, as the deploy workflow does,
-so a failure shows up before anything is committed or tagged:
+`task release` runs `task check` itself (type-check, tests and every region bundle, as the deploy
+workflow does), but run it first so a failure shows up before anything is committed or tagged:
 
 ```bash
 task check
-task region:check
 ```
 
 If anything fails, stop and report the output. Don't tag a broken build.

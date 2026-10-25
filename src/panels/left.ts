@@ -174,7 +174,8 @@ export function mountTrailClass(el: HTMLElement, c: Ctx) {
   };
 }
 
-const GROUP_TITLES: Record<RouteView['category'], string> = { classic: 'ALPSTEIN CLASSICS · ROUTED ON SWISSTLM3D', national: 'NATIONAL ROUTES', regional: 'REGIONAL ROUTES', local: 'LOCAL ROUTES' };
+// The classics group is prefixed with the region title.
+const GROUP_TITLES: Record<RouteView['category'], string> = { classic: 'CLASSICS · ROUTED ON SWISSTLM3D', national: 'NATIONAL ROUTES', regional: 'REGIONAL ROUTES', local: 'LOCAL ROUTES' };
 // Same order as the preview playlist.
 const GROUPS = CATEGORY_ORDER.map((cat) => [cat, GROUP_TITLES[cat]] as const);
 
@@ -189,7 +190,7 @@ export function mountRoutes(el: HTMLElement, c: Ctx) {
   for (const [cat, title] of GROUPS) {
     const routes = c.region.routes.filter((r) => r.category === cat);
     if (!routes.length) continue;
-    list.insertAdjacentHTML('beforeend', `<div class="route-group">${title}</div>`);
+    list.insertAdjacentHTML('beforeend', `<div class="route-group">${cat === 'classic' ? `${esc(c.region.bundle.title.toUpperCase())} ` : ''}${title}</div>`);
     for (const r of routes) {
       const b = document.createElement('button');
       b.className = 'route-row';
