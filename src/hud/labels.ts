@@ -131,7 +131,7 @@ export class LabelLayer {
     const rows = [
       `HIKA ▸ ${arrived ? 'ARRIVED' : 'TRACKING'}`,
       `KM ${route.km[i].toFixed(1)} / ${total.toFixed(1)}  T+${hm(route.minutes[i])}`,
-      `ALT ${Math.round(route.alt[i])} M  D+ ${Math.round(route.up[i])}`,
+      `ALT ${Math.round(route.alt[i])} M  ↑${Math.round(route.up[i])} M`,
     ];
     this.ctx.font = FONT;
     const w = Math.ceil(Math.max(...rows.map((r) => this.ctx.measureText(r).width), 100)) + 14, h = 50;
