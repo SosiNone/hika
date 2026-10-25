@@ -137,10 +137,12 @@ table { border-collapse: collapse; width: 100%; }
 .kv .v small { font-size: var(--fs-s); color: var(--text-2); margin-left: 3px; }
 .kv .wide { grid-column: span 2; }
 .preview-bar { display: flex; align-items: center; gap: 8px; margin-top: 10px; }
-/* Scrubber: a hairline with an accent progress trace, waypoint ticks and a square reticle as the
-   playhead. --p (progress) and each tick's --f are fractions of the walk, set from left.ts; --tw
-   insets both so they line up with the thumb centre at either end. */
-.scrub { --tw: 9px; --p: 0; position: relative; flex: 1; height: 18px; }
+/* Scrubber: a hairline with an accent progress trace, waypoint ticks and an arrowhead playhead
+   pointing the way the hike is walked (the same pointer the charts draw). --p (progress) and each
+   tick's --f are fractions of the walk, set from left.ts; --tw insets both so they line up with the
+   thumb centre at either end. The native thumb stays invisible and only takes the pointer; the
+   arrowhead is .mark, so the focus ring can sit around it without being clipped by its shape. */
+.scrub { --tw: 10px; --p: 0; position: relative; flex: 1; height: 18px; }
 .scrub::before, .scrub::after { content: ''; position: absolute; top: 50%; left: calc(var(--tw) / 2); transform: translateY(-50%); pointer-events: none; }
 .scrub::before { right: calc(var(--tw) / 2); height: 1px; background: var(--line-3); }
 .scrub::after { width: calc(var(--p) * (100% - var(--tw))); height: 2px; background: var(--accent); }
@@ -149,13 +151,13 @@ table { border-collapse: collapse; width: 100%; }
 .scrub input { -webkit-appearance: none; appearance: none; position: absolute; inset: 0; width: 100%; height: 100%; margin: 0; background: none; cursor: ew-resize; }
 .scrub input::-webkit-slider-runnable-track { height: 100%; background: none; border: 0; }
 .scrub input::-moz-range-track { height: 100%; background: none; border: 0; }
-.scrub input::-webkit-slider-thumb { -webkit-appearance: none; box-sizing: border-box; width: var(--tw); height: 16px; margin-top: 1px; border: 1px solid var(--accent); border-radius: 0; background: linear-gradient(var(--accent), var(--accent)) center / 1px 100% no-repeat, var(--panel); }
-.scrub input::-moz-range-thumb { box-sizing: border-box; width: var(--tw); height: 16px; border: 1px solid var(--accent); border-radius: 0; background: linear-gradient(var(--accent), var(--accent)) center / 1px 100% no-repeat, var(--panel); }
-.scrub input:hover::-webkit-slider-thumb, .scrub input:active::-webkit-slider-thumb { background-color: var(--accent-dim); }
-.scrub input:hover::-moz-range-thumb, .scrub input:active::-moz-range-thumb { background-color: var(--accent-dim); }
+.scrub input::-webkit-slider-thumb { -webkit-appearance: none; width: var(--tw); height: 16px; border: 0; background: none; }
+.scrub input::-moz-range-thumb { width: var(--tw); height: 16px; border: 0; border-radius: 0; background: none; }
 .scrub input:focus { outline: none; }
-.scrub input:focus-visible::-webkit-slider-thumb { outline: 1px solid var(--text); outline-offset: 2px; }
-.scrub input:focus-visible::-moz-range-thumb { outline: 1px solid var(--text); outline-offset: 2px; }
+.scrub .mark { position: absolute; top: 50%; left: calc(var(--tw) / 2 + var(--p) * (100% - var(--tw))); width: var(--tw); height: 12px; transform: translate(-50%, -50%); pointer-events: none; transition: transform 0.12s; }
+.scrub .mark::before { content: ''; position: absolute; inset: 0; background: var(--accent); clip-path: polygon(0 0, 100% 50%, 0 100%, 26% 50%); }
+.scrub:hover .mark, .scrub:active .mark { transform: translate(-50%, -50%) scale(1.25); }
+.scrub:has(input:focus-visible) .mark { outline: 1px solid var(--text); outline-offset: 2px; }
 .preview-bar .btn { white-space: nowrap; }
 
 table.list { font-size: var(--fs-s); font-variant-numeric: tabular-nums; }
