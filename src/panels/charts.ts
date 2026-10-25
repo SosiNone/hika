@@ -9,7 +9,7 @@ export function mountProfile(el: HTMLElement, c: Ctx) {
   const ch = chart(body);
   const readout = document.createElement('div');
   readout.style.cssText = 'position:absolute;top:0;right:4px;text-align:right;pointer-events:none';
-  readout.innerHTML = '<div style="font-size:9px;color:var(--text-3);letter-spacing:.16em">H1 ALTITUDE</div><div data-v style="font-size:22px;font-weight:300"></div>';
+  readout.innerHTML = '<div style="font-size:9px;color:var(--text-3);letter-spacing:.16em">ALTITUDE</div><div data-v style="font-size:22px;font-weight:300"></div>';
   body.appendChild(readout);
   const v = readout.querySelector<HTMLElement>('[data-v]')!;
 
@@ -61,7 +61,7 @@ export function mountProfile(el: HTMLElement, c: Ctx) {
       ctx.fillStyle = COLORS.text3;
       ctx.fillText(ids.get(wp.place) ?? '', x, h - 4);
     }
-    cursor(ctx, X(i), Y(r.alt[i]), PAD.t - 8, h - PAD.b, COLORS.accent, 'H1');
+    cursor(ctx, X(i), Y(r.alt[i]), PAD.t - 8, h - PAD.b, COLORS.accent, 'HIKA');
     if (hover !== null && hover < n) cursor(ctx, X(hover), Y(r.alt[hover]), PAD.t - 8, h - PAD.b, COLORS.text, `${r.km[hover].toFixed(1)}`);
     ctx.textAlign = 'left';
   };

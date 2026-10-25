@@ -126,7 +126,7 @@ export class LabelLayer {
   private callout(top: Screen, route: RouteView, i: number, arrived: boolean, W: number) {
     const total = route.km[route.km.length - 1];
     const rows = [
-      `H1 ▸ ${arrived ? 'ARRIVED' : 'TRACKING'}`,
+      `HIKA ▸ ${arrived ? 'ARRIVED' : 'TRACKING'}`,
       `KM ${route.km[i].toFixed(1)} / ${total.toFixed(1)}  T+${hm(route.minutes[i])}`,
       `ALT ${Math.round(route.alt[i])} M  D+ ${Math.round(route.up[i])}`,
     ];

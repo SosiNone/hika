@@ -167,7 +167,7 @@ function pickRoute(region: Region, view: TerrainView, vp: Float32Array, x: numbe
   return best;
 }
 
-/** Stage chrome inside the terrain panel: title, camera readout, toggles, status, LV95 column. */
+/** Stage chrome inside the terrain panel: title, camera readout, toggles, status, LV95 column, altitude meter. */
 function mountStageOverlay(region: Region, store: Store, view: TerrainView) {
   const stage = document.getElementById('p-terrain')!;
   const el = document.createElement('div');
@@ -180,6 +180,7 @@ function mountStageOverlay(region: Region, store: Store, view: TerrainView) {
       <button class="btn" data-k="trails" style="margin-left:6px"></button></div>
     <div class="stage-route" data-k="route"></div>
     <div class="coords" data-k="coords"></div>
+    <div class="alt-meter" data-k="meter" aria-hidden="true"></div>
     <div class="stage-hints">DRAG · ORBIT &nbsp;&nbsp; RIGHT-DRAG · PAN &nbsp;&nbsp; WHEEL · ZOOM &nbsp;&nbsp; CLICK · SELECT ROUTE &nbsp;&nbsp; DBL-CLICK · RESET</div>
     <div class="stage-status" data-k="status"></div>`;
   stage.appendChild(el);
@@ -210,13 +211,25 @@ function mountStageOverlay(region: Region, store: Store, view: TerrainView) {
   };
   showTrailMode();
   const { grid } = region.bundle;
+  // Altitude meter: a scale in round 500 m steps, a band over the range the scan sweeps, and a
+  // marker that follows the scan line.
+  const lo = Math.floor(grid.minAlt / 500) * 500, hi = Math.ceil(grid.maxAlt / 500) * 500;
+  const pct = (alt: number) => `${((alt - lo) / (hi - lo)) * 100}%`;
+  const ticks: string[] = [];
+  for (let a = lo; a <= hi; a += 100) {
+    ticks.push(a % 500 ? `<i style="bottom:${pct(a)}"></i>` : `<i class="major" style="bottom:${pct(a)}"></i><span style="bottom:${pct(a)}">${a}</span>`);
+  }
+  q('meter').innerHTML = `<b class="range" style="bottom:${pct(grid.minAlt)};top:calc(100% - ${pct(grid.maxAlt)})"></b>${ticks.join('')}<div class="mark">▸<s></s><em></em></div>`;
+  const mark = q('meter').querySelector<HTMLElement>('.mark')!, markValue = mark.querySelector('em')!;
   let lastIdx = -1;
   return (info: { focus: number; scanAlt: number; fps: number; points: number }, r: RouteView, hiker: number) => {
     const c = view.camera;
     const deg = (v: number) => ((((v * 180) / Math.PI) % 360) + 360) % 360;
     q('cam').textContent = `CAM AZ ${deg(c.az).toFixed(1).padStart(5)}°  EL ${deg(c.el).toFixed(1)}°  R ${(c.dist / 1000).toFixed(1)} KM\nFOCUS ${(info.focus / 1000).toFixed(1)} KM  VERT ×${view.exaggeration}  GRID ${grid.cell} M`;
-    q('route').textContent = `${r.number ? `ROUTE ${r.number}` : '★ CLASSIC'} · ${r.name.toUpperCase()}`;
-    q('status').textContent = `SCAN ALT ${Math.round(info.scanAlt)} M   H1 T+${Math.floor(r.minutes[hiker] / 60)}:${String(Math.floor(r.minutes[hiker] % 60)).padStart(2, '0')}\nPTS ${info.points.toLocaleString('en').replace(/,/g, ' ')}   ${Math.round(info.fps)} FPS`;
+    mark.style.bottom = pct(info.scanAlt);
+    markValue.textContent = String(Math.round(info.scanAlt));
+    q('route').textContent =`${r.number ? `ROUTE ${r.number}` : '★ CLASSIC'} · ${r.name.toUpperCase()}`;
+    q('status').textContent = `SCAN ALT ${Math.round(info.scanAlt)} M   HIKA T+${Math.floor(r.minutes[hiker] / 60)}:${String(Math.floor(r.minutes[hiker] % 60)).padStart(2, '0')}\nPTS ${info.points.toLocaleString('en').replace(/,/g, ' ')}   ${Math.round(info.fps)} FPS`;
     if (hiker !== lastIdx) {
       lastIdx = hiker;
       const [e0, n0] = [region.bundle.bbox[0], region.bundle.bbox[1]];
