@@ -17,7 +17,7 @@
 
 The first region is the **Alpstein** (Säntis, Seealpsee, Hoher Kasten): about 1 070 km of signposted
 trail rendered as a 3D point cloud, every SchweizMobil route that crosses it, and a few classic hikes
-routed on the trail graph. Pick a route and HIKA replays it with a hiker marker, signpost times and
+routed on the trail graph. Pick a route and HIKA previews it with a hiker marker, signpost times and
 live instruments.
 
 ## Features
@@ -30,7 +30,7 @@ live instruments.
   its own; the TRAILS button switches it to always on or off.
 - **25 routes.** 21 SchweizMobil "Wanderland" stages and 4 curated Alpstein classics, such as
   Schwägalp – Säntis and Säntis – Lisengrat – Meglisalp.
-- **Trail replay.** A hiker walks the route at signpost pace, past each waypoint with its distance,
+- **Trail preview.** A hiker walks the route at signpost pace, past each waypoint with its distance,
   altitude and expected time.
 - **Instruments.** Elevation profile, climb and descent per km, cumulative D+ / D-, slope histogram,
   aspect rose, trail-class breakdown, a Switzerland locator and today's sunrise and sunset.

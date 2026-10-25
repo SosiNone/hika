@@ -40,14 +40,14 @@ There are two halves joined by a static data bundle:
 ### Swiss hiking time (`src/geo/hikingTime.ts`)
 `PACE` is a table digitised from the official Schweizer Wanderwege isochrone chart (4.2 km/h on the flat, fastest at about −5 %). It is not a rule of thumb; don't replace it with one. Slope comes from altitudes smoothed over about 60 m, and signpost display rounds to 5 min.
 
-Route `stats` are computed in the pipeline (`finishRoute`). The per-sample cumulative series (`km`, `minutes`, `up`, `down`) are re-derived on load (`deriveRoute` in `src/data/load.ts`). Both sides must use the same helpers (`routeClimb` in `src/geo/track.ts`, `cumulativeMinutes`), so the route list and the replay panels show the same numbers. `check:region` fails if the stored climb totals drift from `routeClimb`.
+Route `stats` are computed in the pipeline (`finishRoute`). The per-sample cumulative series (`km`, `minutes`, `up`, `down`) are re-derived on load (`deriveRoute` in `src/data/load.ts`). Both sides must use the same helpers (`routeClimb` in `src/geo/track.ts`, `cumulativeMinutes`), so the route list and the preview panels show the same numbers. `check:region` fails if the stored climb totals drift from `routeClimb`.
 
 ### Rendering (`src/gl/`)
 - World space: x = east, y = up, z = **south**, origin at the bbox centre. `TerrainView.world(e, n, alt)` converts bundle coordinates; grid cell `i` sits at `(i + 0.5) * cell`.
 - Vertical exaggeration is applied **in the vertex shaders** (`uExag`, `uBase`), so CPU-side geometry (trails, contours, ribbons) stores raw altitudes and never needs rebuilding.
 - The point cloud has no vertex buffer. Points come from `gl_VertexID`, which samples an `R16UI` height texture, with jitter, depth-of-field point size and distance fade. Stride 2 applies beyond 16 km camera distance.
 - There is no depth test anywhere: points and contours are additive, network and ribbons are blended over them (hologram look). Contours are computed in `contours.worker.ts`.
-- The trail network is instanced: one screen-space quad per segment, so its width holds at any DPR (`GL_LINES` is always 1 device pixel). Like a printed map, it is drawn twice: first a casing in the background colour that clears the point cloud underneath, then the class colours. The selected route is a screen-space ribbon with its own casing and a bright core, so it reads above the network even where it runs on top of a trail. A hovered (preview) route is a thinner cased ribbon coloured per segment by trail class (`uByClass`, off-network segments in `gl.hover`).
+- The trail network is instanced: one screen-space quad per segment, so its width holds at any DPR (`GL_LINES` is always 1 device pixel). Like a printed map, it is drawn twice: first a casing in the background colour that clears the point cloud underneath, then the class colours. The selected route is a screen-space ribbon with its own casing and a bright core, so it reads above the network even where it runs on top of a trail. A hovered route is a thinner cased ribbon coloured per segment by trail class (`uByClass`, off-network segments in `gl.hover`).
 - The owner found the full network overwhelming at overview distances, so it is hidden there by default. `TerrainView.trailMode` is `'auto'` (fades in between 7 and 4 km camera distance, `NETWORK_FADE`), `'all'` or `'off'`, and is cycled by the TRAILS button in the stage toolbar.
 - `OrbitCamera` (src/gl/camera.ts) slowly circles its target when left alone (`spin`, off under `prefers-reduced-motion`). Any drag, wheel or double-click pauses it until the pointer has been still for `resume` seconds. A `flyTo` without `az` leaves the azimuth free so the orbit keeps turning; one with `az` (reset) pauses it.
 - Labels, the hiker and the crosshair are drawn on a separate 2D canvas (`src/hud/labels.ts`) by projecting with the frame's view-projection matrix. Text and leader lines sit on a halo of the background colour, which is why `test/theme.test.ts` checks label colours against `bg`.
@@ -61,7 +61,7 @@ Route `stats` are computed in the pipeline (`finishRoute`). The per-sample cumul
 
 ### App state and panels
 - `Store` (src/state.ts) is a tiny observable. `main.ts` reacts to `routeId` / `hoverRouteId` / `mode` changes via `subscribe`.
-- The replay position `store.state.minute` is **mutated directly** in the render loop, without notifying, for performance.
+- The preview position `store.state.minute` is **mutated directly** in the render loop, without notifying, for performance.
 - Each `mount*` function in `src/panels/` builds its DOM once and returns an update callback. `main.ts` polls all of them about every 50 ms, and they rebuild static parts only when the route id changes.
 - `main.ts` hard-codes `loadRegion('alpstein')` and `DEFAULT_ROUTE`. A second region needs a selector there, as well as a `regions/<id>.json`.
 

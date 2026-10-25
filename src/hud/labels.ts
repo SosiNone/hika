@@ -17,7 +17,7 @@ const overlaps = (a: Rect, b: Rect) => a.x < b.x + b.w && b.x < a.x + a.w && a.y
 
 /**
  * 2D overlay on top of the terrain: place labels on leader lines with priority-based
- * collision culling, the selected route's waypoint IDs, and the replay hiker.
+ * collision culling, the selected route's waypoint IDs, and the preview hiker.
  */
 export class LabelLayer {
   private ctx: CanvasRenderingContext2D;

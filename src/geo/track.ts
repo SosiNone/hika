@@ -63,7 +63,7 @@ export function cumulativeClimb(alt: ArrayLike<number>, threshold = 3): { up: Fl
 /**
  * The one climb rule for everything the UI shows: altitudes smoothed over ±3 samples, then a
  * 3 m hysteresis. The pipeline's route stats and the app's per-sample series both use it, so
- * the route list and the replay panels agree.
+ * the route list and the preview panels agree.
  */
 export function routeClimb(alt: ArrayLike<number>): { up: Float64Array; down: Float64Array } {
   return cumulativeClimb(smoothAltitudes(alt, 3), 3);
