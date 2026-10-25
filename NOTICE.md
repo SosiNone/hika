@@ -19,9 +19,10 @@ IBM Plex Mono, SIL Open Font License 1.1 (bundled through @fontsource/ibm-plex-m
 ## Design references
 
 - beastydesign.github.io/scifi: visual inspiration only; no code or assets were copied.
-- LosEcher/hud-console-framework (MIT): studied for its design-token approach. The colour values
-  of the paperlab style (`src/theme/tokens.ts`) are ported from it; paperlab in turn credits the
-  @mika_systems "Paper Lab" demo. Those portions are used under the following licence:
+- LosEcher/hud-console-framework (MIT): studied for its design-token approach. The grey and
+  terrain colour values of the paperlab style (`src/theme/tokens.ts`) are ported from it (the
+  accent is HIKA's own); paperlab in turn credits the @mika_systems "Paper Lab" demo. Those
+  portions are used under the following licence:
 
   > MIT License
   >
