@@ -45,7 +45,6 @@ export function mountPreview(el: HTMLElement, c: Ctx) {
         <span class="spacer"></span>
         <button class="btn icon" data-k="repeat" aria-pressed="false" aria-label="Repeat this route" title="Repeat this route instead of moving on">${icon('repeat')}</button>
         <button class="btn icon" data-k="shuffle" aria-pressed="false" aria-label="Shuffle routes" title="Play the routes in a random order">${icon('shuffle')}</button>
-        <button class="btn" data-k="speed"></button>
         <button class="btn" data-k="rev" aria-pressed="false">⇄ REV</button>
       </div>
     </div>`;
@@ -55,13 +54,17 @@ export function mountPreview(el: HTMLElement, c: Ctx) {
   let ticks: HTMLElement[] = [];
   let built: RouteView | null = null;
   let playing: boolean | null = null;
+  // The header readout ("1 H = 3 S") is also the speed control.
+  meta.innerHTML = '<button class="speed"></button>';
+  const speed = meta.querySelector('button')!;
+  let shownSpeed = 0;
   const speeds = [1.5, 3, 6];
   q('back').onclick = () => c.skip(-1);
   q('fwd').onclick = () => c.skip(1);
   q('play').onclick = () => c.store.set({ playing: !c.store.state.playing });
   q('repeat').onclick = () => c.store.set({ repeat: !c.store.state.repeat });
   q('shuffle').onclick = () => c.store.set({ shuffle: !c.store.state.shuffle });
-  q('speed').onclick = () => {
+  speed.onclick = () => {
     const i = speeds.indexOf(c.store.state.secondsPerHour);
     c.store.set({ secondsPerHour: speeds[(i + 1) % speeds.length] });
   };
@@ -100,14 +103,18 @@ export function mountPreview(el: HTMLElement, c: Ctx) {
     q('shuffle').setAttribute('aria-pressed', String(s.shuffle));
     track.style.setProperty('--p', String(Math.min(1, s.minute / total)));
     r.waypoints.forEach((w, k) => ticks[k].classList.toggle('passed', w.time <= s.minute));
-    meta.textContent = `1 H = ${s.secondsPerHour} S`;
+    if (shownSpeed !== s.secondsPerHour) {
+      shownSpeed = s.secondsPerHour;
+      speed.textContent = `1 H = ${shownSpeed} S`;
+      speed.title = `Preview speed: 1 hiking hour in ${shownSpeed} s. Click to change.`;
+      speed.setAttribute('aria-label', speed.title);
+    }
     q('km').textContent = r.km[i].toFixed(1);
     q('up').textContent = num(r.up[i]);
     q('time').textContent = hm(r.minutes[i]);
     const next = r.waypoints[nextWaypoint(r, i)];
     const p = next && c.region.places.get(next.place);
     q('next').textContent = p ? `${c.waypointIds().get(next.place)} · ${p.name} · ${hm(Math.max(0, next.time - r.minutes[i]))}` : 'ARRIVED';
-    q('speed').textContent = `×${(3 / s.secondsPerHour).toFixed(1).replace('.0', '')}`;
     q('rev').setAttribute('aria-pressed', String(s.reversed));
     q('rev').title = `Walk it the other way: ${r.to} → ${r.from}`;
     if (document.activeElement !== scrub) scrub.value = String(Math.round((s.minute / total) * 1000));
