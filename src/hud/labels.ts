@@ -3,6 +3,7 @@ import type { Place, PlaceKind } from '../data/types';
 import { project } from '../gl/glkit';
 import type { RenderInfo, TerrainView } from '../gl/terrain';
 import { hm } from '../panels/common';
+import { pointer } from './pointer';
 import { palette as C } from '../theme/apply';
 
 export const GLYPH: Record<PlaceKind, string> = {
@@ -92,18 +93,20 @@ export class LabelLayer {
       this.label(s.x, s.y, p.kind === 'summit' ? 22 : 14, `${GLYPH[p.kind]} ${p.name.toUpperCase()}`, sub, taken, W);
     }
 
-    if (route && top && callout) {
-      const i = hikerIndex!, last = route.e.length - 1;
-      const ground = at(route.e[i], route.n[i], this.region.bundle.grid.minAlt);
-      // Direction of travel over HEADING_SPAN metres either side, so it also holds at the ends
-      // and does not follow every kink of the track.
-      const k = Math.max(2, Math.round(HEADING_SPAN / route.step));
+    // Screen direction of travel at sample i, over HEADING_SPAN metres either side, so it also
+    // holds at the ends and does not follow every kink of the track.
+    const screenHeading = (route: RouteView, i: number) => {
+      const k = Math.max(2, Math.round(HEADING_SPAN / route.step)), last = route.e.length - 1;
       const [b, f] = [Math.max(0, i - k), Math.min(last, i + k)].map((j) => at(route.e[j], route.n[j], route.alt[j]));
-      const target = b.w > 0 && f.w > 0 && Math.hypot(f.x - b.x, f.y - b.y) > 1 ? Math.atan2(f.y - b.y, f.x - b.x) : null;
-      this.hiker(top, ground, this.smoothHeading(target, route, t), route, i, next < 0, a, callout);
+      return b.w > 0 && f.w > 0 && Math.hypot(f.x - b.x, f.y - b.y) > 1 ? Math.atan2(f.y - b.y, f.x - b.x) : null;
+    };
+    if (route && top && callout) {
+      const i = hikerIndex!;
+      const ground = at(route.e[i], route.n[i], this.region.bundle.grid.minAlt);
+      this.hiker(top, ground, this.smoothHeading(screenHeading(route, i), route, t), route, i, a, callout);
     }
     // Last, so the hover readout stays on top of the hiker's callout.
-    if (route && hoverIndex !== null) this.crosshair(at(route.e[hoverIndex], route.n[hoverIndex], route.alt[hoverIndex]), route.alt[hoverIndex], route.km[hoverIndex]);
+    if (route && hoverIndex !== null) this.hoverMark(at(route.e[hoverIndex], route.n[hoverIndex], route.alt[hoverIndex]), screenHeading(route, hoverIndex), route.alt[hoverIndex], route.km[hoverIndex]);
   }
 
   /**
@@ -274,30 +277,27 @@ export class LabelLayer {
     this.ctx.fillText(s, x, y);
   }
 
-  /** The profile-chart hover point: a gapped crosshair in a bracket box. */
-  private crosshair(s: Screen, alt: number, km: number) {
+  /** The profile-chart hover point: an outlined arrowhead along the track, like the chart's hover cursor. */
+  private hoverMark(s: Screen, heading: number | null, alt: number, km: number) {
     if (s.w <= 0) return;
     const { ctx } = this;
     const x = px(s.x), y = px(s.y);
-    ctx.beginPath();
-    for (const [dx, dy] of [[0, -1], [1, 0], [0, 1], [-1, 0]]) { ctx.moveTo(x + dx * 3, y + dy * 3); ctx.lineTo(x + dx * 9, y + dy * 9); }
-    this.stroke(C.ink(0.85));
-    this.brackets(x - 6, y - 6, 12, 12, 3, C.ink(0.55));
+    pointer(ctx, x, y, heading ?? -Math.PI / 2, C.ink(0.85), false, 1.5);
     // On a plate, since it can land on the hiker's callout.
     const readout = `${Math.round(alt)} M · KM ${km.toFixed(1)}`;
     ctx.font = SMALL;
     ctx.textBaseline = 'alphabetic';
     ctx.fillStyle = C.bgA(0.85);
-    ctx.fillRect(x + 10, y - 7, ctx.measureText(readout).width + 6, 13);
+    ctx.fillRect(x + 12, y - 7, ctx.measureText(readout).width + 6, 13);
     ctx.fillStyle = C.text;
-    ctx.fillText(readout, x + 13, y + 3);
+    ctx.fillText(readout, x + 15, y + 3);
   }
 
   /**
-   * The preview hiker: a rotating reticle with a sonar ping and a heading chevron, an altitude
-   * stake down to the region floor, and a telemetry callout on an elbow leader.
+   * The preview hiker: a filled arrowhead along the track (the charts' pointer) with a sonar ping,
+   * an altitude stake down to the region floor, and a telemetry callout on an elbow leader.
    */
-  private hiker(top: Screen, ground: Screen, heading: number | null, route: RouteView, i: number, arrived: boolean, a: number, box: ReturnType<LabelLayer['callout']>) {
+  private hiker(top: Screen, ground: Screen, heading: number | null, route: RouteView, i: number, a: number, box: ReturnType<LabelLayer['callout']>) {
     const { ctx } = this;
     const x = px(top.x), y = px(top.y);
     const TAU = Math.PI * 2;
@@ -326,35 +326,14 @@ export class LabelLayer {
       ctx.stroke();
     }
 
-    // Outer ring in four arcs, slowly turning; fixed ticks point at the centre.
-    const rot = a * 0.35;
-    ctx.beginPath();
-    for (let q = 0; q < 4; q++) {
-      const s = rot + (q * TAU) / 4 + 0.3;
-      ctx.moveTo(x + Math.cos(s) * 11, y + Math.sin(s) * 11);
-      ctx.arc(x, y, 11, s, s + TAU / 4 - 0.6);
-    }
-    for (const [dx, dy] of [[0, -1], [1, 0], [0, 1], [-1, 0]]) { ctx.moveTo(x + dx * 8, y + dy * 8); ctx.lineTo(x + dx * 5, y + dy * 5); }
-    this.stroke(C.accent, 1.25);
-    ctx.beginPath();
-    ctx.arc(x, y, 2.5, 0, TAU);
-    ctx.fillStyle = C.accent;
-    ctx.fill();
-
-    if (heading !== null && !arrived) {
-      const along = (d: number, side: number) => [x + Math.cos(heading) * d - Math.sin(heading) * side, y + Math.sin(heading) * d + Math.cos(heading) * side];
-      ctx.beginPath();
-      for (const [d, side] of [[19, 0], [14, 4], [15.5, 0], [14, -4]]) { const [cx, cy] = along(d, side); ctx.lineTo(cx, cy); }
-      ctx.closePath();
-      ctx.fillStyle = C.accent;
-      ctx.fill();
-    }
+    // Keeps pointing the last way walked after arrival; straight up if the track is off screen.
+    pointer(ctx, x, y, heading ?? -Math.PI / 2, C.accent, true, 1.8);
 
     // Telemetry callout on an elbow leader.
     const { x: bx, y: by, w, h, rows, total } = box;
     const sx = box.flip ? -1 : 1;
     ctx.beginPath();
-    ctx.moveTo(x + sx * 9, y - 9);
+    ctx.moveTo(x + sx * 11, y - 11);
     ctx.lineTo(x + sx * 16, y - 16);
     ctx.lineTo(x + sx * 26, y - 16);
     this.stroke(C.ac(0.85));

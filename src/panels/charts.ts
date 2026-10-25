@@ -1,4 +1,5 @@
 import { OFF_NETWORK } from '../data/types';
+import { pointer } from '../hud/pointer';
 import { chart, COLORS, FONT, frame, hm, num, type Ctx } from './common';
 
 const PAD = { l: 34, r: 8, t: 22, b: 16 };
@@ -182,17 +183,6 @@ function heading(X: (k: number) => number, Y: (v: number) => number, series: Arr
   const n = series.length, half = Math.max(1, Math.round(5 / Math.max(1e-6, X(1) - X(0))));
   const k0 = Math.max(0, k - half), k1 = Math.min(n - 1, k + half);
   return k1 > k0 ? Math.atan2(Y(series[k1]) - Y(series[k0]), X(k1) - X(k0)) : 0;
-}
-
-/** An arrowhead centred on (x, y), pointing along `angle`: filled, or outlined for a secondary cursor. */
-function pointer(ctx: CanvasRenderingContext2D, x: number, y: number, angle: number, color: string, fill = true) {
-  const cos = Math.cos(angle), sin = Math.sin(angle);
-  ctx.beginPath();
-  for (const [d, side] of [[5.5, 0], [-4, 4], [-1.5, 0], [-4, -4]]) ctx.lineTo(x + cos * d - sin * side, y + sin * d + cos * side);
-  ctx.closePath();
-  ctx.lineJoin = 'round';
-  if (fill) { ctx.fillStyle = color; ctx.fill(); } else { ctx.strokeStyle = color; ctx.lineWidth = 1; ctx.stroke(); }
-  ctx.lineJoin = 'miter';
 }
 
 function cursor(ctx: CanvasRenderingContext2D, x: number, y: number, angle: number, top: number, bottom: number, color: string, label: string, fill: boolean) {
