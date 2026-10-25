@@ -247,7 +247,7 @@ function mountStageOverlay(region: Region, store: Store, view: TerrainView) {
     q('vert').textContent = `VERT ×${view.exaggeration}`;
   };
   const trailModes: [TrailMode, string][] = [
-    ['auto', 'Trail network: shown when zoomed in'],
+    ['auto', 'Trail network: the trails branching off the selected route'],
     ['all', 'Trail network: always shown'],
     ['off', 'Trail network: hidden, the selected route only'],
   ];

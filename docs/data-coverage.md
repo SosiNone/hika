@@ -25,7 +25,7 @@ update the matching row.
 
 | Data | Source | Bundle | Shown | Where | Unused / ideas |
 |---|---|---|---|---|---|
-| Geometry of every signposted trail (6159 lines) | swissTLM3D Wanderwege | `trails.bin` | ✅ | 3D network with casing | Not clickable: clicking selects routes only |
+| Geometry of every signposted trail (6159 lines) | swissTLM3D Wanderwege | `trails.bin` | ✅ | 3D network with casing; in TRAILS AUTO only the trails within walking reach of the selected route | Not clickable: clicking selects routes only |
 | Class per line (Wanderweg / Berg / Alpin) | swissTLM3D Wanderwege | `trails.bin` | ✅ | Network colour | — |
 | Hard surface per line | swissTLM3D Wanderwege | `trails.bin` | ✗ | Decoded on load, never drawn | Dashed or dimmed asphalt on the map |
 | Network km per class, hard km | derived | `trails.km`, `trails.hardKm` | ✅ | Trail class (C): network total and ghost markers | — |

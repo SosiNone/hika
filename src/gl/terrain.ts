@@ -3,6 +3,7 @@ import { createProgram, createVao, fitCanvas, type Mat4, type Program } from './
 import { OrbitCamera } from './camera';
 import type { Resolved } from '../theme/tokens';
 import { OFF_NETWORK } from '../data/types';
+import { TrailNetwork } from '../geo/network';
 
 const POINTS_VS = `#version 300 es
 precision highp float; precision highp int; precision highp usampler2D;
@@ -84,11 +85,13 @@ void main() { // minor / major
 }`;
 
 // The trail network: one instance per segment, extruded to a quad in screen space so lines keep
-// their width at any DPR (GL_LINES is 1 device pixel everywhere).
+// their width at any DPR (GL_LINES is 1 device pixel everywhere). aNear is the walking distance
+// from the selected route at A and B; with uAdjacent the network fades out over uReach (m) of it.
 const NETWORK_VS = `#version 300 es
 precision highp float;
-in vec3 aA; in vec3 aB; in float aClass;
-uniform mat4 uVP; uniform vec2 uViewport; uniform vec3 uEye; uniform float uHalf, uExag, uBase, uFocus;
+in vec3 aA; in vec3 aB; in float aClass; in vec2 aNear;
+uniform mat4 uVP; uniform vec2 uViewport; uniform vec3 uEye; uniform float uHalf, uExag, uBase, uFocus, uAdjacent;
+uniform vec2 uReach;
 out float vSide; out float vClass; out float vFade;
 const vec2 CORNER[6] = vec2[6](vec2(0, -1), vec2(1, -1), vec2(0, 1), vec2(0, 1), vec2(1, -1), vec2(1, 1));
 void main() {
@@ -102,7 +105,8 @@ void main() {
   p.xy += nrm * k.y * (uHalf + 1.0) / uViewport * p.w;
   gl_Position = p;
   vSide = k.y; vClass = aClass;
-  vFade = mix(1.0, 0.35, smoothstep(uFocus * 0.9, uFocus * 2.4, distance(k.x < 0.5 ? wa : wb, uEye)));
+  float near = 1.0 - smoothstep(uReach.x, uReach.y, k.x < 0.5 ? aNear.x : aNear.y);
+  vFade = mix(1.0, 0.35, smoothstep(uFocus * 0.9, uFocus * 2.4, distance(k.x < 0.5 ? wa : wb, uEye))) * mix(1.0, near, uAdjacent);
 }`;
 
 const NETWORK_FS = `#version 300 es
@@ -158,11 +162,13 @@ void main() {
 }`;
 
 
-/** When the trail network is drawn: 'auto' only when zoomed in (see `NETWORK_FADE`), 'all' always, 'off' never. */
+/** Which trails of the network are drawn: 'auto' those branching off the selected route (see `NETWORK_REACH`), 'all' every one, 'off' none. */
 export type TrailMode = 'auto' | 'all' | 'off';
 
-/** Camera distances (m) in 'auto': the network is fully shown below the first and hidden beyond the second. */
-const NETWORK_FADE = [4000, 7000];
+/** Walking distances (m) from the selected route in 'auto': trails are fully shown within the first and hidden beyond the second. */
+const NETWORK_REACH = [300, 5000];
+/** Seconds over which that reach grows out from a newly selected route. */
+const REACH_GROW = 0.8;
 
 /** Camera distances (m) over which route ribbons narrow to `RIBBON_FAR` of their width, so they don't swamp the overview. */
 const RIBBON_SHRINK = [4000, 16000];
@@ -191,8 +197,14 @@ export class TerrainView {
   private heightTex: WebGLTexture;
   private orthoTex: WebGLTexture;
   private contours: { vao: WebGLVertexArrayObject; count: number } | null = null;
-  /** `count` is the number of segments (instances). */
-  private network: { vao: WebGLVertexArrayObject; count: number };
+  /** `count` is the number of segments (instances), `first` the line vertex each one starts at, `near` the buffer of `aNear`. */
+  private network: { vao: WebGLVertexArrayObject; count: number; first: Uint32Array; near: WebGLBuffer };
+  private walk: TrailNetwork;
+  /** The route `aNear` was computed for, and how far (0–1) its reach has grown. */
+  private reachRoute: string | null = null;
+  private reachGrow = 1;
+  /** Under `prefers-reduced-motion` the reach doesn't grow, it is there at once. */
+  private still = matchMedia('(prefers-reduced-motion: reduce)').matches;
   private selected: Ribbon | null = null;
   private hovered: Ribbon | null = null;
   private emptyVao: WebGLVertexArrayObject;
@@ -227,6 +239,7 @@ export class TerrainView {
     gl.generateMipmap(gl.TEXTURE_2D);
     gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_MIN_FILTER, gl.LINEAR_MIPMAP_LINEAR);
 
+    this.walk = new TrailNetwork(region.trails);
     this.network = this.buildNetwork();
     this.buildContours();
 
@@ -261,16 +274,42 @@ export class TerrainView {
     let count = 0;
     for (let l = 0; l < cls.length; l++) count += Math.max(0, offsets[l + 1] - offsets[l] - 1);
     const A = new Float32Array(count * 3), B = new Float32Array(count * 3), K = new Float32Array(count);
+    const first = new Uint32Array(count);
     let s = 0;
     for (let l = 0; l < cls.length; l++) {
       for (let v = offsets[l] + 1; v < offsets[l + 1]; v++, s++) {
         A.set(P.subarray((v - 1) * 3, v * 3), s * 3);
         B.set(P.subarray(v * 3, v * 3 + 3), s * 3);
         K[s] = cls[l];
+        first[s] = v - 1;
       }
     }
-    const vao = createVao(this.gl, this.trails, { aA: [A, 3, 1], aB: [B, 3, 1], aClass: [K, 1, 1] });
-    return { vao, count };
+    const gl = this.gl;
+    const vao = createVao(gl, this.trails, { aA: [A, 3, 1], aB: [B, 3, 1], aClass: [K, 1, 1] });
+    // aNear changes with the selected route, so it gets its own buffer; until then nothing is near.
+    const near = gl.createBuffer()!;
+    gl.bindVertexArray(vao);
+    gl.bindBuffer(gl.ARRAY_BUFFER, near);
+    gl.bufferData(gl.ARRAY_BUFFER, new Float32Array(count * 2).fill(NETWORK_REACH[1]), gl.DYNAMIC_DRAW);
+    const loc = this.trails.a.aNear;
+    gl.enableVertexAttribArray(loc);
+    gl.vertexAttribPointer(loc, 2, gl.FLOAT, false, 0, 0);
+    gl.vertexAttribDivisor(loc, 1);
+    gl.bindVertexArray(null);
+    return { vao, count, first, near };
+  }
+
+  /** Fills `aNear` with each segment's walking distance from `route`, and lets the reach grow out from it. */
+  private updateReach(route: RouteView | null) {
+    const { count, first, near } = this.network, far = NETWORK_REACH[1];
+    const d = route ? this.walk.distanceFrom(route.e, route.n, far) : null;
+    const D = new Float32Array(count * 2).fill(far);
+    if (d) for (let s = 0; s < count; s++) { D[s * 2] = d[first[s]]; D[s * 2 + 1] = d[first[s] + 1]; }
+    const gl = this.gl;
+    gl.bindBuffer(gl.ARRAY_BUFFER, near);
+    gl.bufferSubData(gl.ARRAY_BUFFER, 0, D);
+    gl.bindBuffer(gl.ARRAY_BUFFER, null);
+    this.reachGrow = this.still ? 1 : 0;
   }
 
   private buildContours() {
@@ -287,18 +326,21 @@ export class TerrainView {
   }
 
   /**
-   * 0–1. In 'auto' the network fades in as the camera closes in: at overview distances it buries
-   * the selected route, up close it shows the junctions and alternatives around it.
+   * 0–1. In 'auto' the whole network buries the selected route, so the shader only keeps the
+   * trails branching off it (`aNear`): its junctions, exits and alternatives, at any zoom.
    */
   networkOpacity(): number {
-    if (this.network.count === 0 || this.trailMode === 'off') return 0;
-    if (this.trailMode === 'all') return 1;
-    const [near, far] = NETWORK_FADE;
-    const s = Math.min(1, Math.max(0, (far - this.camera.dist) / (far - near)));
-    return s * s * (3 - 2 * s);
+    return this.network.count === 0 || this.trailMode === 'off' ? 0 : 1;
   }
 
-  setRoute(route: RouteView | null) { this.selected = route ? this.buildRibbon(route) : null; }
+  setRoute(route: RouteView | null) {
+    this.selected = route ? this.buildRibbon(route) : null;
+    // A reversed route keeps its id and footprint, so its distances stay.
+    if ((route?.id ?? null) !== this.reachRoute) {
+      this.reachRoute = route?.id ?? null;
+      this.updateReach(route);
+    }
+  }
   setHover(route: RouteView | null) { this.hovered = route ? this.buildRibbon(route) : null; }
 
   private buildRibbon(r: RouteView): Ribbon {
@@ -395,6 +437,11 @@ export class TerrainView {
       gl.uniform1f(N.u.uExag, this.exaggeration);
       gl.uniform1f(N.u.uBase, this.base);
       gl.uniform1f(N.u.uFocus, focus);
+      this.reachGrow = Math.min(1, this.reachGrow + dt / REACH_GROW);
+      const grow = 1 - (1 - this.reachGrow) ** 3;
+      gl.uniform1f(N.u.uAdjacent, this.trailMode === 'auto' ? 1 : 0);
+      // The +1 keeps the smoothstep edges apart while the reach is still 0.
+      gl.uniform2f(N.u.uReach, NETWORK_REACH[0] * grow, NETWORK_REACH[1] * grow + 1);
       gl.uniform3fv(N.u.uColors, new Float32Array(pal.trails.flat()));
       gl.uniform3fv(N.u.uCasing, pal.clear);
       gl.bindVertexArray(this.network.vao);
