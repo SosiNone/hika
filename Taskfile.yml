@@ -58,6 +58,19 @@ tasks:
       - task: typecheck
       - task: test
 
+  release:
+    desc: 'Bump the version, tag and push to deploy to GitHub Pages, e.g. `task release BUMP=minor` (default patch)'
+    prompt: This bumps the version, tags it and pushes main to origin, which deploys the site. Continue?
+    vars:
+      BUMP: '{{.BUMP | default "patch"}}'
+    preconditions:
+      - sh: '[ "$(git rev-parse --abbrev-ref HEAD)" = "main" ]'
+        msg: Releases are cut from main
+    cmds:
+      - task: check
+      - npm version {{.BUMP}} -m "Release v%s"
+      - git push --follow-tags
+
   region:build:
     desc: 'Rebuild a region bundle from swisstopo data (REGION={{.REGION}})'
     deps: [install]

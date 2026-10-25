@@ -62,4 +62,4 @@ Route `stats` are computed in the pipeline (`finishRoute`). The per-sample cumul
 
 ## Deploy
 
-`.github/workflows/pages.yml` runs `npm test` and `npm run build` with `BASE=/<repo>/`, then publishes `dist/` to GitHub Pages on every push to `main`. `.github/workflows/ci.yml` runs `typecheck`, `test`, `check:region` and `build` on pull requests and on pushes to other branches.
+`.github/workflows/pages.yml` deploys on release tags (`v*`, plus manual `workflow_dispatch`), not on pushes to `main`. It fails unless the tag equals `v` + the `package.json` version, runs the same checks as CI, builds with `BASE=/<repo>/` and publishes `dist/` to GitHub Pages. Release from `main` with `task release BUMP=<patch|minor|major>` (`npm version` + `git push --follow-tags`). `.github/workflows/ci.yml` runs `typecheck`, `test`, `check:region` and `build` on pull requests and on every branch push (tags don't trigger it).
