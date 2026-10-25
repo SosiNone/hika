@@ -2,42 +2,76 @@ import { nextWaypoint, type RouteView } from '../data/load';
 import { TRAIL_CLASSES } from '../data/types';
 import { formatDuration } from '../geo/hikingTime';
 import { GLYPH } from '../hud/labels';
+import { CATEGORY_ORDER } from '../playlist';
 import { COLORS, esc, frame, hm, num, type Ctx } from './common';
 
-/** A · Trail preview: a virtual hiker walking the route at Swiss signpost pace. */
+/** 12 px stroke icons for the transport buttons; they take the button's text colour. */
+const ICON: Record<string, string> = {
+  prev: 'M2.5 2v8M10 2 4 6l6 4z',
+  next: 'M9.5 2v8M2 2l6 4-6 4z',
+  play: 'M3 1.5 10.5 6 3 10.5z',
+  pause: 'M4 2v8M8 2v8',
+  repeat: 'M1.5 6.5V5A2 2 0 0 1 3.5 3H10M8.5 1.5 10 3 8.5 4.5M10.5 5.5V7A2 2 0 0 1 8.5 9H2M3.5 10.5 2 9l1.5-1.5',
+  shuffle: 'M1 3h2.5l5 6H11M1 9h2.5l5-6H11M9.5 1.5 11 3 9.5 4.5M9.5 7.5 11 9l-1.5 1.5',
+};
+const icon = (k: string) => `<svg viewBox="0 0 12 12" aria-hidden="true"><path d="${ICON[k]}"/></svg>`;
+
+/**
+ * A · Route player: a virtual hiker walking the region's routes at Swiss signpost pace, one after
+ * another like a playlist, with its progress in distance, climb and time (the hiker callout on the map shows the altitude).
+ */
 export function mountPreview(el: HTMLElement, c: Ctx) {
-  const { body, meta } = frame(el, 'A', 'Trail preview');
+  const { body, meta } = frame(el, 'A', 'Route player');
   body.innerHTML = `
+    <div class="now-playing">
+      <div class="np-name" data-k="name"></div><div class="np-ends" data-k="ends"></div>
+    </div>
     <div class="kv">
-      <div><div class="k">HIKA · KM</div><div class="v" data-k="km">0.0</div></div>
-      <div><div class="k">ALTITUDE · M</div><div class="v" data-k="alt">0</div></div>
-      <div><div class="k">D+ SO FAR · M</div><div class="v" data-k="up">0</div></div>
-      <div><div class="k">ELAPSED</div><div class="v" data-k="time">0:00</div></div>
-      <div class="wide"><div class="k">NEXT POINT</div><div class="v" data-k="next" style="font-size:13px">—</div></div>
+      <div><div class="k">HIKA · KM</div><div class="v nowrap"><span data-k="km">0.0</span><small data-k="kmTotal"></small></div></div>
+      <div><div class="k">D+ · M</div><div class="v nowrap"><span data-k="up">0</span><small data-k="upTotal"></small></div></div>
+      <div><div class="k">ELAPSED</div><div class="v nowrap"><span data-k="time">0:00</span><small data-k="total"></small></div></div>
+      <div class="full"><div class="k">NEXT POINT</div><div class="v" data-k="next" style="font-size:13px">—</div></div>
     </div>
     <div class="preview-bar">
-      <button class="btn" data-k="play">PAUSE</button>
       <div class="scrub" data-k="track">
         <div class="ticks" data-k="ticks"></div>
+        <span class="mark" aria-hidden="true"></span>
         <input type="range" min="0" max="1000" value="0" data-k="scrub" aria-label="Preview position" />
       </div>
-      <button class="btn" data-k="speed"></button>
-      <button class="btn" data-k="rev" aria-pressed="false">⇄ REV</button>
+      <div class="transport">
+        <button class="btn icon" data-k="back" aria-label="Previous route" title="Previous route (←)">${icon('prev')}</button>
+        <button class="btn icon" data-k="play"></button>
+        <button class="btn icon" data-k="fwd" aria-label="Next route" title="Next route (→)">${icon('next')}</button>
+        <span class="spacer"></span>
+        <button class="btn icon" data-k="repeat" aria-pressed="false" aria-label="Repeat this route" title="Repeat this route instead of moving on">${icon('repeat')}</button>
+        <button class="btn icon" data-k="shuffle" aria-pressed="false" aria-label="Shuffle routes" title="Play the routes in a random order">${icon('shuffle')}</button>
+        <button class="btn" data-k="speed"></button>
+        <button class="btn" data-k="rev" aria-pressed="false">⇄ REV</button>
+      </div>
     </div>`;
   const q = (k: string) => body.querySelector<HTMLElement>(`[data-k="${k}"]`)!;
   const scrub = q('scrub') as HTMLInputElement;
   const track = q('track');
   let ticks: HTMLElement[] = [];
   let built: RouteView | null = null;
+  let playing: boolean | null = null;
   const speeds = [1.5, 3, 6];
+  q('back').onclick = () => c.skip(-1);
+  q('fwd').onclick = () => c.skip(1);
   q('play').onclick = () => c.store.set({ playing: !c.store.state.playing });
+  q('repeat').onclick = () => c.store.set({ repeat: !c.store.state.repeat });
+  q('shuffle').onclick = () => c.store.set({ shuffle: !c.store.state.shuffle });
   q('speed').onclick = () => {
     const i = speeds.indexOf(c.store.state.secondsPerHour);
     c.store.set({ secondsPerHour: speeds[(i + 1) % speeds.length] });
   };
   // Reversing restarts the preview at the new departure.
   q('rev').onclick = () => c.store.set({ reversed: !c.store.state.reversed, minute: 0 });
-  scrub.oninput = () => c.store.set({ minute: (+scrub.value / 1000) * c.route().minutes[c.route().minutes.length - 1], playing: false });
+  scrub.oninput = () => {
+    // The playhead is drawn from --p, so move it now rather than on the next poll.
+    track.style.setProperty('--p', String(+scrub.value / 1000));
+    c.store.set({ minute: (+scrub.value / 1000) * c.route().minutes[c.route().minutes.length - 1], playing: false });
+  };
 
   return () => {
     const r = c.route(), i = c.hikerIndex(), s = c.store.state;
@@ -47,18 +81,32 @@ export function mountPreview(el: HTMLElement, c: Ctx) {
       built = r;
       q('ticks').innerHTML = r.waypoints.map((w) => `<i style="--f:${Math.min(1, w.time / total)}"></i>`).join('');
       ticks = [...q('ticks').children] as HTMLElement[];
+      q('name').textContent = `${r.number ? `${r.number} ·` : '★'} ${r.name.toUpperCase()}`;
+      q('name').title = `${r.name} (${r.from} → ${r.to})`;
+      q('ends').textContent = `${r.from} → ${r.to}`;
+      // Totals from the per-sample series, so the reversed view gets its own climb.
+      const last = r.km.length - 1;
+      q('kmTotal').textContent = `/ ${r.km[last].toFixed(1)}`;
+      q('upTotal').textContent = `/ ${num(r.up[last])}`;
+      q('total').textContent = `/ ${hm(total)}`;
     }
+    if (playing !== s.playing) {
+      playing = s.playing;
+      q('play').innerHTML = icon(playing ? 'pause' : 'play');
+      q('play').setAttribute('aria-label', playing ? 'Pause' : 'Play');
+      q('play').title = `${playing ? 'Pause' : 'Play'} (space)`;
+    }
+    q('repeat').setAttribute('aria-pressed', String(s.repeat));
+    q('shuffle').setAttribute('aria-pressed', String(s.shuffle));
     track.style.setProperty('--p', String(Math.min(1, s.minute / total)));
     r.waypoints.forEach((w, k) => ticks[k].classList.toggle('passed', w.time <= s.minute));
     meta.textContent = `1 H = ${s.secondsPerHour} S`;
     q('km').textContent = r.km[i].toFixed(1);
-    q('alt').textContent = num(r.alt[i]);
     q('up').textContent = num(r.up[i]);
     q('time').textContent = hm(r.minutes[i]);
     const next = r.waypoints[nextWaypoint(r, i)];
     const p = next && c.region.places.get(next.place);
     q('next').textContent = p ? `${c.waypointIds().get(next.place)} · ${p.name} · ${hm(Math.max(0, next.time - r.minutes[i]))}` : 'ARRIVED';
-    q('play').textContent = s.playing ? 'PAUSE' : 'PLAY';
     q('speed').textContent = `×${(3 / s.secondsPerHour).toFixed(1).replace('.0', '')}`;
     q('rev').setAttribute('aria-pressed', String(s.reversed));
     q('rev').title = `Walk it the other way: ${r.to} → ${r.from}`;
@@ -119,7 +167,9 @@ export function mountTrailClass(el: HTMLElement, c: Ctx) {
   };
 }
 
-const GROUPS: [RouteView['category'], string][] = [['classic', 'ALPSTEIN CLASSICS · ROUTED ON SWISSTLM3D'], ['national', 'NATIONAL ROUTES'], ['regional', 'REGIONAL ROUTES'], ['local', 'LOCAL ROUTES']];
+const GROUP_TITLES: Record<RouteView['category'], string> = { classic: 'ALPSTEIN CLASSICS · ROUTED ON SWISSTLM3D', national: 'NATIONAL ROUTES', regional: 'REGIONAL ROUTES', local: 'LOCAL ROUTES' };
+// Same order as the preview playlist.
+const GROUPS = CATEGORY_ORDER.map((cat) => [cat, GROUP_TITLES[cat]] as const);
 
 /** D · Route switcher: every official and curated route in the region. */
 export function mountRoutes(el: HTMLElement, c: Ctx) {

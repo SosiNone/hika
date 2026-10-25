@@ -1,4 +1,5 @@
 import { OFF_NETWORK } from '../data/types';
+import { pointer } from '../hud/pointer';
 import { chart, COLORS, FONT, frame, hm, num, type Ctx } from './common';
 
 const PAD = { l: 34, r: 8, t: 22, b: 16 };
@@ -61,8 +62,8 @@ export function mountProfile(el: HTMLElement, c: Ctx) {
       ctx.fillStyle = COLORS.text3;
       ctx.fillText(ids.get(wp.place) ?? '', x, h - 4);
     }
-    cursor(ctx, X(i), Y(r.alt[i]), PAD.t - 8, h - PAD.b, COLORS.accent, 'HIKA');
-    if (hover !== null && hover < n) cursor(ctx, X(hover), Y(r.alt[hover]), PAD.t - 8, h - PAD.b, COLORS.text, `${r.km[hover].toFixed(1)}`);
+    cursor(ctx, X(i), Y(r.alt[i]), heading(X, Y, r.alt, i), PAD.t - 8, h - PAD.b, COLORS.accent, 'HIKA', true);
+    if (hover !== null && hover < n) cursor(ctx, X(hover), Y(r.alt[hover]), heading(X, Y, r.alt, hover), PAD.t - 8, h - PAD.b, COLORS.text, `${r.km[hover].toFixed(1)}`, false);
     ctx.textAlign = 'left';
   };
 }
@@ -136,8 +137,7 @@ export function mountCumulative(el: HTMLElement, c: Ctx) {
       ctx.strokeStyle = color;
       ctx.lineWidth = 1;
       ctx.stroke();
-      ctx.fillStyle = color;
-      ctx.beginPath(); ctx.arc(X(i), Y(series[i]), 2.5, 0, Math.PI * 2); ctx.fill();
+      pointer(ctx, X(i), Y(series[i]), heading(X, Y, series, i), color);
     }
     // Hour ticks along the top: where the hiker is after 1 h, 2 h, …
     ctx.font = FONT(8);
@@ -178,12 +178,19 @@ function niceStep(raw: number) {
   return (f < 1.5 ? 1 : f < 3.5 ? 2 : f < 7.5 ? 5 : 10) * p;
 }
 
-function cursor(ctx: CanvasRenderingContext2D, x: number, y: number, top: number, bottom: number, color: string, label: string) {
+/** Screen-space direction of a plotted series at sample k, taken over about ±5 px so it doesn't twitch per sample. */
+function heading(X: (k: number) => number, Y: (v: number) => number, series: ArrayLike<number>, k: number) {
+  const n = series.length, half = Math.max(1, Math.round(5 / Math.max(1e-6, X(1) - X(0))));
+  const k0 = Math.max(0, k - half), k1 = Math.min(n - 1, k + half);
+  return k1 > k0 ? Math.atan2(Y(series[k1]) - Y(series[k0]), X(k1) - X(k0)) : 0;
+}
+
+function cursor(ctx: CanvasRenderingContext2D, x: number, y: number, angle: number, top: number, bottom: number, color: string, label: string, fill: boolean) {
   ctx.strokeStyle = color;
   ctx.globalAlpha = 0.7;
   ctx.beginPath(); ctx.moveTo(Math.round(x) + 0.5, top); ctx.lineTo(Math.round(x) + 0.5, bottom); ctx.stroke();
   ctx.globalAlpha = 1;
-  ctx.strokeRect(Math.round(x) - 3.5, Math.round(y) - 3.5, 7, 7);
+  pointer(ctx, x, y, angle, color, fill);
   ctx.fillStyle = color;
   ctx.font = FONT(8, 400);
   ctx.textAlign = 'center';
