@@ -4,23 +4,11 @@ This file provides guidance to Claude Code (claude.ai/code) when working with co
 
 ## What this is
 
-HIKA: a sci-fi HUD for exploring Swiss hiking routes (first region: Alpstein), built only on swisstopo / geo.admin.ch open data. The product is about **exploring hiking routes**. Do not add race features (race times, leaderboards, cutoffs); the owner explicitly rejected them. The look is inspired by beastydesign.github.io/scifi, which is "all rights reserved": copy no code or assets from it.
+HIKA: a sci-fi HUD for exploring Swiss hiking routes, built only on swisstopo / geo.admin.ch open data. The product is about **exploring hiking routes**. Do not add race features (race times, leaderboards, cutoffs); the owner explicitly rejected them. The look is inspired by beastydesign.github.io/scifi, which is "all rights reserved": copy no code or assets from it.
 
-## Commands
+## Work
 
-```bash
-npm run dev                         # Vite dev server (also .claude/launch.json "hika", port 5173)
-npm run build                       # tsc --noEmit + vite build -> dist/ (BASE env sets the public path)
-npm run typecheck
-npm test                            # vitest, test/**/*.test.ts
-npx vitest run test/geo.test.ts -t "signpost"   # single file / single test
-npm run build:region alpstein       # regenerate public/data/alpstein/ from regions/alpstein.json
-npm run check:region alpstein       # sanity checks on the bundle; exits non-zero on failure
-```
-
-There is no linter; `tsc` runs with `noUnusedLocals` / `noUnusedParameters`, so unused code fails the build.
-
-The pipeline needs Node ≥ 22.5 for `node:sqlite` (the repo uses Node 24). The first `build:region` downloads about 300 MB into `.cache/` (national GeoPackages, CSVs, tiles, API responses, all cached by URL + body). Reruns take seconds. The generated bundle in `public/data/` **is committed**, so after changing the pipeline, rebuild, run `check:region` and commit the data.
+Follow open source best practices and maintain professional grade software.
 
 ## Architecture
 
