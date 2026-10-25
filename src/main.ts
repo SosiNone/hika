@@ -8,7 +8,7 @@ import type { Ctx } from './panels/common';
 import { mountReplay, mountRoutes, mountTrailClass, mountWaypoints } from './panels/left';
 import { mountLocator, mountLog, mountTerrainStats } from './panels/right';
 import { Store } from './state';
-import { renderTickers, startClock, startGrain } from './ui/chrome';
+import { renderTickers, startClock } from './ui/chrome';
 
 const DEFAULT_ROUTE = 'c-saentis-lisengrat';
 
@@ -91,7 +91,6 @@ function start(region: Region) {
   });
 
   startClock(region);
-  startGrain(document.getElementById('grain') as HTMLCanvasElement);
 
   let last = performance.now(), lastPanels = 0, holdUntil = 0;
   let lastVp = view.camera.viewProj(1);

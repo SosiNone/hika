@@ -52,21 +52,3 @@ export function renderTickers(region: Region, r: RouteView, ids: Map<string, str
   const items = r.waypoints.map((w) => `<span><i>${ids.get(w.place)}</i>${esc((region.places.get(w.place)?.name ?? '').toUpperCase())} ${w.alt}</span>`).join('');
   foot.innerHTML = `<span class="track">${items}${items}</span>`;
 }
-
-/** Film grain overlay, regenerated a few times per second at low resolution. */
-export function startGrain(canvas: HTMLCanvasElement) {
-  const ctx = canvas.getContext('2d')!;
-  canvas.width = 320;
-  canvas.height = 200;
-  const img = ctx.createImageData(320, 200);
-  const draw = () => {
-    for (let i = 0; i < img.data.length; i += 4) {
-      const v = Math.random() * 255;
-      img.data[i] = img.data[i + 1] = img.data[i + 2] = v;
-      img.data[i + 3] = 255;
-    }
-    ctx.putImageData(img, 0, 0);
-  };
-  draw();
-  if (!matchMedia('(prefers-reduced-motion: reduce)').matches) setInterval(draw, 120);
-}
