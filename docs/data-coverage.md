@@ -83,8 +83,8 @@ appear as a route waypoint (panel B, profile ticks, trail log, footer ticker).
 | Data | Computed in | Shown in |
 |---|---|---|
 | Cumulative minutes, climb, descent per sample | `deriveRoute` (`src/data/load.ts`) | Route player (A), profile (E), gradient (F), cumulative (H), log (J) |
-| Slope classes, max slope over 100 m | `analyse` (`src/panels/right.ts`) | Terrain analysis (I) |
-| Slope aspect along the route | `analyse`, from `heightAt` | Terrain analysis (I) rose |
+| Slope classes, max slope over 100 m, current slope | `analyse` (`src/panels/right.ts`) | Terrain analysis (I), walked part and the hiker's class live |
+| Slope aspect along the route | `analyse`, from `heightAt` | Terrain analysis (I) rose, walked part, the hiker's sector and walking direction live |
 | Sunrise / sunset at the region centre | `sunTimes` (`src/ui/chrome.ts`) | Top-bar clock |
 
 ## 2. Downloaded by the pipeline but dropped
