@@ -1,5 +1,6 @@
 import type { Region, RouteView } from '../data/load';
 import type { TerrainView } from '../gl/terrain';
+import type { Playlist } from '../playlist';
 import type { Store } from '../state';
 
 export interface Ctx {
@@ -11,6 +12,10 @@ export interface Ctx {
   hikerIndex(): number;
   /** Place id -> short label (DEP, P1 … ARR) for the selected route. */
   waypointIds(): Map<string, string>;
+  /** The region's routes in play order. */
+  playlist: Playlist;
+  /** Next (1) or previous (-1) route; previous restarts the current one once it is under way. */
+  skip(dir: 1 | -1): void;
 }
 
 /** Fills a panel element with the slot/title header and returns its body. */

@@ -63,6 +63,7 @@ Route `stats` are computed in the pipeline (`finishRoute`). The per-sample cumul
 ### App state and panels
 - `Store` (src/state.ts) is a tiny observable. `main.ts` reacts to `routeId` / `hoverRouteId` / `mode` changes via `subscribe`.
 - The preview position `store.state.minute` is **mutated directly** in the render loop, without notifying, for performance.
+- Panel A (Route player) plays the region's routes as a playlist (`Playlist` in `src/playlist.ts`, in the route list's `CATEGORY_ORDER`). `ctx.skip(±1)` changes route; "previous" first rewinds a route that has played for over 2 s. At the finish the loop holds 2.5 s, then repeats the route (`repeat`) or moves on. `shuffle` walks a random queue that starts at the current route. Space and ← / → are handled on `window` unless a control has focus.
 - Each `mount*` function in `src/panels/` builds its DOM once and returns an update callback. `main.ts` polls all of them about every 50 ms, and they rebuild static parts only when the route id changes.
 - `main.ts` hard-codes `loadRegion('alpstein')` and `DEFAULT_ROUTE`. A second region needs a selector there, as well as a `regions/<id>.json`.
 
