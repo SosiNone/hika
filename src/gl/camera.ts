@@ -1,30 +1,53 @@
 import { lookAt, multiply, perspective, type Mat4 } from './glkit';
 
-/** Orbit camera around a target: drag to orbit, wheel to zoom, right-drag / shift-drag to pan. */
+type Pose = { az: number; el: number; dist: number; target: number[] };
+
+/**
+ * Orbit camera around a target: drag to orbit, wheel to zoom, right-drag / shift-drag to pan.
+ * Left alone, it slowly circles the target; any interaction pauses that until the pointer has been still for `resume` seconds.
+ */
 export class OrbitCamera {
   az = -0.5;
   el = 0.62;
   dist = 26000;
   target = [0, 600, 0];
   fov = (34 * Math.PI) / 180;
-  private home: { az: number; el: number; dist: number; target: number[] };
-  private goal: { az: number; el: number; dist: number; target: number[] } | null = null;
+  /** Idle orbit speed in rad/s (0 = off); one turn takes about 2.5 min. */
+  spin = 0.04;
+  /** Seconds without interaction before the idle orbit resumes. */
+  resume = 4;
+  private home: Pose;
+  // A goal without `az` leaves the azimuth free, so the idle orbit keeps turning during the flight.
+  private goal: (Omit<Pose, 'az'> & { az?: number }) | null = null;
+  private held = false;
+  private still = Infinity;
+  private spinGain = 0;
 
   constructor(private minDist = 1500, private maxDist = 60000) {
     this.home = this.snapshot();
   }
 
-  snapshot() { return { az: this.az, el: this.el, dist: this.dist, target: [...this.target] }; }
+  snapshot(): Pose { return { az: this.az, el: this.el, dist: this.dist, target: [...this.target] }; }
   setHome() { this.home = this.snapshot(); }
   reset() { this.flyTo(this.home); }
-  flyTo(goal: Partial<{ az: number; el: number; dist: number; target: number[] }>) { this.goal = { ...this.snapshot(), ...goal }; }
+  flyTo(goal: Partial<Pose>) {
+    const { az: _, ...rest } = this.snapshot();
+    this.goal = { ...rest, ...goal };
+  }
 
-  /** Eases toward a fly-to goal; returns true while moving. */
+  /** Marks user interaction: pauses the idle orbit. */
+  touch() { this.still = 0; }
+
+  /** Eases toward a fly-to goal and advances the idle orbit; returns true while flying. */
   update(dt: number): boolean {
+    this.still += dt;
+    const idle = !this.held && this.still > this.resume && this.goal?.az === undefined;
+    this.spinGain += ((idle ? 1 : 0) - this.spinGain) * (1 - Math.exp(-dt * 1.2));
+    this.az += this.spin * this.spinGain * dt;
     if (!this.goal) return false;
     const k = 1 - Math.exp(-dt * 4);
     const g = this.goal;
-    const dAz = Math.atan2(Math.sin(g.az - this.az), Math.cos(g.az - this.az));
+    const dAz = g.az === undefined ? 0 : Math.atan2(Math.sin(g.az - this.az), Math.cos(g.az - this.az));
     this.az += dAz * k;
     this.el += (g.el - this.el) * k;
     this.dist += (g.dist - this.dist) * k;
@@ -43,6 +66,7 @@ export class OrbitCamera {
   }
 
   attach(el: HTMLElement, onChange: () => void) {
+    if (matchMedia('(prefers-reduced-motion: reduce)').matches) this.spin = 0;
     let last: { x: number; y: number; pan: boolean } | null = null;
     el.addEventListener('contextmenu', (e) => e.preventDefault());
     el.addEventListener('pointerdown', (e) => {
@@ -50,6 +74,8 @@ export class OrbitCamera {
       el.setPointerCapture(e.pointerId);
       el.classList.add('dragging');
       this.goal = null;
+      this.held = true;
+      this.touch();
     });
     el.addEventListener('pointermove', (e) => {
       if (!last) return;
@@ -67,15 +93,16 @@ export class OrbitCamera {
       last = { ...last, x: e.clientX, y: e.clientY };
       onChange();
     });
-    const end = () => { last = null; el.classList.remove('dragging'); };
+    const end = () => { last = null; this.held = false; this.touch(); el.classList.remove('dragging'); };
     el.addEventListener('pointerup', end);
     el.addEventListener('pointercancel', end);
     el.addEventListener('wheel', (e) => {
       e.preventDefault();
       this.goal = null;
+      this.touch();
       this.dist = Math.min(this.maxDist, Math.max(this.minDist, this.dist * Math.exp(e.deltaY * 0.0012)));
       onChange();
     }, { passive: false });
-    el.addEventListener('dblclick', () => { this.reset(); onChange(); });
+    el.addEventListener('dblclick', () => { this.reset(); this.touch(); onChange(); });
   }
 }
