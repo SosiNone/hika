@@ -80,6 +80,11 @@ function deriveRoute(r: Route): RouteView {
   return { ...r, km, minutes: cumulativeMinutes(r.alt, r.step), up, down };
 }
 
+/** Index of the first waypoint still ahead of sample `i`, or -1 once the hiker has arrived. */
+export function nextWaypoint(r: Pick<Route, 'waypoints' | 'step'>, i: number): number {
+  return r.waypoints.findIndex((w) => w.km * 1000 > i * r.step + 1);
+}
+
 /** Sample index at a given hiking minute (binary search on the cumulative series). */
 export function indexAtMinute(r: RouteView, minute: number): number {
   let lo = 0, hi = r.minutes.length - 1;

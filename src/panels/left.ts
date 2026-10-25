@@ -1,4 +1,4 @@
-import type { RouteView } from '../data/load';
+import { nextWaypoint, type RouteView } from '../data/load';
 import { TRAIL_CLASSES } from '../data/types';
 import { formatDuration } from '../geo/hikingTime';
 import { GLYPH } from '../hud/labels';
@@ -38,7 +38,7 @@ export function mountPreview(el: HTMLElement, c: Ctx) {
     q('alt').textContent = num(r.alt[i]);
     q('up').textContent = num(r.up[i]);
     q('time').textContent = hm(r.minutes[i]);
-    const next = r.waypoints.find((w) => w.km * 1000 > i * r.step + 1);
+    const next = r.waypoints[nextWaypoint(r, i)];
     const p = next && c.region.places.get(next.place);
     q('next').textContent = p ? `${c.waypointIds().get(next.place)} · ${p.name} · ${hm(Math.max(0, next.time - r.minutes[i]))}` : 'ARRIVED';
     q('play').textContent = s.playing ? 'PAUSE' : 'PLAY';
@@ -66,14 +66,10 @@ export function mountWaypoints(el: HTMLElement, c: Ctx) {
         }).join('')}</tbody></table>`;
       rows = [...body.querySelectorAll('tbody tr')] as HTMLTableRowElement[];
     }
-    const done = c.hikerIndex() * r.step;
-    let nextSet = false;
-    r.waypoints.forEach((w, k) => {
-      const passed = w.km * 1000 <= done + 1;
-      rows[k].classList.toggle('passed', passed && k < r.waypoints.length - 1);
-      const isNext = !passed && !nextSet;
-      if (isNext) nextSet = true;
-      rows[k].classList.toggle('next', isNext);
+    const next = nextWaypoint(r, c.hikerIndex());
+    r.waypoints.forEach((_, k) => {
+      rows[k].classList.toggle('passed', (next < 0 || k < next) && k < r.waypoints.length - 1);
+      rows[k].classList.toggle('next', k === next);
     });
   };
 }
