@@ -45,8 +45,9 @@ Route `stats` are computed in the pipeline (`finishRoute`). The per-sample cumul
 - World space: x = east, y = up, z = **south**, origin at the bbox centre. `TerrainView.world(e, n, alt)` converts bundle coordinates; grid cell `i` sits at `(i + 0.5) * cell`.
 - Vertical exaggeration is applied **in the vertex shaders** (`uExag`, `uBase`), so CPU-side geometry (trails, contours, ribbons) stores raw altitudes and never needs rebuilding.
 - The point cloud has no vertex buffer. Points come from `gl_VertexID`, which samples an `R16UI` height texture, with jitter, depth-of-field point size and distance fade. Stride 2 applies beyond 16 km camera distance.
-- There is no depth test anywhere: points and contours are additive, network and ribbons are blended over them (hologram look). Contours are computed in `contours.worker.ts`. The selected route is a screen-space ribbon.
-- Labels, the hiker and the crosshair are drawn on a separate 2D canvas (`src/hud/labels.ts`) by projecting with the frame's view-projection matrix.
+- There is no depth test anywhere: points and contours are additive, network and ribbons are blended over them (hologram look). Contours are computed in `contours.worker.ts`.
+- The trail network is instanced: one screen-space quad per segment, so its width holds at any DPR (`GL_LINES` is always 1 device pixel). Like a printed map, it is drawn twice: first a casing in the background colour that clears the point cloud underneath, then the class colours. The selected route is a screen-space ribbon with its own casing and a bright core, because the accent can share a hue with a trail class (the `hika` yellow and Wanderweg, for example).
+- Labels, the hiker and the crosshair are drawn on a separate 2D canvas (`src/hud/labels.ts`) by projecting with the frame's view-projection matrix. Text and leader lines sit on a halo of the background colour, which is why `test/theme.test.ts` checks label colours against `bg`.
 
 ### Theming (`src/theme/`)
 - Three independent layers, after LosEcher/hud-console-framework: **theme** (accent, sometimes a dark background), **style** (`paperlab` flat greys, `phosphor` the original teal hologram), **scheme** (dark / light). The default is `cinder · paperlab · dark`, defined in `DEFAULT_DISPLAY`.

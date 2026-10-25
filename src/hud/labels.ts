@@ -8,8 +8,9 @@ export const GLYPH: Record<PlaceKind, string> = {
   summit: '▲', pass: '⌒', lake: '≈', inn: '⌂', stop: '◉', lift: '⇡', view: '◎', water: '⁞', cave: '◖', village: '□', ridge: '∧',
 };
 
-const FONT = '300 10px "IBM Plex Mono", monospace';
-const SMALL = '300 9px "IBM Plex Mono", monospace';
+const FONT = '400 10px "IBM Plex Mono", monospace';
+const STRONG = '500 10px "IBM Plex Mono", monospace';
+const SMALL = '400 9px "IBM Plex Mono", monospace';
 
 interface Rect { x: number; y: number; w: number; h: number }
 const overlaps = (a: Rect, b: Rect) => a.x < b.x + b.w && b.x < a.x + a.w && a.y < b.y + b.h && b.y < a.y + a.h;
@@ -73,31 +74,47 @@ export class LabelLayer {
   /** Draws a label on a leader line; returns false when it was skipped for overlapping. */
   private label(x: number, y: number, lift: number, text: string, sub: string, strong: boolean, taken: Rect[], W: number, force = false): boolean {
     const { ctx } = this;
-    ctx.font = FONT;
+    ctx.font = strong ? STRONG : FONT;
     const tw = Math.max(ctx.measureText(text).width, sub ? ctx.measureText(sub).width : 0);
     const left = x + 4 + tw > W - 150 ? x - 6 - tw : x + 5;
     const rect = { x: Math.min(left, x) - 2, y: y - lift - (sub ? 22 : 12), w: tw + 10, h: lift + (sub ? 24 : 14) };
     if (!force && taken.some((r) => overlaps(r, rect))) return false;
     taken.push(rect);
-    ctx.strokeStyle = strong ? C.ac(0.75) : C.ink(0.35);
-    ctx.lineWidth = 1;
+    // Leader line and anchor dot, each on a halo of the background colour.
     ctx.beginPath();
     ctx.moveTo(x + 0.5, y);
     ctx.lineTo(x + 0.5, y - lift);
+    ctx.strokeStyle = C.bgA(0.7);
+    ctx.lineWidth = 3;
     ctx.stroke();
-    ctx.fillStyle = strong ? C.accent : C.ink(0.8);
+    ctx.strokeStyle = strong ? C.ac(0.85) : C.ink(0.55);
+    ctx.lineWidth = 1;
+    ctx.stroke();
     ctx.beginPath();
-    ctx.arc(x + 0.5, y, strong ? 2.5 : 1.6, 0, Math.PI * 2);
+    ctx.arc(x + 0.5, y, strong ? 2.5 : 1.8, 0, Math.PI * 2);
+    ctx.strokeStyle = C.bgA(0.85);
+    ctx.lineWidth = 2;
+    ctx.stroke();
+    ctx.fillStyle = strong ? C.accent : C.text;
     ctx.fill();
-    ctx.fillStyle = strong ? C.accentTint : C.ink(0.86);
     ctx.textBaseline = 'alphabetic';
-    ctx.fillText(text, left, y - lift - (sub ? 10 : 0));
+    this.text(text, left, y - lift - (sub ? 10 : 0), strong ? C.accentTint : C.text);
     if (sub) {
       ctx.font = SMALL;
-      ctx.fillStyle = strong ? C.ac(0.7) : C.text2;
-      ctx.fillText(sub, left, y - lift + 1);
+      this.text(sub, left, y - lift + 1, strong ? C.ac(0.9) : C.text2);
     }
     return true;
+  }
+
+  /** Text on a halo of the background colour, so it stays legible over the point cloud and trails. */
+  private text(s: string, x: number, y: number, fill: string) {
+    const { ctx } = this;
+    ctx.lineJoin = 'round';
+    ctx.lineWidth = 3;
+    ctx.strokeStyle = C.bgA(0.85);
+    ctx.strokeText(s, x, y);
+    ctx.fillStyle = fill;
+    ctx.fillText(s, x, y);
   }
 
   private crosshair(s: { x: number; y: number; w: number }, alt: number) {
@@ -107,13 +124,13 @@ export class LabelLayer {
     ctx.lineWidth = 1;
     ctx.strokeRect(s.x - 5.5, s.y - 5.5, 11, 11);
     ctx.font = SMALL;
-    ctx.fillStyle = C.text;
-    ctx.fillText(`${Math.round(alt)} M`, s.x + 9, s.y + 3);
+    this.text(`${Math.round(alt)} M`, s.x + 9, s.y + 3, C.text);
   }
 
   private hiker(top: { x: number; y: number }, ground: { x: number; y: number }, route: RouteView, i: number) {
     const { ctx } = this;
     ctx.strokeStyle = C.ac(0.45);
+    ctx.lineWidth = 1;
     ctx.setLineDash([2, 3]);
     ctx.beginPath();
     ctx.moveTo(top.x, top.y);

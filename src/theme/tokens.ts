@@ -17,7 +17,7 @@ interface Accent { dark: string; light: string }
 
 /** Accent sets. `bg` / `bg2` apply in the dark scheme of styles without their own accent. */
 export const THEMES: Record<ThemeId, { accent: Accent; bg?: string; bg2?: string }> = {
-  hika: { accent: { dark: '#f2c230', light: '#8a6a00' } },
+  hika: { accent: { dark: '#f2c230', light: '#846600' } },
   cinder: { accent: { dark: '#ff4d3d', light: '#b0352b' }, bg: '#040303', bg2: '#120b08' },
   orbital: { accent: { dark: '#46d8ff', light: '#0a6a82' }, bg: '#020304', bg2: '#071014' },
   ember: { accent: { dark: '#ff9a3c', light: '#9a5200' } },
@@ -79,6 +79,8 @@ export interface Resolved {
   css: Record<string, string>;
   ladder: Ladder;
   accent: string;
+  /** The accent lifted towards the text colour, for emphasised labels on the terrain. */
+  accentTint: string;
   trails: { wander: string; berg: string; alpin: string; stripe: string };
   gl: GlPalette & { clear: RGB; accent: RGB; trails: RGB[] };
 }
@@ -93,7 +95,8 @@ export function resolve(d: Display): Resolved {
   }
   const accent = (style.accent ?? theme.accent)[d.scheme];
   const trails = TRAILS[d.scheme];
-  const a = hexRgb(accent), bg = hexRgb(ladder.bg);
+  const a = hexRgb(accent), bg = hexRgb(ladder.bg), text = hexRgb(ladder.text);
+  const tint = a.map((c, i) => Math.round(c * 0.45 + text[i] * 0.55)) as RGB;
   const css: Record<string, string> = {
     '--bg': ladder.bg, '--bg-2': ladder.bg2, '--bg-rgb': a3(bg), '--panel': ladder.panel,
     '--line': ladder.line, '--line-2': ladder.line2, '--line-3': ladder.line3,
@@ -104,7 +107,7 @@ export function resolve(d: Display): Resolved {
   };
   const lin = (c: RGB): RGB => [c[0] / 255, c[1] / 255, c[2] / 255];
   return {
-    display: d, css, ladder, accent, trails,
+    display: d, css, ladder, accent, accentTint: `rgb(${a3(tint)})`, trails,
     gl: { ...s.gl, clear: lin(bg), accent: lin(a), trails: [trails.wander, trails.berg, trails.alpin].map((c) => lin(hexRgb(c))) },
   };
 }

@@ -31,17 +31,18 @@ export function createProgram(gl: WebGL2RenderingContext, vs: string, fs: string
   return { program, u, a };
 }
 
-/** A VAO with one float buffer per attribute: `{ aPos: [data, size] }`. */
-export function createVao(gl: WebGL2RenderingContext, p: Program, attribs: Record<string, [Float32Array, number]>): WebGLVertexArrayObject {
+/** A VAO with one float buffer per attribute: `{ aPos: [data, size] }`, or `[data, size, 1]` for a per-instance attribute. */
+export function createVao(gl: WebGL2RenderingContext, p: Program, attribs: Record<string, [Float32Array, number, number?]>): WebGLVertexArrayObject {
   const vao = gl.createVertexArray()!;
   gl.bindVertexArray(vao);
-  for (const [name, [data, size]] of Object.entries(attribs)) {
+  for (const [name, [data, size, divisor = 0]] of Object.entries(attribs)) {
     const loc = p.a[name];
     if (loc === undefined || loc < 0) continue;
     gl.bindBuffer(gl.ARRAY_BUFFER, gl.createBuffer());
     gl.bufferData(gl.ARRAY_BUFFER, data, gl.STATIC_DRAW);
     gl.enableVertexAttribArray(loc);
     gl.vertexAttribPointer(loc, size, gl.FLOAT, false, 0, 0);
+    gl.vertexAttribDivisor(loc, divisor);
   }
   gl.bindVertexArray(null);
   return vao;
