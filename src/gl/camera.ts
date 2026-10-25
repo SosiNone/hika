@@ -16,6 +16,8 @@ export class OrbitCamera {
   spin = 0.04;
   /** Seconds without interaction before the idle orbit resumes. */
   resume = 4;
+  /** True once the user pans or zooms; cleared by the next fly-to. */
+  framed = false;
   private home: Pose;
   // A goal without `az` leaves the azimuth free, so the idle orbit keeps turning during the flight.
   private goal: (Omit<Pose, 'az'> & { az?: number }) | null = null;
@@ -32,6 +34,7 @@ export class OrbitCamera {
   reset() { this.flyTo(this.home); }
   flyTo(goal: Partial<Pose>) {
     const { az: _, ...rest } = this.snapshot();
+    this.framed = false;
     this.goal = { ...rest, ...goal };
   }
 
@@ -86,6 +89,7 @@ export class OrbitCamera {
         // Grab-style pan: the ground under the cursor follows the pointer.
         this.target[0] += (-dx * ca - dy * sa) * s;
         this.target[2] += (dx * sa - dy * ca) * s;
+        this.framed = true;
       } else {
         this.az -= dx * 0.005;
         this.el = Math.min(1.45, Math.max(0.08, this.el + dy * 0.004));
@@ -101,6 +105,7 @@ export class OrbitCamera {
       this.goal = null;
       this.touch();
       this.dist = Math.min(this.maxDist, Math.max(this.minDist, this.dist * Math.exp(e.deltaY * 0.0012)));
+      this.framed = true;
       onChange();
     }, { passive: false });
     el.addEventListener('dblclick', () => { this.reset(); this.touch(); onChange(); });

@@ -67,6 +67,8 @@ function start(region: Region, summary: RegionSummary, regions: RegionSummary[])
   const playlist = new Playlist(region.routes);
   /** When the preview, held at the finish, moves on (0 = not holding). */
   let holdUntil = 0;
+  /** Set while the playlist moves on by itself, so a view the user framed is kept. */
+  let autoAdvance = false;
   const skip = (dir: 1 | -1) => {
     const s = store.state;
     // Like a music player: "previous" first rewinds a route that has played for over 2 s.
@@ -101,7 +103,7 @@ function start(region: Region, summary: RegionSummary, regions: RegionSummary[])
     ids = waypointIds(r);
     view.setRoute(r);
     renderTickers(region, r, ids);
-    if (fly) flyToRoute(view, r);
+    if (fly && !(autoAdvance && view.camera.framed)) flyToRoute(view, r);
     history.replaceState(null, '', `#route=${r.id}${store.state.reversed ? '&reverse=1' : ''}`);
   };
   selectRoute(route());
@@ -174,7 +176,11 @@ function start(region: Region, summary: RegionSummary, regions: RegionSummary[])
       else if (now > holdUntil) {
         holdUntil = 0;
         if (s.repeat) store.state.minute = 0;
-        else skip(1);
+        else {
+          autoAdvance = true;
+          skip(1);
+          autoAdvance = false;
+        }
       }
     }
     const hiker = indexAtMinute(r, store.state.minute);
