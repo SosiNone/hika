@@ -1,16 +1,79 @@
+<div align="center">
+
 # HIKA · Swiss trail console
 
-A sci-fi HUD for exploring Swiss hiking routes, built entirely on swisstopo open data. The first
-region is the **Alpstein** (Säntis, Seealpsee, Hoher Kasten): the whole signposted trail network
-in 3D, every SchweizMobil route that crosses it, and a few classic hikes routed on the trail graph.
+**A sci-fi HUD for exploring Swiss hiking routes, built entirely on swisstopo open data.**
 
-The look comes from two projects; see [Credits](#credits).
+[![CI](https://github.com/SosiNone/hika/actions/workflows/ci.yml/badge.svg)](https://github.com/SosiNone/hika/actions/workflows/ci.yml)
+[![Deploy](https://github.com/SosiNone/hika/actions/workflows/pages.yml/badge.svg)](https://github.com/SosiNone/hika/actions/workflows/pages.yml)
+[![Licence: MIT](https://img.shields.io/badge/licence-MIT-blue.svg)](LICENSE)
+[![Data: swisstopo](https://img.shields.io/badge/data-swisstopo%20OGD-c8102e.svg)](NOTICE.md)
 
-## Run
+### [▶ Open the live console](https://sosinone.github.io/hika/)
+
+[![HIKA showing the Brülisau – Fählensee – Zwinglipass – Wildhaus hike in the Alpstein](docs/hero.webp)](https://sosinone.github.io/hika/#route=c-bruelisau-wildhaus)
+
+</div>
+
+The first region is the **Alpstein** (Säntis, Seealpsee, Hoher Kasten): about 1 070 km of signposted
+trail rendered as a 3D point cloud, every SchweizMobil route that crosses it, and a few classic hikes
+routed on the trail graph. Pick a route and HIKA replays it with a hiker marker, signpost times and
+live instruments.
+
+## Features
+
+- **Holographic terrain.** swissALTI3D elevation as a point cloud with depth-of-field and contour
+  lines, an optional SWISSIMAGE overlay and adjustable vertical exaggeration.
+- **The whole trail network.** Every Wanderweg, Bergwanderweg and Alpinwanderweg from swissTLM3D,
+  drawn in the official signpost colours, with over 1 100 named summits, passes, inns, stops and
+  lakes from swissNAMES3D.
+- **25 routes.** 21 SchweizMobil "Wanderland" stages and 4 curated Alpstein classics, such as
+  Schwägalp – Säntis and Säntis – Lisengrat – Meglisalp.
+- **Trail replay.** A hiker walks the route at signpost pace, past each waypoint with its distance,
+  altitude and expected time.
+- **Instruments.** Elevation profile, climb and descent per km, cumulative D+ / D-, slope histogram,
+  aspect rose, trail-class breakdown, a Switzerland locator and today's sunrise and sunset.
+- **Real Swiss hiking times,** from a pace table digitised from the official Schweizer Wanderwege
+  chart (see [Hiking time](#hiking-time)).
+- **Shareable.** Every route has its own link, e.g.
+  [`#route=sm-951.00`](https://sosinone.github.io/hika/#route=sm-951.00).
+- **No backend.** The app reads a static data bundle and never calls geo.admin.ch at runtime.
+
+### Controls
+
+| Input | Action |
+|---|---|
+| Drag | Orbit |
+| Right-drag | Pan |
+| Wheel | Zoom |
+| Click | Select route |
+| Double-click | Reset camera |
+
+## Display themes
+
+<table>
+  <tr>
+    <td width="50%"><a href="https://sosinone.github.io/hika/?style=phosphor&theme=hika#route=c-saentis-lisengrat"><img src="docs/phosphor.webp" alt="HIKA in the phosphor style"></a></td>
+    <td width="50%"><a href="https://sosinone.github.io/hika/?scheme=light#route=sm-951.00"><img src="docs/light.webp" alt="HIKA in the paperlab style, light scheme"></a></td>
+  </tr>
+  <tr>
+    <td align="center"><code>hika · phosphor · dark</code></td>
+    <td align="center"><code>cinder · paperlab · light</code></td>
+  </tr>
+</table>
+
+The footer switches theme (accent), style (visual language) and scheme (dark / light). The default
+is `cinder · paperlab · dark`: paperlab's flat greys with its brick-red accent. `hika · phosphor` is
+the original teal hologram look. A URL can set any of them, e.g. `?style=phosphor&theme=hika`;
+a choice made in the footer is remembered in the browser.
+
+## Quick start
 
 Requires Node 24 and [Task](https://taskfile.dev/installation/).
 
 ```bash
+git clone https://github.com/SosiNone/hika.git
+cd hika
 task dev
 ```
 
@@ -20,14 +83,13 @@ works too.
 The generated Alpstein bundle is committed under `public/data/alpstein/`, so the app runs without
 rebuilding data.
 
-## Display themes
+## How it works
 
-The footer switches theme (accent), style (visual language) and scheme (dark / light). The default
-is `cinder · paperlab · dark`: paperlab's flat greys with its brick-red accent. `hika · phosphor` is
-the original teal hologram look. A URL can set any of them, e.g. `?style=phosphor&theme=hika`;
-a choice made in the footer is remembered in the browser.
+A build-time pipeline in `scripts/` downloads swisstopo and geo.admin.ch data and writes a compact
+bundle to `public/data/<id>/`. The browser app in `src/` only reads that bundle and renders it with
+WebGL 2.
 
-## Rebuild the data
+### Rebuild the data
 
 ```bash
 task region REGION=alpstein
@@ -50,22 +112,27 @@ through swissNAMES3D) and routes to exclude. The pipeline caches downloads in `.
 | Heights | geo.admin.ch profile service (DTM2) every 10 m | `region.json` |
 | Locator | profile-service rows over CH + swissBOUNDARIES3D | `switzerland.u16`, `region.json` |
 
-## Hiking time
+### Hiking time
 
 Times follow the Schweizer Wanderwege signpost method (4.2 km/h on the flat, slope-dependent pace).
 Its polynomial coefficients are not published, so `src/geo/hikingTime.ts` carries a pace table
 digitised from the official isochrone chart (ASTRA *Signalisation Wanderwege*, 2008, p. 66).
 Signpost-style times are rounded to 5 minutes.
 
-## Tests
+## Development
 
 ```bash
 task check
 ```
 
 This runs the type-checker and the unit tests (`task test` for the tests alone).
+`.github/workflows/ci.yml` runs the type-checker, the tests, the region check and the build on
+pull requests and on every branch push.
 
-## Deploy
+[AGENTS.md](AGENTS.md) describes the architecture in depth: the bundle format, the rendering
+pipeline, theming and the pipeline details that were learned the hard way.
+
+### Deploy
 
 Releases are deployed, not every commit. `.github/workflows/pages.yml` builds and publishes to
 GitHub Pages when a `v*` tag is pushed (it can also be run by hand from the Actions tab). The
@@ -78,11 +145,7 @@ task release BUMP=patch
 This runs the checks, then `npm version` (commit + `vX.Y.Z` tag) and `git push --follow-tags`.
 
 Enable Pages → "GitHub Actions" in the repository settings, and allow `v*` tags under
-Settings → Environments → `github-pages` → Deployment branches and tags. The live site is
-<https://sosinone.github.io/hika/>.
-
-`.github/workflows/ci.yml` runs the type-checker, the tests, the region check and the build on
-pull requests and on every branch push.
+Settings → Environments → `github-pages` → Deployment branches and tags.
 
 ## Credits
 
@@ -101,5 +164,6 @@ HIKA would not exist without two sci-fi console projects:
 
 The code is released under the [MIT licence](LICENSE).
 
-The bundled data in `public/data/` is not covered by it. Geodata © swisstopo, free to use with
-attribution (opendata.swiss terms "BY"). Routes © SchweizMobil / ASTRA. See [NOTICE.md](NOTICE.md).
+The bundled data in `public/data/` and the screenshots in `docs/` are not covered by it. Geodata
+© swisstopo, free to use with attribution (opendata.swiss terms "BY"). Routes © SchweizMobil / ASTRA.
+See [NOTICE.md](NOTICE.md).
