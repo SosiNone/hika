@@ -9,7 +9,7 @@ HIKA: a sci-fi HUD for exploring Swiss hiking routes, built only on swisstopo / 
 ## Work
 
 - Follow open source best practices and maintain professional grade software.
-- Use [tasks](https://taskfile.dev/) to abstract out common commands for the end user
+- Use [tasks](https://taskfile.dev/) to abstract out common commands for the end user. `Taskfile.yml` wraps the npm scripts in `package.json`; when adding a script, add a matching task with a `desc`.
 
 ## Architecture
 

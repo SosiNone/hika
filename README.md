@@ -8,10 +8,14 @@ The look comes from two projects; see [Credits](#credits).
 
 ## Run
 
+Requires Node 24 and [Task](https://taskfile.dev/installation/).
+
 ```bash
-npm install
-npm run dev
+task dev
 ```
+
+`task` lists every command. Each one wraps an npm script in `package.json`, so `npm run <script>`
+works too.
 
 The generated Alpstein bundle is committed under `public/data/alpstein/`, so the app runs without
 rebuilding data.
@@ -19,9 +23,10 @@ rebuilding data.
 ## Rebuild the data
 
 ```bash
-npm run build:region alpstein
-npm run check:region alpstein
+task region REGION=alpstein
 ```
+
+`task region:build` and `task region:check` run the two steps on their own.
 
 `regions/<id>.json` defines a region: LV95 bbox, grid cell, curated hikes (waypoint names resolved
 through swissNAMES3D) and routes to exclude. The pipeline caches downloads in `.cache/` (about
@@ -48,8 +53,10 @@ Signpost-style times are rounded to 5 minutes.
 ## Tests
 
 ```bash
-npm test
+task check
 ```
+
+This runs the type-checker and the unit tests (`task test` for the tests alone).
 
 ## Deploy
 

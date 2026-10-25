@@ -1,0 +1,87 @@
+# https://taskfile.dev
+# Thin wrappers around the npm scripts in package.json. Run `task` to list them.
+version: '3'
+
+vars:
+  REGION: alpstein
+
+tasks:
+  default:
+    silent: true
+    cmds:
+      - task --list
+
+  install:
+    desc: Install npm dependencies (skipped when package-lock.json is unchanged)
+    cmds:
+      - npm install
+    sources:
+      - package.json
+      - package-lock.json
+    generates:
+      - node_modules/.package-lock.json
+
+  dev:
+    desc: Start the Vite dev server
+    deps: [install]
+    cmds:
+      - npm run dev -- {{.CLI_ARGS}}
+
+  build:
+    desc: Type-check and build the app into dist/ (set BASE=/<repo>/ for a subpath)
+    deps: [install]
+    cmds:
+      - npm run build
+
+  preview:
+    desc: Serve the production build from dist/
+    deps: [build]
+    cmds:
+      - npm run preview -- {{.CLI_ARGS}}
+
+  test:
+    desc: Run the unit tests
+    deps: [install]
+    cmds:
+      - npm test -- {{.CLI_ARGS}}
+
+  typecheck:
+    desc: Type-check without emitting
+    deps: [install]
+    cmds:
+      - npm run typecheck
+
+  check:
+    desc: Type-check and run the tests (what CI runs before building)
+    cmds:
+      - task: typecheck
+      - task: test
+
+  region:build:
+    desc: 'Rebuild a region bundle from swisstopo data (REGION={{.REGION}})'
+    deps: [install]
+    cmds:
+      - npm run build:region -- {{.REGION}}
+
+  region:check:
+    desc: 'Validate a region bundle (REGION={{.REGION}})'
+    deps: [install]
+    cmds:
+      - npm run check:region -- {{.REGION}}
+
+  region:
+    desc: 'Rebuild and validate a region bundle, e.g. `task region REGION=alpstein`'
+    cmds:
+      - task: region:build
+      - task: region:check
+
+  clean:
+    desc: Remove build output
+    cmds:
+      - node -e "require('fs').rmSync('dist',{recursive:true,force:true})"
+
+  clean:cache:
+    desc: Remove the download cache in .cache/ (the next region build re-downloads ~300 MB)
+    prompt: This deletes .cache/ and forces a full re-download. Continue?
+    cmds:
+      - node -e "require('fs').rmSync('.cache',{recursive:true,force:true})"
