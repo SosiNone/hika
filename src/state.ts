@@ -7,10 +7,10 @@ export interface AppState {
   hoverRouteId: string | null;
   /** Sample index hovered on the profile / map, or null. */
   hoverIndex: number | null;
-  /** Replay position in hiking minutes along the selected route. */
+  /** Preview position in hiking minutes along the selected route. */
   minute: number;
   playing: boolean;
-  /** Replay speed: real seconds per hiking hour. */
+  /** Preview speed: real seconds per hiking hour. */
   secondsPerHour: number;
   mode: 'mono' | 'natural';
   /** Dark or light scheme (see src/theme). */

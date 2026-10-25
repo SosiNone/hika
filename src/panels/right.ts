@@ -137,7 +137,7 @@ function analyse(c: Ctx, r: RouteView) {
 
 interface LogEvent { minute: number; text: string; hl: boolean }
 
-/** J · Trail log: what the replay hiker passes, as it happens. */
+/** J · Trail log: what the preview hiker passes, as it happens. */
 export function mountLog(el: HTMLElement, c: Ctx) {
   const { body, meta } = frame(el, 'J', 'Trail log', '', true);
   const list = document.createElement('div');
@@ -152,7 +152,7 @@ export function mountLog(el: HTMLElement, c: Ctx) {
       shown = 0;
       list.innerHTML = '';
     }
-    meta.textContent = c.store.state.playing ? 'REPLAY ●' : 'PAUSED';
+    meta.textContent = c.store.state.playing ? 'PREVIEW ●' : 'PAUSED';
     if (minute < (events[shown - 1]?.minute ?? -1)) { list.innerHTML = ''; shown = 0; }
     while (shown < events.length && events[shown].minute <= minute) {
       const e = events[shown++];

@@ -128,8 +128,8 @@ table { border-collapse: collapse; width: 100%; }
 .kv .v { font-size: 20px; font-weight: 300; letter-spacing: 0.02em; font-variant-numeric: tabular-nums; line-height: 1.2; }
 .kv .v small { font-size: var(--fs-s); color: var(--text-2); margin-left: 3px; }
 .kv .wide { grid-column: span 2; }
-.replay-bar { display: flex; align-items: center; gap: 8px; margin-top: 10px; }
-.replay-bar input[type='range'] { flex: 1; accent-color: var(--accent); height: 2px; }
+.preview-bar { display: flex; align-items: center; gap: 8px; margin-top: 10px; }
+.preview-bar input[type='range'] { flex: 1; accent-color: var(--accent); height: 2px; }
 
 table.list { font-size: var(--fs-s); font-variant-numeric: tabular-nums; }
 table.list th { position: sticky; top: 0; background: var(--bg-2); color: var(--text-3); font-weight: 400; font-size: var(--fs-xs); letter-spacing: 0.14em; text-align: left; padding: 3px 4px; border-bottom: 1px solid var(--line-2); }

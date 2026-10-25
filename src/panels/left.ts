@@ -4,9 +4,9 @@ import { formatDuration } from '../geo/hikingTime';
 import { GLYPH } from '../hud/labels';
 import { COLORS, esc, frame, hm, num, type Ctx } from './common';
 
-/** A · Trail replay: a virtual hiker walking the route at Swiss signpost pace. */
-export function mountReplay(el: HTMLElement, c: Ctx) {
-  const { body, meta } = frame(el, 'A', 'Trail replay');
+/** A · Trail preview: a virtual hiker walking the route at Swiss signpost pace. */
+export function mountPreview(el: HTMLElement, c: Ctx) {
+  const { body, meta } = frame(el, 'A', 'Trail preview');
   body.innerHTML = `
     <div class="kv">
       <div><div class="k">H1 · KM</div><div class="v" data-k="km">0.0</div></div>
@@ -15,9 +15,9 @@ export function mountReplay(el: HTMLElement, c: Ctx) {
       <div><div class="k">ELAPSED</div><div class="v" data-k="time">0:00</div></div>
       <div class="wide"><div class="k">NEXT POINT</div><div class="v" data-k="next" style="font-size:13px">—</div></div>
     </div>
-    <div class="replay-bar">
+    <div class="preview-bar">
       <button class="btn" data-k="play">PAUSE</button>
-      <input type="range" min="0" max="1000" value="0" data-k="scrub" aria-label="Replay position" />
+      <input type="range" min="0" max="1000" value="0" data-k="scrub" aria-label="Preview position" />
       <button class="btn" data-k="speed"></button>
     </div>`;
   const q = (k: string) => body.querySelector<HTMLElement>(`[data-k="${k}"]`)!;

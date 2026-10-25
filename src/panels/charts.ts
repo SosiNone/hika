@@ -3,7 +3,7 @@ import { chart, COLORS, FONT, frame, hm, num, type Ctx } from './common';
 
 const PAD = { l: 34, r: 8, t: 22, b: 16 };
 
-/** E · Elevation profile with waypoint ticks, replay cursor and hover sync. */
+/** E · Elevation profile with waypoint ticks, preview cursor and hover sync. */
 export function mountProfile(el: HTMLElement, c: Ctx) {
   const { body, meta } = frame(el, 'E', 'Elevation profile');
   const ch = chart(body);
