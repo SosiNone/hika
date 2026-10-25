@@ -30,8 +30,9 @@ live instruments.
   its own; the TRAILS button switches it to always on or off.
 - **25 routes.** 21 SchweizMobil "Wanderland" stages and 4 curated Alpstein classics, such as
   Schwägalp – Säntis and Säntis – Lisengrat – Meglisalp.
-- **Trail preview.** A hiker walks the route at signpost pace, past each waypoint with its distance,
-  altitude and expected time.
+- **Route player.** A hiker walks the route at signpost pace, past each waypoint with its distance,
+  altitude and expected time. The region's routes play like a playlist: previous / next, repeat,
+  shuffle, and the next route starts when the hiker arrives (Space and ← / → work too).
 - **Instruments.** Elevation profile, climb and descent per km, cumulative D+ / D-, slope histogram,
   aspect rose, trail-class breakdown, a Switzerland locator and today's sunrise and sunset.
 - **Real Swiss hiking times,** from a pace table digitised from the official Schweizer Wanderwege

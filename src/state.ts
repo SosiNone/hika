@@ -14,6 +14,10 @@ export interface AppState {
   playing: boolean;
   /** Preview speed: real seconds per hiking hour. */
   secondsPerHour: number;
+  /** Loop the selected route instead of moving on to the next one in the playlist. */
+  repeat: boolean;
+  /** Walk the playlist in a random order (see src/playlist.ts). */
+  shuffle: boolean;
   mode: 'mono' | 'natural';
   /** Dark or light scheme (see src/theme). */
   display: Display;

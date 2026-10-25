@@ -135,14 +135,28 @@ table { border-collapse: collapse; width: 100%; }
 .kv .k { color: var(--text-3); font-size: var(--fs-xs); letter-spacing: 0.16em; }
 .kv .v { font-size: 20px; font-weight: 300; letter-spacing: 0.02em; font-variant-numeric: tabular-nums; line-height: 1.2; }
 .kv .v small { font-size: var(--fs-s); color: var(--text-2); margin-left: 3px; }
-.kv .wide { grid-column: span 2; }
-.preview-bar { display: flex; align-items: center; gap: 8px; margin-top: 10px; }
+.kv .v.nowrap { white-space: nowrap; }
+/* Route player: "so far / total" readouts need about 310 px in a row; narrower, the totals go under the values. */
+#p-preview .panel-body { container-type: inline-size; }
+@container (max-width: 310px) { .kv .v.nowrap small { display: block; margin-left: 0; line-height: 1.3; } }
+.kv .full { grid-column: 1 / -1; }
+/* Now playing: the route and its ends. */
+.now-playing { margin-bottom: 10px; padding-bottom: 8px; border-bottom: 1px solid var(--line); }
+.np-name, .np-ends { white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.np-name { font-size: var(--fs-l); letter-spacing: 0.06em; }
+.np-ends { color: var(--text-3); font-size: var(--fs-xs); letter-spacing: 0.1em; margin-top: 2px; }
+.preview-bar { display: flex; flex-direction: column; gap: 8px; margin-top: 10px; }
+.transport { display: flex; align-items: center; gap: 4px; }
+.transport .spacer { flex: 1; }
+.btn.icon { display: inline-grid; place-items: center; width: 26px; height: 22px; padding: 0; }
+.btn.icon svg { width: 12px; height: 12px; fill: none; stroke: currentColor; stroke-width: 1.2; stroke-linejoin: round; stroke-linecap: round; }
+.transport .btn:not(.icon) { height: 22px; }
 /* Scrubber: a hairline with an accent progress trace, waypoint ticks and an arrowhead playhead
    pointing the way the hike is walked (the same pointer the charts draw). --p (progress) and each
    tick's --f are fractions of the walk, set from left.ts; --tw insets both so they line up with the
    thumb centre at either end. The native thumb stays invisible and only takes the pointer; the
    arrowhead is .mark, so the focus ring can sit around it without being clipped by its shape. */
-.scrub { --tw: 10px; --p: 0; position: relative; flex: 1; height: 18px; }
+.scrub { --tw: 10px; --p: 0; position: relative; height: 18px; }
 .scrub::before, .scrub::after { content: ''; position: absolute; top: 50%; left: calc(var(--tw) / 2); transform: translateY(-50%); pointer-events: none; }
 .scrub::before { right: calc(var(--tw) / 2); height: 1px; background: var(--line-3); }
 .scrub::after { width: calc(var(--p) * (100% - var(--tw))); height: 2px; background: var(--accent); }
@@ -158,7 +172,7 @@ table { border-collapse: collapse; width: 100%; }
 .scrub .mark::before { content: ''; position: absolute; inset: 0; background: var(--accent); clip-path: polygon(0 0, 100% 50%, 0 100%, 26% 50%); }
 .scrub:hover .mark, .scrub:active .mark { transform: translate(-50%, -50%) scale(1.25); }
 .scrub:has(input:focus-visible) .mark { outline: 1px solid var(--text); outline-offset: 2px; }
-.preview-bar .btn { white-space: nowrap; }
+.transport .btn { white-space: nowrap; }
 
 table.list { font-size: var(--fs-s); font-variant-numeric: tabular-nums; }
 table.list th { position: sticky; top: 0; background: var(--bg-2); color: var(--text-3); font-weight: 400; font-size: var(--fs-xs); letter-spacing: 0.14em; text-align: left; padding: 3px 4px; border-bottom: 1px solid var(--line-2); }

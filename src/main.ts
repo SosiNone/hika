@@ -7,6 +7,7 @@ import { mountCumulative, mountGradient, mountProfile } from './panels/charts';
 import type { Ctx } from './panels/common';
 import { mountPreview, mountRoutes, mountTrailClass, mountWaypoints } from './panels/left';
 import { mountLocator, mountLog, mountTerrainStats } from './panels/right';
+import { Playlist } from './playlist';
 import { Store } from './state';
 import { applyDisplay, loadDisplay, palette, saveDisplay } from './theme/apply';
 import { mountDisplaySwitch, renderTickers, showVersion, startClock } from './ui/chrome';
@@ -43,6 +44,8 @@ function start(region: Region) {
     minute: 0,
     playing: true,
     secondsPerHour: 3,
+    repeat: false,
+    shuffle: false,
     mode: 'mono',
     display: initialDisplay,
   });
@@ -56,12 +59,21 @@ function start(region: Region) {
     return reversedById.get(routeId)!;
   };
   let ids = waypointIds(route());
+  const playlist = new Playlist(region.routes);
+  /** When the preview, held at the finish, moves on (0 = not holding). */
+  let holdUntil = 0;
+  const skip = (dir: 1 | -1) => {
+    const s = store.state;
+    // Like a music player: "previous" first rewinds a route that has played for over 2 s.
+    if (dir < 0 && (s.minute / 60) * s.secondsPerHour > 2) store.set({ minute: 0, playing: true });
+    else store.set({ routeId: playlist.step(s.routeId, dir), reversed: false, minute: 0, playing: true });
+  };
 
   const canvas = document.getElementById('terrain') as HTMLCanvasElement;
   const view = new TerrainView(canvas, region);
   view.palette = palette.gl;
   const labels = new LabelLayer(document.getElementById('terrain-hud') as HTMLCanvasElement, region, view);
-  const ctx: Ctx = { region, store, view, route, hikerIndex: () => indexAtMinute(route(), store.state.minute), waypointIds: () => ids };
+  const ctx: Ctx = { region, store, view, route, hikerIndex: () => indexAtMinute(route(), store.state.minute), waypointIds: () => ids, playlist, skip };
   document.getElementById('brand-sub')!.textContent = `${region.bundle.title.toUpperCase()} · ${region.bundle.cantons.join(' / ')}`;
   const overlay = mountStageOverlay(region, store, view);
 
@@ -88,7 +100,11 @@ function start(region: Region) {
   selectRoute(route());
   store.subscribe((s, prev) => {
     // Reversing keeps the route's footprint, so the camera stays put.
-    if (s.routeId !== prev.routeId || s.reversed !== prev.reversed) selectRoute(route(), s.routeId !== prev.routeId);
+    if (s.routeId !== prev.routeId || s.reversed !== prev.reversed) {
+      selectRoute(route(), s.routeId !== prev.routeId);
+      holdUntil = 0;
+    }
+    if (s.shuffle !== prev.shuffle) playlist.setShuffle(s.shuffle, s.routeId);
     if (s.hoverRouteId !== prev.hoverRouteId) view.setHover(s.hoverRouteId && s.hoverRouteId !== s.routeId ? byId.get(s.hoverRouteId)! : null);
     if (s.mode !== prev.mode) view.mode = s.mode === 'natural' ? 1 : 0;
     if (s.display !== prev.display) {
@@ -114,10 +130,28 @@ function start(region: Region) {
     if (id && byId.has(id) && (id !== store.state.routeId || reversed !== store.state.reversed)) store.set({ routeId: id, reversed, minute: 0, playing: true });
   });
 
+  // Space plays / pauses, ← / → change route. Focused controls keep their own keys.
+  window.addEventListener('keydown', (e) => {
+    if (e.ctrlKey || e.metaKey || e.altKey || e.shiftKey) return;
+    const t = e.target as HTMLElement;
+    if (t.isContentEditable || /^(INPUT|BUTTON|SELECT|TEXTAREA)$/.test(t.tagName)) return;
+    const action: Record<string, () => void> = {
+      ' ': () => store.set({ playing: !store.state.playing }),
+      MediaPlayPause: () => store.set({ playing: !store.state.playing }),
+      ArrowLeft: () => skip(-1),
+      MediaTrackPrevious: () => skip(-1),
+      ArrowRight: () => skip(1),
+      MediaTrackNext: () => skip(1),
+    };
+    if (!action[e.key]) return;
+    e.preventDefault();
+    action[e.key]();
+  });
+
   startClock(region);
   mountDisplaySwitch(document.getElementById('display')!, store);
 
-  let last = performance.now(), lastPanels = 0, holdUntil = 0;
+  let last = performance.now(), lastPanels = 0;
   let lastVp = view.camera.viewProj(1);
   const loop = (now: number) => {
     const dt = Math.min(0.1, (now - last) / 1000);
@@ -126,10 +160,15 @@ function start(region: Region) {
     const s = store.state, r = route();
     const total = r.minutes[r.minutes.length - 1];
     if (s.playing) {
-      // Advance silently (panels poll the state); hold 2.5 s at the finish, then loop.
+      // Advance silently (panels poll the state); hold 2.5 s at the finish, then loop the route
+      // (repeat) or play the next one.
       if (s.minute < total) store.state.minute = Math.min(total, s.minute + (dt * 60) / s.secondsPerHour);
       else if (!holdUntil) holdUntil = now + 2500;
-      else if (now > holdUntil) { store.state.minute = 0; holdUntil = 0; }
+      else if (now > holdUntil) {
+        holdUntil = 0;
+        if (s.repeat) store.state.minute = 0;
+        else skip(1);
+      }
     }
     const hiker = indexAtMinute(r, store.state.minute);
     const info = view.render(t, dt);
@@ -192,7 +231,7 @@ function mountStageOverlay(region: Region, store: Store, view: TerrainView) {
     <div class="stage-route" data-k="route"></div>
     <div class="coords" data-k="coords"></div>
     <div class="alt-meter" data-k="meter" aria-hidden="true"></div>
-    <div class="stage-hints">DRAG · ORBIT &nbsp;&nbsp; RIGHT-DRAG · PAN &nbsp;&nbsp; WHEEL · ZOOM &nbsp;&nbsp; CLICK · SELECT ROUTE &nbsp;&nbsp; DBL-CLICK · RESET</div>
+    <div class="stage-hints">DRAG · ORBIT &nbsp;&nbsp; RIGHT-DRAG · PAN &nbsp;&nbsp; WHEEL · ZOOM &nbsp;&nbsp; CLICK · SELECT ROUTE &nbsp;&nbsp; DBL-CLICK · RESET &nbsp;&nbsp; SPACE · PLAY &nbsp;&nbsp; ←/→ · ROUTE</div>
     <div class="stage-status" data-k="status"></div>`;
   stage.appendChild(el);
   const q = (k: string) => el.querySelector<HTMLElement>(`[data-k="${k}"]`)!;
