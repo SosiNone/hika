@@ -139,31 +139,84 @@ function analyse(c: Ctx, r: RouteView) {
 
 interface LogEvent { minute: number; text: string; hl: boolean }
 
-/** J · Trail log: what the preview hiker passes, as it happens. */
+/** Typewriter speed of new log lines, in characters per second. */
+const TYPE_CPS = 55;
+/** Delay between the starts of lines that arrive in the same update, in ms. */
+const TYPE_STAGGER = 150;
+/** Only the newest lines of a batch type; older ones (e.g. after a long scrub) appear whole. */
+const TYPE_MAX = 3;
+
+interface Typing { row: HTMLElement; typed: HTMLElement; rest: HTMLElement; text: string; start: number }
+
+/** J · Trail log: what the preview hiker passes, as it happens. New lines type themselves in. */
 export function mountLog(el: HTMLElement, c: Ctx) {
   const { body, meta } = frame(el, 'J', 'Trail log', '', true);
   const list = document.createElement('div');
   list.className = 'log';
   body.appendChild(list);
+  const still = matchMedia('(prefers-reduced-motion: reduce)').matches;
   let events: LogEvent[] = [], shown = 0, built: RouteView | null = null;
+  let typing: Typing[] = [], frameId = 0;
+
+  const tick = (now: number) => {
+    typing = typing.filter((t) => {
+      const n = Math.max(0, Math.floor(((now - t.start) * TYPE_CPS) / 1000));
+      if (n >= t.text.length || !t.row.isConnected) {
+        t.typed.textContent = t.text;
+        t.rest.textContent = '';
+        t.row.classList.remove('typing');
+        return false;
+      }
+      if (t.typed.textContent!.length !== n) {
+        t.typed.textContent = t.text.slice(0, n);
+        t.rest.textContent = t.text.slice(n);
+      }
+      return true;
+    });
+    frameId = typing.length ? requestAnimationFrame(tick) : 0;
+  };
+  const clear = () => {
+    list.innerHTML = '';
+    shown = 0;
+    typing = [];
+  };
+
   return () => {
     const r = c.route(), minute = c.store.state.minute;
     if (built !== r) {
       built = r;
       events = buildEvents(c, r);
-      shown = 0;
-      list.innerHTML = '';
+      clear();
     }
     meta.textContent = c.store.state.playing ? 'PREVIEW ●' : 'PAUSED';
-    if (minute < (events[shown - 1]?.minute ?? -1)) { list.innerHTML = ''; shown = 0; }
-    while (shown < events.length && events[shown].minute <= minute) {
-      const e = events[shown++];
+    if (minute < (events[shown - 1]?.minute ?? -1)) clear();
+    let last = shown;
+    while (last < events.length && events[last].minute <= minute) last++;
+    // New lines start one stagger after the latest line that is still typing.
+    let start = Math.max(performance.now(), (typing.at(-1)?.start ?? -Infinity) + TYPE_STAGGER);
+    for (; shown < last; shown++) {
+      const e = events[shown];
       const row = document.createElement('div');
       row.className = `log-row${e.hl ? ' hl' : ''}`;
-      row.innerHTML = `<span class="t">T+${hm(e.minute)}</span><span>${esc(e.text)}</span>`;
+      const t = document.createElement('span'), msg = document.createElement('span');
+      const typed = document.createElement('span'), rest = document.createElement('span');
+      t.className = 't';
+      t.textContent = `T+${hm(e.minute)}`;
+      typed.className = 'typed';
+      rest.className = 'rest';
+      msg.append(typed, rest);
+      row.append(t, msg);
+      if (still || last - shown > TYPE_MAX) typed.textContent = e.text;
+      else {
+        rest.textContent = e.text;
+        row.classList.add('typing');
+        typing.push({ row, typed, rest, text: e.text, start });
+        start += TYPE_STAGGER;
+      }
       list.appendChild(row);
       while (list.children.length > 60) list.firstElementChild!.remove();
     }
+    if (typing.length && !frameId) frameId = requestAnimationFrame(tick);
   };
 }
 
