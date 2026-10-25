@@ -13,7 +13,8 @@ export const GLYPH: Record<PlaceKind, string> = {
 const FONT = '400 10px "IBM Plex Mono", monospace';
 const STRONG = '500 10px "IBM Plex Mono", monospace';
 const SMALL = '400 9px "IBM Plex Mono", monospace';
-const TAG = '500 9px "IBM Plex Mono", monospace';
+/** Radius of a waypoint's ground ring, as a fraction of its distance from the camera. */
+const RING = 0.022;
 /** Metres of track either side of the hiker that set its heading arrow. */
 const HEADING_SPAN = 60;
 /** Time constant (s) of the heading arrow's low-pass filter. */
@@ -27,6 +28,11 @@ const px = (v: number) => Math.round(v) + 0.5;
 
 /** Where a route waypoint stands relative to the preview hiker. */
 type WaypointState = 'passed' | 'next' | 'ahead';
+/** A waypoint pin's colours: only the next one takes the accent, passed ones fade back. */
+const tone = (state: WaypointState) =>
+  state === 'next' ? { stroke: C.ac(0.6), mark: C.accent, name: C.accentTint, sub: C.accent }
+  : state === 'ahead' ? { stroke: C.ink(0.45), mark: C.text, name: C.text, sub: C.text2 }
+  : { stroke: C.ink(0.25), mark: C.text3, name: C.text3, sub: C.text3 };
 
 /**
  * 2D overlay on top of the terrain: place labels on leader lines with priority-based
@@ -81,9 +87,10 @@ export class LabelLayer {
         const sub = state === 'passed' ? `✓ T+${hm(wp.time)}`
           : state === 'next' ? `NEXT · ETA ${hm(Math.max(0, wp.time - now))}`
           : `${Math.round(p.alt || wp.alt)} M · T+${hm(wp.time)}`;
-        this.marker(s.x, s.y, state, end, a);
-        // A waypoint label that would collide shrinks to its ID tag instead of disappearing.
-        if (!this.waypoint(s.x, s.y, 34, id, p.name.toUpperCase(), sub, state, taken, W)) this.waypoint(s.x, s.y, 16, id, '', '', state, taken, W, true);
+        const breathe = state === 'next' ? 1 + 0.12 * (1 - Math.cos(a * 2.4)) : 1;
+        this.ring(at, route.e[i], route.n[i], route.alt[i], info.eye, tone(state).stroke, breathe);
+        // A waypoint label that would collide shrinks to its ID instead of disappearing.
+        if (!this.waypoint(s.x, s.y, 34, id, p.name.toUpperCase(), sub, state, end, taken, W)) this.waypoint(s.x, s.y, 16, id, '', '', state, end, taken, W, true);
       });
     }
     for (const p of this.candidates) {
@@ -173,81 +180,71 @@ export class LabelLayer {
   }
 
   /**
-   * A route waypoint's label: a dog-leg leader up to an inverted ID tag, the name beside it
-   * and a status line below. Returns false when it was skipped for overlapping.
+   * A route waypoint's pin and label: a straight leader up from the ground to a small hollow
+   * circle (larger at DEP/ARR), the ID and name beside it and a status line below. Returns
+   * false when it was skipped for overlapping.
    */
-  private waypoint(x: number, y: number, lift: number, id: string, name: string, sub: string, state: WaypointState, taken: Rect[], W: number, force = false): boolean {
+  private waypoint(x: number, y: number, lift: number, id: string, name: string, sub: string, state: WaypointState, end: boolean, taken: Rect[], W: number, force = false): boolean {
     const { ctx } = this;
-    ctx.font = TAG;
-    const tagW = Math.ceil(ctx.measureText(id).width) + 6;
     ctx.font = STRONG;
-    const nameW = name ? ctx.measureText(name).width + 4 : 0;
+    const idW = ctx.measureText(id).width;
+    ctx.font = FONT;
+    const rowW = idW + (name ? ctx.measureText(name).width + 5 : 0);
     ctx.font = SMALL;
-    const tw = Math.max(tagW + nameW, sub ? ctx.measureText(sub).width : 0);
-    const flip = x + 12 + tw > W - 150;
-    const ax = px(x), ky = px(y - lift), kx = ax + (flip ? -6 : 6);
-    const left = Math.round(flip ? kx - 3 - tw : kx + 3);
-    const top = ky - 8;
-    const x0 = Math.min(left, ax) - 2, x1 = Math.max(left + tw, ax) + 2, bottom = Math.max(y + 4, top + (sub ? 24 : 13));
-    if (!this.claim({ x: x0, y: top - 2, w: x1 - x0, h: bottom - top + 2 }, taken, force)) return false;
+    const tw = Math.max(rowW, sub ? ctx.measureText(sub).width : 0);
+    const r = end ? 5 : 3.5;
+    const ax = px(x), cy = px(y - lift);
+    const flip = x + 10 + tw > W - 150;
+    const left = Math.round(flip ? ax - 10 - tw : ax + 10);
+    const x0 = Math.min(left, ax - r) - 2, x1 = Math.max(left + tw, ax + r) + 2, top = cy - 12, bottom = Math.max(y + 4, cy + 11);
+    if (!this.claim({ x: x0, y: top, w: x1 - x0, h: bottom - top }, taken, force)) return false;
 
-    const dim = state === 'passed';
-    const line = dim ? C.ac(0.4) : C.ac(0.85);
+    const c = tone(state);
     ctx.beginPath();
-    ctx.moveTo(ax, y - 6);
-    ctx.lineTo(ax, ky);
-    ctx.lineTo(kx, ky);
-    this.stroke(line);
-    ctx.fillStyle = line;
-    ctx.fillRect(kx - (flip ? 0 : 2), ky - 1.5, 2, 3);
+    ctx.moveTo(ax, y);
+    ctx.lineTo(ax, cy + r);
+    ctx.moveTo(ax + r, cy);
+    ctx.arc(ax, cy, r, 0, Math.PI * 2);
+    this.stroke(c.stroke);
+    ctx.beginPath();
+    ctx.arc(ax, cy, 1.6, 0, Math.PI * 2);
+    ctx.fillStyle = c.mark;
+    ctx.fill();
 
-    // The ID tag: background-coloured caps on an accent plate.
-    const tagX = flip ? left + tw - tagW : left;
-    ctx.fillStyle = dim ? C.ac(0.45) : C.accent;
-    ctx.fillRect(tagX, top, tagW, 11);
-    ctx.font = TAG;
     ctx.textBaseline = 'alphabetic';
-    ctx.fillStyle = C.bg;
-    ctx.fillText(id, tagX + 3, top + 8.5);
+    const rx = flip ? left + tw - rowW : left, base = sub ? cy - 3 : cy + 3.5;
+    ctx.font = STRONG;
+    this.text(id, rx, base, c.mark);
     if (name) {
-      ctx.font = STRONG;
-      this.text(name, flip ? tagX - nameW : tagX + tagW + 4, top + 9, dim ? C.text2 : C.accentTint);
+      ctx.font = FONT;
+      this.text(name, rx + idW + 5, base, c.name);
     }
     if (sub) {
       ctx.font = SMALL;
       const sw = ctx.measureText(sub).width;
-      this.text(sub, flip ? left + tw - sw : left, top + 21, dim ? C.text3 : state === 'next' ? C.accent : C.ac(0.9));
+      this.text(sub, flip ? left + tw - sw : left, cy + 9, c.sub);
     }
     return true;
   }
 
-  /** The waypoint's ground marker: a diamond, doubled with ticks at DEP/ARR, bracketed when next. */
-  private marker(x: number, y: number, state: WaypointState, end: boolean, a: number) {
+  /**
+   * A waypoint's ground ring: a level circle around the track, projected so it lies flat on the
+   * terrain. Its radius grows with the camera distance, so it keeps about the same size on screen.
+   */
+  private ring(at: (e: number, n: number, alt: number) => Screen, e: number, n: number, alt: number, eye: number[], color: string, scale: number) {
     const { ctx } = this;
-    const cx = px(x), cy = px(y);
-    const color = state === 'passed' ? C.ac(0.45) : C.accent;
-    const diamond = (r: number) => {
-      ctx.moveTo(cx, cy - r); ctx.lineTo(cx + r, cy); ctx.lineTo(cx, cy + r); ctx.lineTo(cx - r, cy); ctx.closePath();
-    };
+    const [x, y, z] = this.view.world(e, n, alt);
+    const r = Math.hypot(x - eye[0], y - eye[1], z - eye[2]) * RING * scale;
     ctx.beginPath();
-    diamond(4);
-    if (end) {
-      diamond(7);
-      for (const [dx, dy] of [[0, -1], [1, 0], [0, 1], [-1, 0]]) { ctx.moveTo(cx + dx * 7, cy + dy * 7); ctx.lineTo(cx + dx * 10, cy + dy * 10); }
+    let open = false;
+    for (let k = 0; k <= 32; k++) {
+      const q = (k / 32) * Math.PI * 2, s = at(e + Math.cos(q) * r, n + Math.sin(q) * r, alt);
+      if (s.w <= 0) { open = false; continue; }
+      if (open) ctx.lineTo(s.x, s.y);
+      else ctx.moveTo(s.x, s.y);
+      open = true;
     }
     this.stroke(color);
-    if (state === 'passed') {
-      ctx.beginPath();
-      diamond(4);
-      ctx.fillStyle = C.ac(0.3);
-      ctx.fill();
-    }
-    ctx.fillStyle = color;
-    ctx.fillRect(cx - 1, cy - 1, 2, 2);
-    if (state === 'next') {
-      const h = Math.round((end ? 11 : 8) * (1 + 0.125 * (1 - Math.cos(a * 2.4))));
-      this.brackets(cx - h, cy - h, 2 * h, 2 * h, 3, C.accent);
-    }
   }
 
   /** Four L-shaped corners of a box, like the panel frames. */
