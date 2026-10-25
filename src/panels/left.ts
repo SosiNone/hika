@@ -1,4 +1,4 @@
-import type { RouteView } from '../data/load';
+import { nextWaypoint, type RouteView } from '../data/load';
 import { TRAIL_CLASSES } from '../data/types';
 import { formatDuration } from '../geo/hikingTime';
 import { GLYPH } from '../hud/labels';
@@ -22,26 +22,29 @@ export function mountPreview(el: HTMLElement, c: Ctx) {
         <input type="range" min="0" max="1000" value="0" data-k="scrub" aria-label="Preview position" />
       </div>
       <button class="btn" data-k="speed"></button>
+      <button class="btn" data-k="rev" aria-pressed="false">⇄ REV</button>
     </div>`;
   const q = (k: string) => body.querySelector<HTMLElement>(`[data-k="${k}"]`)!;
   const scrub = q('scrub') as HTMLInputElement;
   const track = q('track');
   let ticks: HTMLElement[] = [];
-  let built = '';
+  let built: RouteView | null = null;
   const speeds = [1.5, 3, 6];
   q('play').onclick = () => c.store.set({ playing: !c.store.state.playing });
   q('speed').onclick = () => {
     const i = speeds.indexOf(c.store.state.secondsPerHour);
     c.store.set({ secondsPerHour: speeds[(i + 1) % speeds.length] });
   };
+  // Reversing restarts the preview at the new departure.
+  q('rev').onclick = () => c.store.set({ reversed: !c.store.state.reversed, minute: 0 });
   scrub.oninput = () => c.store.set({ minute: (+scrub.value / 1000) * c.route().minutes[c.route().minutes.length - 1], playing: false });
 
   return () => {
     const r = c.route(), i = c.hikerIndex(), s = c.store.state;
     const total = r.minutes[r.minutes.length - 1];
-    if (built !== r.id) {
+    if (built !== r) {
       // One tick per waypoint, placed by walking time so it lines up with the scrubber.
-      built = r.id;
+      built = r;
       q('ticks').innerHTML = r.waypoints.map((w) => `<i style="--f:${Math.min(1, w.time / total)}"></i>`).join('');
       ticks = [...q('ticks').children] as HTMLElement[];
     }
@@ -52,11 +55,13 @@ export function mountPreview(el: HTMLElement, c: Ctx) {
     q('alt').textContent = num(r.alt[i]);
     q('up').textContent = num(r.up[i]);
     q('time').textContent = hm(r.minutes[i]);
-    const next = r.waypoints.find((w) => w.km * 1000 > i * r.step + 1);
+    const next = r.waypoints[nextWaypoint(r, i)];
     const p = next && c.region.places.get(next.place);
     q('next').textContent = p ? `${c.waypointIds().get(next.place)} · ${p.name} · ${hm(Math.max(0, next.time - r.minutes[i]))}` : 'ARRIVED';
     q('play').textContent = s.playing ? 'PAUSE' : 'PLAY';
     q('speed').textContent = `×${(3 / s.secondsPerHour).toFixed(1).replace('.0', '')}`;
+    q('rev').setAttribute('aria-pressed', String(s.reversed));
+    q('rev').title = `Walk it the other way: ${r.to} → ${r.from}`;
     if (document.activeElement !== scrub) scrub.value = String(Math.round((s.minute / total) * 1000));
   };
 }
@@ -65,12 +70,12 @@ export function mountPreview(el: HTMLElement, c: Ctx) {
 export function mountWaypoints(el: HTMLElement, c: Ctx) {
   const { body, meta } = frame(el, 'B', 'Waypoints', '', true);
   let rows: HTMLTableRowElement[] = [];
-  let built = '';
+  let built: RouteView | null = null;
 
   return () => {
     const r = c.route();
-    if (built !== r.id) {
-      built = r.id;
+    if (built !== r) {
+      built = r;
       meta.textContent = `SIGNPOST TIME · ${formatDuration(r.stats.time, true)}`;
       const ids = c.waypointIds();
       body.innerHTML = `<table class="list"><thead><tr><th>ID</th><th>POINT</th><th class="num">KM</th><th class="num">ALT</th><th class="num">⌛</th></tr></thead><tbody>${r.waypoints
@@ -80,14 +85,10 @@ export function mountWaypoints(el: HTMLElement, c: Ctx) {
         }).join('')}</tbody></table>`;
       rows = [...body.querySelectorAll('tbody tr')] as HTMLTableRowElement[];
     }
-    const done = c.hikerIndex() * r.step;
-    let nextSet = false;
-    r.waypoints.forEach((w, k) => {
-      const passed = w.km * 1000 <= done + 1;
-      rows[k].classList.toggle('passed', passed && k < r.waypoints.length - 1);
-      const isNext = !passed && !nextSet;
-      if (isNext) nextSet = true;
-      rows[k].classList.toggle('next', isNext);
+    const next = nextWaypoint(r, c.hikerIndex());
+    r.waypoints.forEach((_, k) => {
+      rows[k].classList.toggle('passed', (next < 0 || k < next) && k < r.waypoints.length - 1);
+      rows[k].classList.toggle('next', k === next);
     });
   };
 }
@@ -100,11 +101,11 @@ export function mountTrailClass(el: HTMLElement, c: Ctx) {
   const net = c.region.bundle.trails;
   const netTotal = net.km[0] + net.km[1] + net.km[2];
   meta.textContent = `NETWORK ${num(netTotal)} KM`;
-  let built = '';
+  let built: RouteView | null = null;
   return () => {
     const r = c.route();
-    if (built === r.id) return;
-    built = r.id;
+    if (built === r) return;
+    built = r;
     const km = r.stats.classKm, total = r.stats.km || 1;
     const labels = [...TRAIL_CLASSES.map((t) => t.toUpperCase()), 'OFF NETWORK'];
     const stack = km.map((k, i) => (k > 0 ? `<div style="width:${(k / total) * 100}%;background:${CLASS_VARS[i]}" title="${labels[i]} ${k} km"></div>` : '')).join('');
@@ -138,7 +139,7 @@ export function mountRoutes(el: HTMLElement, c: Ctx) {
       const climbs = `↑${r.stats.up} ↓${r.stats.down}`;
       b.innerHTML = `<span class="no">${r.number ?? '★'}</span><span class="nm" title="${esc(r.name)} (${esc(r.from)} → ${esc(r.to)})">${esc(r.name)}</span><canvas></canvas>
         <span class="st"><span>${r.stats.km.toFixed(1)} KM</span><span>${climbs}</span><span>${formatDuration(r.stats.time, true)}</span>${r.clipped.some(Boolean) ? '<span title="continues beyond the region">✂</span>' : ''}</span>`;
-      b.onclick = () => c.store.set({ routeId: r.id, minute: 0, playing: true });
+      b.onclick = () => c.store.set({ routeId: r.id, reversed: r.id === c.store.state.routeId && c.store.state.reversed, minute: 0, playing: true });
       b.onmouseenter = () => c.store.set({ hoverRouteId: r.id });
       b.onmouseleave = () => c.store.set({ hoverRouteId: null });
       list.appendChild(b);

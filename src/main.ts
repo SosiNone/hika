@@ -1,5 +1,5 @@
 import './styles/hud.css';
-import { indexAtMinute, loadRegion, type Region, type RouteView } from './data/load';
+import { indexAtMinute, loadRegion, reverseRoute, type Region, type RouteView } from './data/load';
 import { project } from './gl/glkit';
 import { TerrainView, type TrailMode } from './gl/terrain';
 import { LabelLayer } from './hud/labels';
@@ -33,9 +33,11 @@ async function boot() {
 }
 
 function start(region: Region) {
-  const fromHash = new URLSearchParams(location.hash.slice(1)).get('route');
+  const hash = new URLSearchParams(location.hash.slice(1));
+  const fromHash = hash.get('route');
   const store = new Store({
     routeId: region.routes.some((r) => r.id === fromHash) ? fromHash! : region.routes.find((r) => r.id === DEFAULT_ROUTE)?.id ?? region.routes[0].id,
+    reversed: region.routes.some((r) => r.id === fromHash) && hash.get('reverse') === '1',
     hoverRouteId: null,
     hoverIndex: null,
     minute: 0,
@@ -45,7 +47,14 @@ function start(region: Region) {
     display: initialDisplay,
   });
   const byId = new Map(region.routes.map((r) => [r.id, r]));
-  const route = () => byId.get(store.state.routeId)!;
+  // Reversed views are derived on first use and kept, so panels can cache on the route object.
+  const reversedById = new Map<string, RouteView>();
+  const route = () => {
+    const { routeId, reversed } = store.state;
+    if (!reversed) return byId.get(routeId)!;
+    if (!reversedById.has(routeId)) reversedById.set(routeId, reverseRoute(byId.get(routeId)!));
+    return reversedById.get(routeId)!;
+  };
   let ids = waypointIds(route());
 
   const canvas = document.getElementById('terrain') as HTMLCanvasElement;
@@ -69,16 +78,17 @@ function start(region: Region) {
     mountLog(document.getElementById('p-log')!, ctx),
   ];
 
-  const selectRoute = (r: RouteView) => {
+  const selectRoute = (r: RouteView, fly = true) => {
     ids = waypointIds(r);
     view.setRoute(r);
     renderTickers(region, r, ids);
-    flyToRoute(view, r);
-    history.replaceState(null, '', `#route=${r.id}`);
+    if (fly) flyToRoute(view, r);
+    history.replaceState(null, '', `#route=${r.id}${store.state.reversed ? '&reverse=1' : ''}`);
   };
   selectRoute(route());
   store.subscribe((s, prev) => {
-    if (s.routeId !== prev.routeId) selectRoute(route());
+    // Reversing keeps the route's footprint, so the camera stays put.
+    if (s.routeId !== prev.routeId || s.reversed !== prev.reversed) selectRoute(route(), s.routeId !== prev.routeId);
     if (s.hoverRouteId !== prev.hoverRouteId) view.setHover(s.hoverRouteId && s.hoverRouteId !== s.routeId ? byId.get(s.hoverRouteId)! : null);
     if (s.mode !== prev.mode) view.mode = s.mode === 'natural' ? 1 : 0;
     if (s.display !== prev.display) {
@@ -95,12 +105,13 @@ function start(region: Region) {
     if (!down || Math.hypot(e.clientX - down.x, e.clientY - down.y) > 4) return;
     const rect = canvas.getBoundingClientRect();
     const hit = pickRoute(region, view, lastVp, e.clientX - rect.left, e.clientY - rect.top, rect.width, rect.height);
-    if (hit && hit !== store.state.routeId) store.set({ routeId: hit, minute: 0, playing: true });
+    if (hit && hit !== store.state.routeId) store.set({ routeId: hit, reversed: false, minute: 0, playing: true });
   });
   view.camera.attach(canvas, () => {});
   window.addEventListener('hashchange', () => {
-    const id = new URLSearchParams(location.hash.slice(1)).get('route');
-    if (id && byId.has(id) && id !== store.state.routeId) store.set({ routeId: id, minute: 0, playing: true });
+    const hash = new URLSearchParams(location.hash.slice(1));
+    const id = hash.get('route'), reversed = hash.get('reverse') === '1';
+    if (id && byId.has(id) && (id !== store.state.routeId || reversed !== store.state.reversed)) store.set({ routeId: id, reversed, minute: 0, playing: true });
   });
 
   startClock(region);
@@ -123,7 +134,7 @@ function start(region: Region) {
     const hiker = indexAtMinute(r, store.state.minute);
     const info = view.render(t, dt);
     lastVp = info.vp;
-    labels.draw(info, r, hiker, store.state.hoverIndex, ids);
+    labels.draw(info, t, r, hiker, store.state.hoverIndex, ids);
     overlay(info, r, hiker);
     if (now - lastPanels > 50) {
       lastPanels = now;
@@ -167,7 +178,7 @@ function pickRoute(region: Region, view: TerrainView, vp: Float32Array, x: numbe
   return best;
 }
 
-/** Stage chrome inside the terrain panel: title, camera readout, toggles, status, LV95 column. */
+/** Stage chrome inside the terrain panel: title, camera readout, toggles, status, LV95 column, altitude meter. */
 function mountStageOverlay(region: Region, store: Store, view: TerrainView) {
   const stage = document.getElementById('p-terrain')!;
   const el = document.createElement('div');
@@ -180,6 +191,7 @@ function mountStageOverlay(region: Region, store: Store, view: TerrainView) {
       <button class="btn" data-k="trails" style="margin-left:6px"></button></div>
     <div class="stage-route" data-k="route"></div>
     <div class="coords" data-k="coords"></div>
+    <div class="alt-meter" data-k="meter" aria-hidden="true"></div>
     <div class="stage-hints">DRAG · ORBIT &nbsp;&nbsp; RIGHT-DRAG · PAN &nbsp;&nbsp; WHEEL · ZOOM &nbsp;&nbsp; CLICK · SELECT ROUTE &nbsp;&nbsp; DBL-CLICK · RESET</div>
     <div class="stage-status" data-k="status"></div>`;
   stage.appendChild(el);
@@ -210,12 +222,24 @@ function mountStageOverlay(region: Region, store: Store, view: TerrainView) {
   };
   showTrailMode();
   const { grid } = region.bundle;
+  // Altitude meter: a scale in round 500 m steps, a band over the range the scan sweeps, and a
+  // marker that follows the scan line.
+  const lo = Math.floor(grid.minAlt / 500) * 500, hi = Math.ceil(grid.maxAlt / 500) * 500;
+  const pct = (alt: number) => `${((alt - lo) / (hi - lo)) * 100}%`;
+  const ticks: string[] = [];
+  for (let a = lo; a <= hi; a += 100) {
+    ticks.push(a % 500 ? `<i style="bottom:${pct(a)}"></i>` : `<i class="major" style="bottom:${pct(a)}"></i><span style="bottom:${pct(a)}">${a}</span>`);
+  }
+  q('meter').innerHTML = `<b class="range" style="bottom:${pct(grid.minAlt)};top:calc(100% - ${pct(grid.maxAlt)})"></b>${ticks.join('')}<div class="mark">▸<s></s><em></em></div>`;
+  const mark = q('meter').querySelector<HTMLElement>('.mark')!, markValue = mark.querySelector('em')!;
   let lastIdx = -1;
   return (info: { focus: number; scanAlt: number; fps: number; points: number }, r: RouteView, hiker: number) => {
     const c = view.camera;
     const deg = (v: number) => ((((v * 180) / Math.PI) % 360) + 360) % 360;
     q('cam').textContent = `CAM AZ ${deg(c.az).toFixed(1).padStart(5)}°  EL ${deg(c.el).toFixed(1)}°  R ${(c.dist / 1000).toFixed(1)} KM\nFOCUS ${(info.focus / 1000).toFixed(1)} KM  VERT ×${view.exaggeration}  GRID ${grid.cell} M`;
-    q('route').textContent = `${r.number ? `ROUTE ${r.number}` : '★ CLASSIC'} · ${r.name.toUpperCase()}`;
+    mark.style.bottom = pct(info.scanAlt);
+    markValue.textContent = String(Math.round(info.scanAlt));
+    q('route').textContent = `${r.number ? `ROUTE ${r.number}` : '★ CLASSIC'} · ${r.name.toUpperCase()}${store.state.reversed ? ' · REVERSED' : ''}`;
     q('status').textContent = `SCAN ALT ${Math.round(info.scanAlt)} M   HIKA T+${Math.floor(r.minutes[hiker] / 60)}:${String(Math.floor(r.minutes[hiker] % 60)).padStart(2, '0')}\nPTS ${info.points.toLocaleString('en').replace(/,/g, ' ')}   ${Math.round(info.fps)} FPS`;
     if (hiker !== lastIdx) {
       lastIdx = hiker;

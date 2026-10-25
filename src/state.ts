@@ -3,6 +3,8 @@ import type { Display } from './theme/tokens';
 /** Tiny observable store shared by the terrain view and the panels. */
 export interface AppState {
   routeId: string;
+  /** The selected route is walked the other way (to → from). */
+  reversed: boolean;
   /** Route hovered in the list or on the map (highlighted but not selected). */
   hoverRouteId: string | null;
   /** Sample index hovered on the profile / map, or null. */
