@@ -61,7 +61,7 @@ appear as a route waypoint (panel B, profile ticks, trail log, footer ticker).
 | Source (SchweizMobil / curated) | `source` | ◐ | Implied by the "classic" group | — |
 | Clipped at either end | `clipped` | ◐ | ✂ in the route list, "Region edge →" waypoints | Not marked on the map or the profile |
 | Distance, D+, D−, time | `stats.km/up/down/time` | ✅ | Everywhere | — |
-| Time in reverse | `stats.timeBack` | ◐ | Top ticker only | A "reverse route" toggle (the samples allow it) |
+| Time in reverse | `stats.timeBack` | ✅ | ⇄ REV in the preview (A) walks the route to → from (`reverseRoute`, `&reverse=1` in the URL); top ticker "BACK" | — |
 | Min / max altitude | `stats.minAlt/maxAlt` | ✅ | Terrain analysis (I), chart scales | — |
 | Km per trail class, off network | `stats.classKm` | ✅ | Trail class (C) | — |
 | Hard-surface km | `stats.hardKm` | ✅ | Trail class (C) | — |

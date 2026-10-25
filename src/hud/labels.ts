@@ -37,7 +37,7 @@ export class LabelLayer {
   /** Under `prefers-reduced-motion` the markers hold still. */
   private still = matchMedia('(prefers-reduced-motion: reduce)').matches;
   /** Filtered screen angle of the hiker's heading arrow, see `smoothHeading`. */
-  private heading: { angle: number; t: number; route: string } | null = null;
+  private heading: { angle: number; t: number; route: RouteView } | null = null;
 
   constructor(private canvas: HTMLCanvasElement, private region: Region, private view: TerrainView) {
     this.ctx = canvas.getContext('2d')!;
@@ -100,7 +100,7 @@ export class LabelLayer {
       const k = Math.max(2, Math.round(HEADING_SPAN / route.step));
       const [b, f] = [Math.max(0, i - k), Math.min(last, i + k)].map((j) => at(route.e[j], route.n[j], route.alt[j]));
       const target = b.w > 0 && f.w > 0 && Math.hypot(f.x - b.x, f.y - b.y) > 1 ? Math.atan2(f.y - b.y, f.x - b.x) : null;
-      this.hiker(top, ground, this.smoothHeading(target, route.id, t), route, i, next < 0, a, callout);
+      this.hiker(top, ground, this.smoothHeading(target, route, t), route, i, next < 0, a, callout);
     }
     // Last, so the hover readout stays on top of the hiker's callout.
     if (route && hoverIndex !== null) this.crosshair(at(route.e[hoverIndex], route.n[hoverIndex], route.alt[hoverIndex]), route.alt[hoverIndex], route.km[hoverIndex]);
@@ -110,10 +110,10 @@ export class LabelLayer {
    * Low-pass filters the heading arrow's screen angle (exponential, time constant HEADING_TAU,
    * along the shorter way round). It snaps on a new route or when the heading was lost.
    */
-  private smoothHeading(target: number | null, routeId: string, t: number): number | null {
+  private smoothHeading(target: number | null, route: RouteView, t: number): number | null {
     const h = this.heading;
-    if (target === null || !h || h.route !== routeId) {
-      this.heading = target === null ? null : { angle: target, t, route: routeId };
+    if (target === null || !h || h.route !== route) {
+      this.heading = target === null ? null : { angle: target, t, route };
       return target;
     }
     const diff = Math.atan2(Math.sin(target - h.angle), Math.cos(target - h.angle));
