@@ -53,7 +53,7 @@ live instruments.
 
 [![HIKA in the light scheme](docs/light.webp)](https://sosinone.github.io/hika/?scheme=light#route=sm-951.00)
 
-HIKA has one look, paperlab: flat greys with a brick-red accent, in a dark scheme (the default) and
+HIKA has one look, paperlab: flat greys with a glacier-cyan accent, in a dark scheme (the default) and
 a light one. The footer switches between them, a URL can set one with `?scheme=light`, and a choice
 made in the footer is remembered in the browser.
 
@@ -150,7 +150,7 @@ HIKA would not exist without two sci-fi console projects:
   an independent re-implementation and copies none of its code or assets.
 - **[LosEcher · hud-console-framework](https://github.com/LosEcher/hud-console-framework)** (MIT):
   an open re-creation of that style with design tokens, a single accent colour and corner-bracket
-  panels, which showed how to structure the look as reusable tokens. HIKA's paperlab colour values
+  panels, which showed how to structure the look as reusable tokens. HIKA's paperlab greys
   are ported from it.
 
 ## Licence
