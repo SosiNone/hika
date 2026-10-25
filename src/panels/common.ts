@@ -47,10 +47,8 @@ export const num = (v: number, digits = 0) => v.toFixed(digits).replace(/\B(?=(\
 
 export const hm = (min: number) => `${Math.floor(min / 60)}:${String(Math.floor(min % 60)).padStart(2, '0')}`;
 
-export const COLORS = {
-  text: '#d6e2de', text2: '#8b9894', text3: '#4f5a57', line: 'rgba(214,232,226,0.1)', line2: 'rgba(214,232,226,0.2)',
-  accent: '#f2c230', terrain: '#78f0cc', classes: ['#f2c230', '#ec4a4f', '#4a92f6', '#4f5a57'],
-};
+/** The live display palette (src/theme/apply.ts); it changes in place when the theme does. */
+export { palette as COLORS } from '../theme/apply';
 
 export const FONT = (size = 9, weight = 300) => `${weight} ${size}px "IBM Plex Mono", monospace`;
 

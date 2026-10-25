@@ -78,6 +78,8 @@ export function mountWaypoints(el: HTMLElement, c: Ctx) {
   };
 }
 
+const CLASS_VARS = ['var(--wander)', 'var(--berg)', 'var(--alpin)', 'var(--text-3)'];
+
 /** C · Trail class composition of the route compared with the whole regional network. */
 export function mountTrailClass(el: HTMLElement, c: Ctx) {
   const { body, meta } = frame(el, 'C', 'Trail class');
@@ -91,14 +93,14 @@ export function mountTrailClass(el: HTMLElement, c: Ctx) {
     built = r.id;
     const km = r.stats.classKm, total = r.stats.km || 1;
     const labels = [...TRAIL_CLASSES.map((t) => t.toUpperCase()), 'OFF NETWORK'];
-    const stack = km.map((k, i) => (k > 0 ? `<div style="width:${(k / total) * 100}%;background:${COLORS.classes[i]}" title="${labels[i]} ${k} km"></div>` : '')).join('');
+    const stack = km.map((k, i) => (k > 0 ? `<div style="width:${(k / total) * 100}%;background:${CLASS_VARS[i]}" title="${labels[i]} ${k} km"></div>` : '')).join('');
     const rows = km.map((k, i) => {
       if (i === 3 && k === 0) return '';
       const ghost = i < 3 ? `<span class="ghost" style="left:${(net.km[i] / netTotal) * 100}%" title="share in the regional network"></span>` : '';
-      return `<div class="bar-row"><span>${labels[i]}</span><span class="track"><span class="fillbar" style="width:${(k / total) * 100}%;background:${COLORS.classes[i]}"></span>${ghost}</span><span class="val">${k.toFixed(1)} KM</span></div>`;
+      return `<div class="bar-row"><span>${labels[i]}</span><span class="track"><span class="fillbar" style="width:${(k / total) * 100}%;background:${CLASS_VARS[i]}"></span>${ghost}</span><span class="val">${k.toFixed(1)} KM</span></div>`;
     }).join('');
     body.innerHTML = `<div class="stack">${stack}</div><div class="bars">${rows}
-      <div class="bar-row"><span>HARD SURFACE</span><span class="track"><span class="fillbar" style="width:${(r.stats.hardKm / total) * 100}%;background:${COLORS.text2}"></span><span class="ghost" style="left:${(net.hardKm / netTotal) * 100}%"></span></span><span class="val">${r.stats.hardKm.toFixed(1)} KM</span></div></div>`;
+      <div class="bar-row"><span>HARD SURFACE</span><span class="track"><span class="fillbar" style="width:${(r.stats.hardKm / total) * 100}%;background:var(--text-2)"></span><span class="ghost" style="left:${(net.hardKm / netTotal) * 100}%"></span></span><span class="val">${r.stats.hardKm.toFixed(1)} KM</span></div></div>`;
   };
 }
 
@@ -111,6 +113,7 @@ export function mountRoutes(el: HTMLElement, c: Ctx) {
   list.className = 'routes';
   body.appendChild(list);
   const buttons = new Map<string, HTMLButtonElement>();
+  const sparks: [HTMLCanvasElement, RouteView][] = [];
   for (const [cat, title] of GROUPS) {
     const routes = c.region.routes.filter((r) => r.category === cat);
     if (!routes.length) continue;
@@ -126,11 +129,17 @@ export function mountRoutes(el: HTMLElement, c: Ctx) {
       b.onmouseleave = () => c.store.set({ hoverRouteId: null });
       list.appendChild(b);
       buttons.set(r.id, b);
-      requestAnimationFrame(() => sparkline(b.querySelector('canvas')!, r));
+      sparks.push([b.querySelector('canvas')!, r]);
     }
   }
-  let current = '';
+  requestAnimationFrame(() => { for (const [cv, r] of sparks) sparkline(cv, r); });
+  let current = '', display = c.store.state.display;
   return () => {
+    // Sparklines are drawn once; a theme change repaints them.
+    if (c.store.state.display !== display) {
+      display = c.store.state.display;
+      for (const [cv, r] of sparks) sparkline(cv, r);
+    }
     const id = c.store.state.routeId;
     if (id === current) return;
     current = id;
@@ -150,7 +159,7 @@ function sparkline(canvas: HTMLCanvasElement, r: RouteView) {
   canvas.width = w * dpr;
   canvas.height = h * dpr;
   const ctx = canvas.getContext('2d')!;
-  ctx.scale(dpr, dpr);
+  ctx.setTransform(dpr, 0, 0, dpr, 0, 0);
   const { minAlt, maxAlt } = r.stats;
   const n = r.alt.length;
   ctx.beginPath();

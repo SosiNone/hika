@@ -42,7 +42,7 @@ export function mountProfile(el: HTMLElement, c: Ctx) {
       const k = Math.round(((x - PAD.l) / (w - PAD.l - PAD.r)) * (n - 1));
       const y = Y(r.alt[k]);
       const cls = r.cls[k] === OFF_NETWORK ? 3 : r.cls[k];
-      ctx.fillStyle = k <= i ? 'rgba(214,232,226,0.16)' : 'rgba(214,232,226,0.06)';
+      ctx.fillStyle = COLORS.ink(k <= i ? 0.16 : 0.06);
       ctx.fillRect(x, y, 1, h - PAD.b - y);
       ctx.fillStyle = COLORS.classes[cls];
       ctx.globalAlpha = k <= i ? 1 : 0.55;
@@ -62,7 +62,7 @@ export function mountProfile(el: HTMLElement, c: Ctx) {
       ctx.fillText(ids.get(wp.place) ?? '', x, h - 4);
     }
     cursor(ctx, X(i), Y(r.alt[i]), PAD.t - 8, h - PAD.b, COLORS.accent, 'H1');
-    if (hover !== null && hover < n) cursor(ctx, X(hover), Y(r.alt[hover]), PAD.t - 8, h - PAD.b, '#fff', `${r.km[hover].toFixed(1)}`);
+    if (hover !== null && hover < n) cursor(ctx, X(hover), Y(r.alt[hover]), PAD.t - 8, h - PAD.b, COLORS.text, `${r.km[hover].toFixed(1)}`);
     ctx.textAlign = 'left';
   };
 }

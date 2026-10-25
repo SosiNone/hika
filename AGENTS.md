@@ -47,6 +47,13 @@ Route `stats` are computed in the pipeline (`finishRoute`). The per-sample cumul
 - There is no depth test anywhere: points and contours are additive, network and ribbons are blended over them (hologram look). Contours are computed in `contours.worker.ts`. The selected route is a screen-space ribbon.
 - Labels, the hiker and the crosshair are drawn on a separate 2D canvas (`src/hud/labels.ts`) by projecting with the frame's view-projection matrix.
 
+### Theming (`src/theme/`)
+- Three independent layers, after LosEcher/hud-console-framework: **theme** (accent, sometimes a dark background), **style** (`paperlab` flat greys, `phosphor` the original teal hologram), **scheme** (dark / light). The default is `cinder · paperlab · dark`, defined in `DEFAULT_DISPLAY`.
+- `tokens.ts` is pure data plus `resolve()`. A style that has its own accent overrides the theme's, so paperlab always shows brick red. The saved choice (localStorage) is overridden by `?theme=&style=&scheme=`; the hash belongs to `#route=`.
+- `apply.ts` sets the CSS variables and mutates the shared `palette` (re-exported as `COLORS` in `panels/common.ts`). Canvas and WebGL code reads `palette` / `palette.gl` and never hard-codes a colour; inline HTML uses `var(--…)`. The `:root` values in `hud.css` mirror the default display for the first paint.
+- Light schemes draw the terrain with premultiplied over-blending (`gl.blend: 'over'`), because additive light washes out on paper.
+- Trail-class colours (`TRAILS`) are semantic signpost colours. They are adjusted only for contrast per scheme and never follow the accent. `test/theme.test.ts` checks contrast for every combination.
+
 ### App state and panels
 - `Store` (src/state.ts) is a tiny observable. `main.ts` reacts to `routeId` / `hoverRouteId` / `mode` changes via `subscribe`.
 - The replay position `store.state.minute` is **mutated directly** in the render loop, without notifying, for performance.

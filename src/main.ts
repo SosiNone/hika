@@ -8,9 +8,14 @@ import type { Ctx } from './panels/common';
 import { mountReplay, mountRoutes, mountTrailClass, mountWaypoints } from './panels/left';
 import { mountLocator, mountLog, mountTerrainStats } from './panels/right';
 import { Store } from './state';
-import { renderTickers, startClock } from './ui/chrome';
+import { applyDisplay, loadDisplay, palette, saveDisplay } from './theme/apply';
+import { mountDisplaySwitch, renderTickers, startClock } from './ui/chrome';
 
 const DEFAULT_ROUTE = 'c-saentis-lisengrat';
+
+// Before the region loads, so the boot screen already wears the chosen theme.
+const initialDisplay = loadDisplay();
+applyDisplay(initialDisplay);
 
 async function boot() {
   const bootEl = document.getElementById('boot')!;
@@ -36,6 +41,7 @@ function start(region: Region) {
     playing: true,
     secondsPerHour: 3,
     mode: 'mono',
+    display: initialDisplay,
   });
   const byId = new Map(region.routes.map((r) => [r.id, r]));
   const route = () => byId.get(store.state.routeId)!;
@@ -43,6 +49,7 @@ function start(region: Region) {
 
   const canvas = document.getElementById('terrain') as HTMLCanvasElement;
   const view = new TerrainView(canvas, region);
+  view.palette = palette.gl;
   const labels = new LabelLayer(document.getElementById('terrain-hud') as HTMLCanvasElement, region, view);
   const ctx: Ctx = { region, store, view, route, hikerIndex: () => indexAtMinute(route(), store.state.minute), waypointIds: () => ids };
   document.getElementById('brand-sub')!.textContent = `${region.bundle.title.toUpperCase()} · ${region.bundle.cantons.join(' / ')}`;
@@ -73,6 +80,11 @@ function start(region: Region) {
     if (s.routeId !== prev.routeId) selectRoute(route());
     if (s.hoverRouteId !== prev.hoverRouteId) view.setHover(s.hoverRouteId && s.hoverRouteId !== s.routeId ? byId.get(s.hoverRouteId)! : null);
     if (s.mode !== prev.mode) view.mode = s.mode === 'natural' ? 1 : 0;
+    if (s.display !== prev.display) {
+      applyDisplay(s.display);
+      saveDisplay(s.display);
+      view.palette = palette.gl;
+    }
   });
 
   // Click (not drag) on the map selects the nearest route under the cursor.
@@ -91,6 +103,7 @@ function start(region: Region) {
   });
 
   startClock(region);
+  mountDisplaySwitch(document.getElementById('display')!, store);
 
   let last = performance.now(), lastPanels = 0, holdUntil = 0;
   let lastVp = view.camera.viewProj(1);

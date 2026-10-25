@@ -2,6 +2,7 @@ import type { Region, RouteView } from '../data/load';
 import type { Place, PlaceKind } from '../data/types';
 import { project } from '../gl/glkit';
 import type { RenderInfo, TerrainView } from '../gl/terrain';
+import { palette as C } from '../theme/apply';
 
 export const GLYPH: Record<PlaceKind, string> = {
   summit: '▲', pass: '⌒', lake: '≈', inn: '⌂', stop: '◉', lift: '⇡', view: '◎', water: '⁞', cave: '◖', village: '□', ridge: '∧',
@@ -78,22 +79,22 @@ export class LabelLayer {
     const rect = { x: Math.min(left, x) - 2, y: y - lift - (sub ? 22 : 12), w: tw + 10, h: lift + (sub ? 24 : 14) };
     if (!force && taken.some((r) => overlaps(r, rect))) return false;
     taken.push(rect);
-    ctx.strokeStyle = strong ? 'rgba(242,194,48,0.75)' : 'rgba(214,232,226,0.35)';
+    ctx.strokeStyle = strong ? C.ac(0.75) : C.ink(0.35);
     ctx.lineWidth = 1;
     ctx.beginPath();
     ctx.moveTo(x + 0.5, y);
     ctx.lineTo(x + 0.5, y - lift);
     ctx.stroke();
-    ctx.fillStyle = strong ? '#f2c230' : 'rgba(214,232,226,0.8)';
+    ctx.fillStyle = strong ? C.accent : C.ink(0.8);
     ctx.beginPath();
     ctx.arc(x + 0.5, y, strong ? 2.5 : 1.6, 0, Math.PI * 2);
     ctx.fill();
-    ctx.fillStyle = strong ? '#f6e3a4' : 'rgba(214,232,226,0.86)';
+    ctx.fillStyle = strong ? C.accentTint : C.ink(0.86);
     ctx.textBaseline = 'alphabetic';
     ctx.fillText(text, left, y - lift - (sub ? 10 : 0));
     if (sub) {
       ctx.font = SMALL;
-      ctx.fillStyle = strong ? 'rgba(242,194,48,0.7)' : 'rgba(139,152,148,0.9)';
+      ctx.fillStyle = strong ? C.ac(0.7) : C.text2;
       ctx.fillText(sub, left, y - lift + 1);
     }
     return true;
@@ -102,24 +103,24 @@ export class LabelLayer {
   private crosshair(s: { x: number; y: number; w: number }, alt: number) {
     if (s.w <= 0) return;
     const { ctx } = this;
-    ctx.strokeStyle = 'rgba(255,255,255,0.8)';
+    ctx.strokeStyle = C.ink(0.8);
     ctx.lineWidth = 1;
     ctx.strokeRect(s.x - 5.5, s.y - 5.5, 11, 11);
     ctx.font = SMALL;
-    ctx.fillStyle = '#fff';
+    ctx.fillStyle = C.text;
     ctx.fillText(`${Math.round(alt)} M`, s.x + 9, s.y + 3);
   }
 
   private hiker(top: { x: number; y: number }, ground: { x: number; y: number }, route: RouteView, i: number) {
     const { ctx } = this;
-    ctx.strokeStyle = 'rgba(242,194,48,0.45)';
+    ctx.strokeStyle = C.ac(0.45);
     ctx.setLineDash([2, 3]);
     ctx.beginPath();
     ctx.moveTo(top.x, top.y);
     ctx.lineTo(ground.x, ground.y);
     ctx.stroke();
     ctx.setLineDash([]);
-    ctx.fillStyle = '#f2c230';
+    ctx.fillStyle = C.accent;
     ctx.beginPath();
     ctx.moveTo(top.x, top.y - 7);
     ctx.lineTo(top.x + 5, top.y);
@@ -130,14 +131,14 @@ export class LabelLayer {
     const box = `H1 · KM ${route.km[i].toFixed(1)}`;
     ctx.font = FONT;
     const w = ctx.measureText(box).width + 12;
-    ctx.fillStyle = 'rgba(6,8,9,0.85)';
+    ctx.fillStyle = C.bgA(0.85);
     ctx.fillRect(top.x + 12, top.y - 26, w, 30);
-    ctx.strokeStyle = '#f2c230';
+    ctx.strokeStyle = C.accent;
     ctx.strokeRect(top.x + 12.5, top.y - 25.5, w - 1, 29);
-    ctx.fillStyle = '#f2c230';
+    ctx.fillStyle = C.accent;
     ctx.fillText(box, top.x + 18, top.y - 13);
     ctx.font = SMALL;
-    ctx.fillStyle = 'rgba(242,194,48,0.75)';
+    ctx.fillStyle = C.ac(0.75);
     ctx.fillText(`${Math.round(route.alt[i])} M · D+ ${Math.round(route.up[i])}`, top.x + 18, top.y - 1);
   }
 }

@@ -20,6 +20,13 @@ works too.
 The generated Alpstein bundle is committed under `public/data/alpstein/`, so the app runs without
 rebuilding data.
 
+## Display themes
+
+The footer switches theme (accent), style (visual language) and scheme (dark / light). The default
+is `cinder · paperlab · dark`: paperlab's flat greys with its brick-red accent. `hika · phosphor` is
+the original teal hologram look. A URL can set any of them, e.g. `?style=phosphor&theme=hika`;
+a choice made in the footer is remembered in the browser.
+
 ## Rebuild the data
 
 ```bash
@@ -77,7 +84,8 @@ HIKA would not exist without two sci-fi console projects:
   an independent re-implementation and copies none of its code or assets.
 - **[LosEcher · hud-console-framework](https://github.com/LosEcher/hud-console-framework)** (MIT):
   an open re-creation of that style with design tokens, a single accent colour and corner-bracket
-  panels, which showed how to structure the look as reusable tokens.
+  panels, which showed how to structure the look as reusable tokens. HIKA's theme × style × scheme
+  layering and the cinder, orbital, ember and paperlab colour values are ported from it.
 
 ## Licence
 

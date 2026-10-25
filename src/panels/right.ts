@@ -32,12 +32,15 @@ export function mountLocator(el: HTMLElement, c: Ctx) {
     };
     const img = ctx.createImageData(ctx.canvas.width, ctx.canvas.height);
     const dpr = ctx.canvas.width / w;
+    // Relief brightens from the background towards the style's terrain colour with altitude.
+    const bg = COLORS.gl.clear, hi = COLORS.gl.high;
     for (const [x, z, alt] of pts) {
       const [sx, sy] = P(x, z, alt);
       const px = Math.round(sx * dpr), py = Math.round(sy * dpr);
       if (px < 0 || py < 0 || px >= img.width || py >= img.height) continue;
-      const k = (py * img.width + px) * 4, b = 60 + Math.min(195, alt / 18);
-      img.data[k] = b * 0.55; img.data[k + 1] = b; img.data[k + 2] = b * 0.85; img.data[k + 3] = 255;
+      const k = (py * img.width + px) * 4, f = (60 + Math.min(195, alt / 18)) / 255;
+      for (let ch = 0; ch < 3; ch++) img.data[k + ch] = 255 * (bg[ch] + (hi[ch] - bg[ch]) * f);
+      img.data[k + 3] = 255;
     }
     ctx.putImageData(img, 0, 0);
     const ring = (flat: number[], color: string, close = true) => {
@@ -51,12 +54,12 @@ export function mountLocator(el: HTMLElement, c: Ctx) {
       ctx.stroke();
     };
     ctx.lineWidth = 1;
-    for (const r of L.cantons) ring(r, 'rgba(214,232,226,0.12)');
-    for (const r of L.border) ring(r, 'rgba(214,232,226,0.55)');
+    for (const r of L.cantons) ring(r, COLORS.ink(0.12));
+    for (const r of L.border) ring(r, COLORS.ink(0.55));
     ring([bb[0], bb[1], bb[2], bb[1], bb[2], bb[3], bb[0], bb[3]], COLORS.accent);
     const [rx, ry] = P((bb[0] + bb[2]) / 2 - cE, cN - (bb[1] + bb[3]) / 2, 0);
     const pulse = (t * 0.8) % 1;
-    ctx.strokeStyle = `rgba(242,194,48,${1 - pulse})`;
+    ctx.strokeStyle = COLORS.ac(1 - pulse);
     ctx.beginPath(); ctx.arc(rx, ry, 4 + pulse * 14, 0, Math.PI * 2); ctx.stroke();
     ctx.font = FONT(8);
     ctx.fillStyle = COLORS.accent;
@@ -88,7 +91,7 @@ export function mountTerrainStats(el: HTMLElement, c: Ctx) {
       meta.textContent = `MAX SLOPE ${a.maxSlope.toFixed(0)} %`;
       const labels = ['0–10 %', '10–20 %', '20–30 %', '30–40 %', '> 40 %'];
       const max = Math.max(...a.slope);
-      bars.innerHTML = a.slope.map((km, i) => `<div class="bar-row" style="grid-template-columns:62px 1fr 48px"><span>${labels[i]}</span><span class="track"><span class="fillbar" style="width:${(km / max) * 100}%;background:${i === 4 ? COLORS.classes[1] : COLORS.text2}"></span></span><span class="val">${km.toFixed(1)} KM</span></div>`).join('') +
+      bars.innerHTML = a.slope.map((km, i) => `<div class="bar-row" style="grid-template-columns:62px 1fr 48px"><span>${labels[i]}</span><span class="track"><span class="fillbar" style="width:${(km / max) * 100}%;background:${i === 4 ? 'var(--berg)' : 'var(--text-2)'}"></span></span><span class="val">${km.toFixed(1)} KM</span></div>`).join('') +
         `<div class="bar-row" style="grid-template-columns:62px 1fr;margin-top:2px"><span>HIGH · LOW</span><span style="color:var(--text)">${num(r.stats.maxAlt)} · ${num(r.stats.minAlt)} M${a.top ? ` · ${esc(a.top)}` : ''}</span></div>`;
     }
     const { w, h } = rose.begin();
@@ -99,7 +102,7 @@ export function mountTerrainStats(el: HTMLElement, c: Ctx) {
     sectors.forEach((km, k) => {
       const a0 = ((k - 0.5) / 8) * Math.PI * 2 - Math.PI / 2, a1 = ((k + 0.5) / 8) * Math.PI * 2 - Math.PI / 2;
       ctx.beginPath(); ctx.moveTo(cx, cy); ctx.arc(cx, cy, (km / max) * R, a0 + 0.04, a1 - 0.04); ctx.closePath();
-      ctx.fillStyle = k === 3 || k === 4 || k === 5 ? 'rgba(242,194,48,0.65)' : 'rgba(214,232,226,0.45)';
+      ctx.fillStyle = k === 3 || k === 4 || k === 5 ? COLORS.ac(0.65) : COLORS.ink(0.45);
       ctx.fill();
     });
     ctx.font = FONT(8);
