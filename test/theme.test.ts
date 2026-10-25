@@ -51,7 +51,7 @@ describe('display tokens', () => {
   it.each(Object.keys(SCHEMES) as Scheme[])('%s keeps readable contrast', (scheme) => {
     const { ladder: L, accent, accentTint, trails } = resolve({ scheme });
     const bg = hexRgb(L.bg);
-    // Map labels sit on a halo of the background colour, as trail lines sit on their casing.
+    // Map labels are read against the background showing between the points.
     for (const t of [L.text, accentTint]) expect(contrast(hexRgb(t), bg)).toBeGreaterThanOrEqual(7);
     for (const t of [L.text2, accent]) expect(contrast(hexRgb(t), bg)).toBeGreaterThanOrEqual(4.5);
     for (const surface of [bg, hexRgb(L.panel)]) {

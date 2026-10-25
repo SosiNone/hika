@@ -134,7 +134,7 @@ function start(region: Region) {
     const hiker = indexAtMinute(r, store.state.minute);
     const info = view.render(t, dt);
     lastVp = info.vp;
-    labels.draw(info, r, hiker, store.state.hoverIndex, ids);
+    labels.draw(info, t, r, hiker, store.state.hoverIndex, ids);
     overlay(info, r, hiker);
     if (now - lastPanels > 50) {
       lastPanels = now;
