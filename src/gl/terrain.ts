@@ -2,6 +2,7 @@ import type { Region, RouteView } from '../data/load';
 import { createProgram, createVao, fitCanvas, type Mat4, type Program } from './glkit';
 import { OrbitCamera } from './camera';
 import type { Resolved } from '../theme/tokens';
+import { OFF_NETWORK } from '../data/types';
 
 const POINTS_VS = `#version 300 es
 precision highp float; precision highp int; precision highp usampler2D;
@@ -117,9 +118,9 @@ void main() {
 
 const RIBBON_VS = `#version 300 es
 precision highp float;
-in vec3 aA; in vec3 aB; in vec2 aCorner; in float aDist;
+in vec3 aA; in vec3 aB; in vec2 aCorner; in float aDist; in float aClass;
 uniform mat4 uVP; uniform vec2 uViewport; uniform float uWidth, uExag, uBase, uLift;
-out float vDist; out float vSide;
+out float vDist; out float vSide; flat out int vClass;
 void main() {
   vec4 a = uVP * vec4(aA.x, (aA.y - uBase) * uExag + uLift, aA.z, 1.0);
   vec4 b = uVP * vec4(aB.x, (aB.y - uBase) * uExag + uLift, aB.z, 1.0);
@@ -127,13 +128,14 @@ void main() {
   vec2 dir = normalize(sb - sa + vec2(1e-5)); vec2 nrm = vec2(-dir.y, dir.x);
   vec4 p = aCorner.x < 0.5 ? a : b;
   p.xy += nrm * aCorner.y * uWidth * 2.0 / uViewport * p.w;
-  gl_Position = p; vDist = aDist; vSide = aCorner.y;
+  gl_Position = p; vDist = aDist; vSide = aCorner.y; vClass = int(aClass + 0.5);
 }`;
 
 const RIBBON_FS = `#version 300 es
 precision mediump float;
-in float vDist; in float vSide; out vec4 o;
-uniform vec3 uColor, uFlash; uniform float uTime, uAlpha, uFlow, uDone, uCore;
+in float vDist; in float vSide; flat in int vClass; out vec4 o;
+// uByClass colours each segment by its trail class (uClasses[3] = off-network) instead of uColor.
+uniform vec3 uColor, uFlash; uniform vec3 uClasses[4]; uniform bool uByClass; uniform float uTime, uAlpha, uFlow, uDone, uCore;
 void main() {
   float edge = 1.0 - smoothstep(0.55, 1.0, abs(vSide));
   // A bright centre line sets the route apart from network lines of a similar hue.
@@ -141,7 +143,7 @@ void main() {
   float dash = fract((vDist - uTime * 180.0) / 240.0);
   float pulse = uFlow * smoothstep(0.0, 0.08, dash) * smoothstep(0.45, 0.08, dash);
   float walked = step(vDist, uDone);
-  vec3 c = mix(uColor, uFlash, min(1.0, pulse * 0.6 + walked * 0.25 + core));
+  vec3 c = mix(uByClass ? uClasses[vClass] : uColor, uFlash, min(1.0, pulse * 0.6 + walked * 0.25 + core));
   float a = uAlpha * edge * (0.75 + pulse * 0.25 + walked * 0.2);
   o = vec4(c * a, a);
 }`;
@@ -288,7 +290,7 @@ export class TerrainView {
 
   private buildRibbon(r: RouteView): Ribbon {
     const n = r.e.length - 1;
-    const A = new Float32Array(n * 18), B = new Float32Array(n * 18), C = new Float32Array(n * 12), D = new Float32Array(n * 6);
+    const A = new Float32Array(n * 18), B = new Float32Array(n * 18), C = new Float32Array(n * 12), D = new Float32Array(n * 6), K = new Float32Array(n * 6);
     const corners = [[0, -1], [1, -1], [0, 1], [0, 1], [1, -1], [1, 1]];
     for (let i = 0; i < n; i++) {
       const a = [r.e[i] - this.size[0] / 2, r.alt[i] + 6, this.size[1] / 2 - r.n[i]];
@@ -296,9 +298,10 @@ export class TerrainView {
       corners.forEach(([end, side], k) => {
         const v = i * 6 + k;
         A.set(a, v * 3); B.set(b, v * 3); C.set([end, side], v * 2); D[v] = (i + end) * r.step;
+        K[v] = r.cls[i] === OFF_NETWORK ? 3 : r.cls[i];
       });
     }
-    const vao = createVao(this.gl, this.ribbon, { aA: [A, 3], aB: [B, 3], aCorner: [C, 2], aDist: [D, 1] });
+    const vao = createVao(this.gl, this.ribbon, { aA: [A, 3], aB: [B, 3], aCorner: [C, 2], aDist: [D, 1], aClass: [K, 1] });
     return { vao, count: n * 6 };
   }
 
@@ -405,8 +408,11 @@ export class TerrainView {
     gl.uniform1f(R.u.uLift, 0);
     gl.uniform1f(R.u.uTime, t);
     gl.uniform3fv(R.u.uFlash, pal.flash);
-    const ribbon = (r: Ribbon, color: number[], width: number, alpha: number, flow = 0, done = -1, core = 0) => {
-      gl.uniform3fv(R.u.uColor, color);
+    gl.uniform3fv(R.u.uClasses, new Float32Array([...pal.trails, pal.hover].flat()));
+    /** `color` null draws the ribbon in its trail-class colours. */
+    const ribbon = (r: Ribbon, color: number[] | null, width: number, alpha: number, flow = 0, done = -1, core = 0) => {
+      gl.uniform1i(R.u.uByClass, color ? 0 : 1);
+      if (color) gl.uniform3fv(R.u.uColor, color);
       gl.uniform1f(R.u.uWidth, width * dpr);
       gl.uniform1f(R.u.uAlpha, alpha);
       gl.uniform1f(R.u.uFlow, flow);
@@ -415,7 +421,11 @@ export class TerrainView {
       gl.bindVertexArray(r.vao);
       gl.drawArrays(gl.TRIANGLES, 0, r.count);
     };
-    if (this.hovered) ribbon(this.hovered, pal.hover, 1.4, 0.7);
+    if (this.hovered) {
+      // In the trail-class colours, like the network, with a casing so they read over the point cloud.
+      ribbon(this.hovered, pal.clear, 2.6, 0.7);
+      ribbon(this.hovered, null, 1.5, 0.9);
+    }
     if (this.selected) {
       // Casing first, so the route stands clear of the network and the point cloud.
       ribbon(this.selected, pal.clear, 3.4, 0.8);
