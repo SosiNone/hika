@@ -5,7 +5,7 @@ import { TerrainView, type TrailMode } from './gl/terrain';
 import { LabelLayer } from './hud/labels';
 import { mountCumulative, mountGradient, mountProfile } from './panels/charts';
 import type { Ctx } from './panels/common';
-import { mountReplay, mountRoutes, mountTrailClass, mountWaypoints } from './panels/left';
+import { mountPreview, mountRoutes, mountTrailClass, mountWaypoints } from './panels/left';
 import { mountLocator, mountLog, mountTerrainStats } from './panels/right';
 import { Store } from './state';
 import { applyDisplay, loadDisplay, palette, saveDisplay } from './theme/apply';
@@ -57,7 +57,7 @@ function start(region: Region) {
   const overlay = mountStageOverlay(region, store, view);
 
   const panels = [
-    mountReplay(document.getElementById('p-replay')!, ctx),
+    mountPreview(document.getElementById('p-preview')!, ctx),
     mountWaypoints(document.getElementById('p-waypoints')!, ctx),
     mountTrailClass(document.getElementById('p-class')!, ctx),
     mountRoutes(document.getElementById('p-routes')!, ctx),

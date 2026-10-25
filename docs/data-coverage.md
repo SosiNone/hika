@@ -54,7 +54,7 @@ appear as a route waypoint (panel B, profile ticks, trail log, footer ticker).
 | Data | Bundle field | Shown | Where | Unused / ideas |
 |---|---|---|---|---|
 | Geometry, sampled every 10 m | `e`, `n` | ✅ | Selected and hover ribbons, click picking, LV95 coordinate column | No export (GPX) |
-| Altitude per sample (DTM2) | `alt` | ✅ | Profile (E), sparklines, replay (A), hiker | — |
+| Altitude per sample (DTM2) | `alt` | ✅ | Profile (E), sparklines, preview (A), hiker | — |
 | Trail class per sample | `cls` | ✅ | Profile and gradient tint (E, F), trail log events (J) | — |
 | Surface per sample | `surf` | ✗ | — | Mark asphalt stretches on the profile or ribbon; log "on asphalt for 2 km" |
 | Number, name, from, to, category | `number` … `category` | ✅ | Route list (D), tickers, stage title | — |
@@ -66,7 +66,7 @@ appear as a route waypoint (panel B, profile ticks, trail log, footer ticker).
 | Km per trail class, off network | `stats.classKm` | ✅ | Trail class (C) | — |
 | Hard-surface km | `stats.hardKm` | ✅ | Trail class (C) | — |
 | Km steeper than ±40 % | `stats.steepKm` | ✗ | — | Panel I recomputes a "> 40 %" bin from `alt`; nothing tells the user the time model is extrapolated there |
-| Waypoints (place, km, alt, time) | `waypoints` | ✅ | B, E, J, map labels, replay "next point", footer ticker | — |
+| Waypoints (place, km, alt, time) | `waypoints` | ✅ | B, E, J, map labels, preview "next point", footer ticker | — |
 
 ### Region metadata
 
@@ -82,7 +82,7 @@ appear as a route waypoint (panel B, profile ticks, trail log, footer ticker).
 
 | Data | Computed in | Shown in |
 |---|---|---|
-| Cumulative minutes, D+, D− per sample | `deriveRoute` (`src/data/load.ts`) | Replay (A), profile (E), gradient (F), cumulative (H), log (J) |
+| Cumulative minutes, D+, D− per sample | `deriveRoute` (`src/data/load.ts`) | Preview (A), profile (E), gradient (F), cumulative (H), log (J) |
 | Slope classes, max slope over 100 m | `analyse` (`src/panels/right.ts`) | Terrain analysis (I) |
 | Slope aspect along the route | `analyse`, from `heightAt` | Terrain analysis (I) rose |
 | Sunrise / sunset at the region centre | `sunTimes` (`src/ui/chrome.ts`) | Top-bar clock |

@@ -7,7 +7,7 @@ export interface Ctx {
   store: Store;
   view: TerrainView;
   route(): RouteView;
-  /** Sample index of the replay hiker on the selected route. */
+  /** Sample index of the preview hiker on the selected route. */
   hikerIndex(): number;
   /** Place id -> short label (DEP, P1 … ARR) for the selected route. */
   waypointIds(): Map<string, string>;
