@@ -49,23 +49,13 @@ live instruments.
 | Click | Select route |
 | Double-click | Reset camera |
 
-## Display themes
+## Dark and light
 
-<table>
-  <tr>
-    <td width="50%"><a href="https://sosinone.github.io/hika/?style=phosphor&theme=hika#route=c-saentis-lisengrat"><img src="docs/phosphor.webp" alt="HIKA in the phosphor style"></a></td>
-    <td width="50%"><a href="https://sosinone.github.io/hika/?scheme=light#route=sm-951.00"><img src="docs/light.webp" alt="HIKA in the paperlab style, light scheme"></a></td>
-  </tr>
-  <tr>
-    <td align="center"><code>hika · phosphor · dark</code></td>
-    <td align="center"><code>cinder · paperlab · light</code></td>
-  </tr>
-</table>
+[![HIKA in the light scheme](docs/light.webp)](https://sosinone.github.io/hika/?scheme=light#route=sm-951.00)
 
-The footer switches theme (accent), style (visual language) and scheme (dark / light). The default
-is `cinder · paperlab · dark`: paperlab's flat greys with its brick-red accent. `hika · phosphor` is
-the original teal hologram look. A URL can set any of them, e.g. `?style=phosphor&theme=hika`;
-a choice made in the footer is remembered in the browser.
+HIKA has one look, paperlab: flat greys with a brick-red accent, in a dark scheme (the default) and
+a light one. The footer switches between them, a URL can set one with `?scheme=light`, and a choice
+made in the footer is remembered in the browser.
 
 ## Quick start
 
@@ -157,8 +147,8 @@ HIKA would not exist without two sci-fi console projects:
   an independent re-implementation and copies none of its code or assets.
 - **[LosEcher · hud-console-framework](https://github.com/LosEcher/hud-console-framework)** (MIT):
   an open re-creation of that style with design tokens, a single accent colour and corner-bracket
-  panels, which showed how to structure the look as reusable tokens. HIKA's theme × style × scheme
-  layering and the cinder, orbital, ember and paperlab colour values are ported from it.
+  panels, which showed how to structure the look as reusable tokens. HIKA's paperlab colour values
+  are ported from it.
 
 ## Licence
 

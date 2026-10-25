@@ -1,7 +1,6 @@
-import { DEFAULT_DISPLAY, hexRgb, isDisplay, resolve, type Display, type Resolved, type RGB } from './tokens';
+import { DEFAULT_DISPLAY, hexRgb, isScheme, resolve, type Display, type Resolved, type RGB } from './tokens';
 
 const KEY = 'hika.display';
-const PARAMS = ['theme', 'style', 'scheme'] as const;
 
 /**
  * Colours for Canvas2D and WebGL code, mutated in place on every display change so callers
@@ -24,22 +23,20 @@ export const palette = {
 let textRgb: RGB = [0, 0, 0], accentRgb: RGB = [0, 0, 0], bgRgb: RGB = [0, 0, 0];
 const rgba = (c: RGB, a: number) => `rgba(${c[0]},${c[1]},${c[2]},${a})`;
 
-/** Saved choice, overridden by `?theme=&style=&scheme=` (the hash belongs to `#route=`). */
+/** Saved choice, overridden by `?scheme=` (the hash belongs to `#route=`). */
 export function loadDisplay(): Display {
   let saved: Partial<Display> = {};
   try { saved = JSON.parse(localStorage.getItem(KEY) ?? '{}'); } catch { /* storage blocked or corrupt */ }
-  const q = new URLSearchParams(location.search);
-  const d = { ...DEFAULT_DISPLAY, ...saved };
-  for (const k of PARAMS) { const v = q.get(k); if (v) (d as Record<string, string>)[k] = v; }
-  return isDisplay(d) ? d : DEFAULT_DISPLAY;
+  const scheme = new URLSearchParams(location.search).get('scheme') ?? saved.scheme;
+  return isScheme(scheme) ? { scheme } : DEFAULT_DISPLAY;
 }
 
-/** Remembers a choice made in the UI and drops URL overrides so a reload keeps it. */
+/** Remembers a choice made in the UI and drops the URL override so a reload keeps it. */
 export function saveDisplay(d: Display) {
   try { localStorage.setItem(KEY, JSON.stringify(d)); } catch { /* storage blocked */ }
   const q = new URLSearchParams(location.search);
-  if (PARAMS.some((k) => q.has(k))) {
-    for (const k of PARAMS) q.delete(k);
+  if (q.has('scheme')) {
+    q.delete('scheme');
     const search = q.toString();
     history.replaceState(null, '', `${location.pathname}${search ? `?${search}` : ''}${location.hash}`);
   }
@@ -49,8 +46,6 @@ export function applyDisplay(d: Display): Resolved {
   const r = resolve(d);
   const root = document.documentElement;
   for (const [k, v] of Object.entries(r.css)) root.style.setProperty(k, v);
-  root.dataset.theme = d.theme;
-  root.dataset.style = d.style;
   root.dataset.scheme = d.scheme;
   root.style.colorScheme = d.scheme;
   document.querySelector('meta[name="theme-color"]')?.setAttribute('content', r.ladder.bg);

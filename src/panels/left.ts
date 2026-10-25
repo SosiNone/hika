@@ -135,7 +135,7 @@ export function mountRoutes(el: HTMLElement, c: Ctx) {
   requestAnimationFrame(() => { for (const [cv, r] of sparks) sparkline(cv, r); });
   let current = '', display = c.store.state.display;
   return () => {
-    // Sparklines are drawn once; a theme change repaints them.
+    // Sparklines are drawn once; a scheme change repaints them.
     if (c.store.state.display !== display) {
       display = c.store.state.display;
       for (const [cv, r] of sparks) sparkline(cv, r);
