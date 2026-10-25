@@ -19,6 +19,7 @@ export function mountPreview(el: HTMLElement, c: Ctx) {
       <button class="btn" data-k="play">PAUSE</button>
       <div class="scrub" data-k="track">
         <div class="ticks" data-k="ticks"></div>
+        <span class="mark" aria-hidden="true"></span>
         <input type="range" min="0" max="1000" value="0" data-k="scrub" aria-label="Preview position" />
       </div>
       <button class="btn" data-k="speed"></button>
@@ -37,7 +38,11 @@ export function mountPreview(el: HTMLElement, c: Ctx) {
   };
   // Reversing restarts the preview at the new departure.
   q('rev').onclick = () => c.store.set({ reversed: !c.store.state.reversed, minute: 0 });
-  scrub.oninput = () => c.store.set({ minute: (+scrub.value / 1000) * c.route().minutes[c.route().minutes.length - 1], playing: false });
+  scrub.oninput = () => {
+    // The playhead is drawn from --p, so move it now rather than on the next poll.
+    track.style.setProperty('--p', String(+scrub.value / 1000));
+    c.store.set({ minute: (+scrub.value / 1000) * c.route().minutes[c.route().minutes.length - 1], playing: false });
+  };
 
   return () => {
     const r = c.route(), i = c.hikerIndex(), s = c.store.state;
