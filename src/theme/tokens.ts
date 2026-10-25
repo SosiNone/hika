@@ -21,7 +21,7 @@ export interface Ladder {
 
 /** Terrain view colours (linear 0–1). `blend: 'over'` is needed on light paper, where additive light washes out. */
 export interface GlPalette {
-  low: RGB; high: RGB; steep: RGB; contour: RGB; hover: RGB; flash: RGB;
+  low: RGB; high: RGB; steep: RGB; contour: RGB; hover: RGB;
   gain: number; blend: 'add' | 'over';
 }
 
@@ -29,12 +29,12 @@ export const SCHEMES: Record<Scheme, { accent: string; ladder: Ladder; gl: GlPal
   dark: {
     accent: '#40ccd0',
     ladder: { bg: '#0c0c0c', bg2: '#171717', panel: '#171717', line: '#2e2e2e', line2: '#3a3a3a', line3: '#555555', text: '#e6e6e6', text2: '#b0b0b0', text3: '#909090', danger: '#ff5a4a' },
-    gl: { low: [0.05, 0.05, 0.05], high: [0.86, 0.86, 0.86], steep: [0.22, 0.22, 0.22], contour: [0.8, 0.8, 0.8], hover: [1, 1, 1], flash: [1, 1, 1], gain: 1, blend: 'add' },
+    gl: { low: [0.05, 0.05, 0.05], high: [0.86, 0.86, 0.86], steep: [0.22, 0.22, 0.22], contour: [0.8, 0.8, 0.8], hover: [1, 1, 1], gain: 1, blend: 'add' },
   },
   light: {
     accent: '#076870',
     ladder: { bg: '#f2f1ed', bg2: '#e9e8e3', panel: '#e9e8e3', line: '#c9c7c0', line2: '#b5b3ac', line3: '#8f8d86', text: '#16161a', text2: '#45433f', text3: '#5f5d58', danger: '#a8322a' },
-    gl: { low: [0.66, 0.65, 0.62], high: [0.08, 0.08, 0.09], steep: [-0.2, -0.2, -0.2], contour: [0.2, 0.2, 0.2], hover: [0.09, 0.09, 0.1], flash: [0.09, 0.09, 0.1], gain: 0.55, blend: 'over' },
+    gl: { low: [0.66, 0.65, 0.62], high: [0.08, 0.08, 0.09], steep: [-0.2, -0.2, -0.2], contour: [0.2, 0.2, 0.2], hover: [0.09, 0.09, 0.1], gain: 0.55, blend: 'over' },
   },
 };
 

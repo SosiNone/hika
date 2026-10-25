@@ -116,36 +116,45 @@ void main() {
   o = vec4(c * a, a);
 }`;
 
+// A route: one instance per segment, drawn as a screen-space capsule (a segment with round ends),
+// so consecutive segments meet in clean round joins. The quad is laid out in pixels with w = 1,
+// so vPos interpolates linearly on screen.
 const RIBBON_VS = `#version 300 es
 precision highp float;
-in vec3 aA; in vec3 aB; in vec2 aCorner; in float aDist; in float aClass;
-uniform mat4 uVP; uniform vec2 uViewport; uniform float uWidth, uExag, uBase, uLift;
-out float vDist; out float vSide; flat out int vClass;
+in vec3 aA; in vec3 aB; in float aClass;
+uniform mat4 uVP; uniform vec2 uViewport; uniform float uHalf, uExag, uBase;
+out vec2 vPos; out float vLen; flat out int vClass;
+const vec2 CORNER[6] = vec2[6](vec2(0, -1), vec2(1, -1), vec2(0, 1), vec2(0, 1), vec2(1, -1), vec2(1, 1));
 void main() {
-  vec4 a = uVP * vec4(aA.x, (aA.y - uBase) * uExag + uLift, aA.z, 1.0);
-  vec4 b = uVP * vec4(aB.x, (aB.y - uBase) * uExag + uLift, aB.z, 1.0);
+  vec2 k = CORNER[gl_VertexID];
+  vec4 a = uVP * vec4(aA.x, (aA.y - uBase) * uExag, aA.z, 1.0), b = uVP * vec4(aB.x, (aB.y - uBase) * uExag, aB.z, 1.0);
+  if (a.w <= 0.0 || b.w <= 0.0) { gl_Position = vec4(2.0, 2.0, 2.0, 1.0); return; }
   vec2 sa = a.xy / a.w * uViewport, sb = b.xy / b.w * uViewport;
-  vec2 dir = normalize(sb - sa + vec2(1e-5)); vec2 nrm = vec2(-dir.y, dir.x);
-  vec4 p = aCorner.x < 0.5 ? a : b;
-  p.xy += nrm * aCorner.y * uWidth * 2.0 / uViewport * p.w;
-  gl_Position = p; vDist = aDist; vSide = aCorner.y; vClass = int(aClass + 0.5);
+  float len = length(sb - sa);
+  vec2 dir = len > 1e-4 ? (sb - sa) / len : vec2(1.0, 0.0), nrm = vec2(-dir.y, dir.x);
+  // Pixels along the segment from A and across it, reaching one pixel beyond the half-width
+  // (and beyond each end, for the round cap) for the antialiased edge.
+  float r = uHalf + 1.0;
+  vPos = vec2(k.x * len + (k.x * 2.0 - 1.0) * r, k.y * r);
+  gl_Position = vec4((sa + dir * vPos.x + nrm * vPos.y) / uViewport, 0.0, 1.0);
+  vLen = len; vClass = int(aClass + 0.5);
 }`;
 
+// Flat colour: a lighter centre line read as a neon glow, which the owner did not want.
 const RIBBON_FS = `#version 300 es
-precision mediump float;
-in float vDist; in float vSide; flat in int vClass; out vec4 o;
+precision highp float; // uHalf is shared with the vertex shader, so precisions must match
+in vec2 vPos; in float vLen; flat in int vClass; out vec4 o;
 // uByClass colours each segment by its trail class (uClasses[3] = off-network) instead of uColor.
-uniform vec3 uColor, uFlash; uniform vec3 uClasses[4]; uniform bool uByClass; uniform float uTime, uAlpha, uFlow, uDone, uCore;
+uniform vec3 uColor; uniform vec3 uClasses[4]; uniform bool uByClass; uniform float uHalf;
 void main() {
-  float edge = 1.0 - smoothstep(0.55, 1.0, abs(vSide));
-  // A bright centre line sets the route apart from network lines of a similar hue.
-  float core = uCore * (1.0 - smoothstep(0.12, 0.4, abs(vSide)));
-  float dash = fract((vDist - uTime * 180.0) / 240.0);
-  float pulse = uFlow * smoothstep(0.0, 0.08, dash) * smoothstep(0.45, 0.08, dash);
-  float walked = step(vDist, uDone);
-  vec3 c = mix(uByClass ? uClasses[vClass] : uColor, uFlash, min(1.0, pulse * 0.6 + walked * 0.25 + core));
-  float a = uAlpha * edge * (0.75 + pulse * 0.25 + walked * 0.2);
-  o = vec4(c * a, a);
+  float t = clamp(vPos.x / max(vLen, 1e-4), 0.0, 1.0);
+  float d = length(vec2(vPos.x - t * vLen, vPos.y));
+  float cover = clamp(uHalf + 0.5 - d, 0.0, 1.0);
+  if (cover <= 0.0) discard;
+  // Segments are often shorter than the ribbon is wide, so caps pile up; the depth test keeps the
+  // nearest segment at each pixel, so overlapping antialiased edges don't double up.
+  gl_FragDepth = d / (uHalf + 1.5);
+  o = vec4((uByClass ? uClasses[vClass] : uColor) * cover, cover);
 }`;
 
 
@@ -157,6 +166,7 @@ const NETWORK_FADE = [4000, 7000];
 
 export interface RenderInfo { vp: Mat4; width: number; height: number; eye: number[]; focus: number; scanAlt: number; fps: number; points: number }
 
+/** `count` is the number of segments (instances). */
 interface Ribbon { vao: WebGLVertexArrayObject; count: number }
 
 /**
@@ -185,7 +195,6 @@ export class TerrainView {
   private fps = { frames: 0, since: 0, value: 0 };
   readonly size: [number, number];
   readonly base: number;
-  doneMetres = 0;
   /** Colours and blending of the current display (src/theme); reassigned on every scheme change. */
   palette!: Resolved['gl'];
 
@@ -290,19 +299,14 @@ export class TerrainView {
 
   private buildRibbon(r: RouteView): Ribbon {
     const n = r.e.length - 1;
-    const A = new Float32Array(n * 18), B = new Float32Array(n * 18), C = new Float32Array(n * 12), D = new Float32Array(n * 6), K = new Float32Array(n * 6);
-    const corners = [[0, -1], [1, -1], [0, 1], [0, 1], [1, -1], [1, 1]];
+    const A = new Float32Array(n * 3), B = new Float32Array(n * 3), K = new Float32Array(n);
     for (let i = 0; i < n; i++) {
-      const a = [r.e[i] - this.size[0] / 2, r.alt[i] + 6, this.size[1] / 2 - r.n[i]];
-      const b = [r.e[i + 1] - this.size[0] / 2, r.alt[i + 1] + 6, this.size[1] / 2 - r.n[i + 1]];
-      corners.forEach(([end, side], k) => {
-        const v = i * 6 + k;
-        A.set(a, v * 3); B.set(b, v * 3); C.set([end, side], v * 2); D[v] = (i + end) * r.step;
-        K[v] = r.cls[i] === OFF_NETWORK ? 3 : r.cls[i];
-      });
+      A.set([r.e[i] - this.size[0] / 2, r.alt[i] + 6, this.size[1] / 2 - r.n[i]], i * 3);
+      B.set([r.e[i + 1] - this.size[0] / 2, r.alt[i + 1] + 6, this.size[1] / 2 - r.n[i + 1]], i * 3);
+      K[i] = r.cls[i] === OFF_NETWORK ? 3 : r.cls[i];
     }
-    const vao = createVao(this.gl, this.ribbon, { aA: [A, 3], aB: [B, 3], aCorner: [C, 2], aDist: [D, 1], aClass: [K, 1] });
-    return { vao, count: n * 6 };
+    const vao = createVao(this.gl, this.ribbon, { aA: [A, 3, 1], aB: [B, 3, 1], aClass: [K, 1, 1] });
+    return { vao, count: n };
   }
 
   render(t: number, dt: number): RenderInfo {
@@ -405,32 +409,32 @@ export class TerrainView {
     gl.uniform2f(R.u.uViewport, w / 2, h / 2);
     gl.uniform1f(R.u.uExag, this.exaggeration);
     gl.uniform1f(R.u.uBase, this.base);
-    gl.uniform1f(R.u.uLift, 0);
-    gl.uniform1f(R.u.uTime, t);
-    gl.uniform3fv(R.u.uFlash, pal.flash);
     gl.uniform3fv(R.u.uClasses, new Float32Array([...pal.trails, pal.hover].flat()));
-    /** `color` null draws the ribbon in its trail-class colours. */
-    const ribbon = (r: Ribbon, color: number[] | null, width: number, alpha: number, flow = 0, done = -1, core = 0) => {
+    /**
+     * Half-widths are CSS pixels. `color` null draws the ribbon in its trail-class colours. Ribbons
+     * are opaque: where neighbouring capsules overlap at a join, a translucent one would show a bead.
+     */
+    const ribbon = (r: Ribbon, color: number[] | null, half: number) => {
+      gl.clear(gl.DEPTH_BUFFER_BIT);
       gl.uniform1i(R.u.uByClass, color ? 0 : 1);
       if (color) gl.uniform3fv(R.u.uColor, color);
-      gl.uniform1f(R.u.uWidth, width * dpr);
-      gl.uniform1f(R.u.uAlpha, alpha);
-      gl.uniform1f(R.u.uFlow, flow);
-      gl.uniform1f(R.u.uDone, done);
-      gl.uniform1f(R.u.uCore, core);
+      gl.uniform1f(R.u.uHalf, half * dpr);
       gl.bindVertexArray(r.vao);
-      gl.drawArrays(gl.TRIANGLES, 0, r.count);
+      gl.drawArraysInstanced(gl.TRIANGLES, 0, 6, r.count);
     };
+    gl.enable(gl.DEPTH_TEST);
+    gl.depthFunc(gl.LESS);
     if (this.hovered) {
       // In the trail-class colours, like the network, with a casing so they read over the point cloud.
-      ribbon(this.hovered, pal.clear, 2.6, 0.7);
-      ribbon(this.hovered, null, 1.5, 0.9);
+      ribbon(this.hovered, pal.clear, 2.8);
+      ribbon(this.hovered, null, 1.5);
     }
     if (this.selected) {
       // Casing first, so the route stands clear of the network and the point cloud.
-      ribbon(this.selected, pal.clear, 3.4, 0.8);
-      ribbon(this.selected, pal.accent, 2.2, 1, 1, this.doneMetres, 0.5);
+      ribbon(this.selected, pal.clear, 4);
+      ribbon(this.selected, pal.accent, 2.5);
     }
+    gl.disable(gl.DEPTH_TEST);
     gl.bindVertexArray(null);
 
     this.fps.frames++;
