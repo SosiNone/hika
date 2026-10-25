@@ -4,8 +4,7 @@ A sci-fi HUD for exploring Swiss hiking routes, built entirely on swisstopo open
 region is the **Alpstein** (Säntis, Seealpsee, Hoher Kasten): the whole signposted trail network
 in 3D, every SchweizMobil route that crosses it, and a few classic hikes routed on the trail graph.
 
-Visual language inspired by [beastydesign.github.io/scifi](https://beastydesign.github.io/scifi/)
-(no code reused) and the MIT [hud-console-framework](https://github.com/LosEcher/hud-console-framework).
+The look comes from two projects; see [Credits](#credits).
 
 ## Run
 
@@ -56,6 +55,18 @@ npm test
 
 `.github/workflows/pages.yml` builds and publishes to GitHub Pages on every push to `main`
 (enable Pages → "GitHub Actions" in the repository settings).
+
+## Credits
+
+HIKA would not exist without two sci-fi console projects:
+
+- **[beastydesign · Diagonale des Fous](https://beastydesign.github.io/scifi/)**: the original race
+  console for La Réunion. Its point-cloud terrain, instrument panels and overall visual language are
+  what this project set out to recreate for Switzerland. Its code is all rights reserved, so HIKA is
+  an independent re-implementation and copies none of its code or assets.
+- **[LosEcher · hud-console-framework](https://github.com/LosEcher/hud-console-framework)** (MIT):
+  an open re-creation of that style with design tokens, a single accent colour and corner-bracket
+  panels, which showed how to structure the look as reusable tokens.
 
 ## Data licence
 
