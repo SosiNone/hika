@@ -216,7 +216,7 @@ function mountStageOverlay(region: Region, store: Store, view: TerrainView) {
     const deg = (v: number) => ((((v * 180) / Math.PI) % 360) + 360) % 360;
     q('cam').textContent = `CAM AZ ${deg(c.az).toFixed(1).padStart(5)}°  EL ${deg(c.el).toFixed(1)}°  R ${(c.dist / 1000).toFixed(1)} KM\nFOCUS ${(info.focus / 1000).toFixed(1)} KM  VERT ×${view.exaggeration}  GRID ${grid.cell} M`;
     q('route').textContent = `${r.number ? `ROUTE ${r.number}` : '★ CLASSIC'} · ${r.name.toUpperCase()}`;
-    q('status').textContent = `SCAN ALT ${Math.round(info.scanAlt)} M   H1 T+${Math.floor(r.minutes[hiker] / 60)}:${String(Math.floor(r.minutes[hiker] % 60)).padStart(2, '0')}\nPTS ${info.points.toLocaleString('en').replace(/,/g, ' ')}   ${Math.round(info.fps)} FPS`;
+    q('status').textContent = `SCAN ALT ${Math.round(info.scanAlt)} M   HIKA T+${Math.floor(r.minutes[hiker] / 60)}:${String(Math.floor(r.minutes[hiker] % 60)).padStart(2, '0')}\nPTS ${info.points.toLocaleString('en').replace(/,/g, ' ')}   ${Math.round(info.fps)} FPS`;
     if (hiker !== lastIdx) {
       lastIdx = hiker;
       const [e0, n0] = [region.bundle.bbox[0], region.bundle.bbox[1]];

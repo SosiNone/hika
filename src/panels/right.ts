@@ -170,10 +170,10 @@ function buildEvents(c: Ctx, r: RouteView): LogEvent[] {
   const ids = c.waypointIds();
   const start = c.region.places.get(r.waypoints[0]?.place ?? '');
   out.push({ minute: 0, text: `${r.number ? `Route ${r.number}` : 'Classic'} · ${r.name} · ${r.stats.km.toFixed(1)} km · ↑${r.stats.up} ↓${r.stats.down} m`, hl: true });
-  if (start) out.push({ minute: 0, text: `H1 departs ${start.name} · ${num(r.alt[0])} m`, hl: false });
+  if (start) out.push({ minute: 0, text: `HIKA departs ${start.name} · ${num(r.alt[0])} m`, hl: false });
   for (const w of r.waypoints.slice(1)) {
     const p = c.region.places.get(w.place);
-    if (p) out.push({ minute: w.time, text: `H1 passes ${ids.get(w.place)} ${p.name} · km ${w.km.toFixed(1)} · ${num(w.alt)} m`, hl: false });
+    if (p) out.push({ minute: w.time, text: `HIKA passes ${ids.get(w.place)} ${p.name} · km ${w.km.toFixed(1)} · ${num(w.alt)} m`, hl: false });
   }
   let prev = r.cls[0];
   for (let i = 1; i < r.cls.length; i++) {
@@ -187,6 +187,6 @@ function buildEvents(c: Ctx, r: RouteView): LogEvent[] {
   out.push({ minute: r.minutes[hi], text: `highest point · ${num(r.alt[hi])} m · km ${r.km[hi].toFixed(1)}`, hl: true });
   for (let h = 1; h * 60 < r.minutes[r.minutes.length - 1]; h++) out.push({ minute: h * 60, text: `${h} h on the trail`, hl: false });
   const end = r.minutes[r.minutes.length - 1];
-  out.push({ minute: end, text: `H1 arrives ${r.to} · ${hm(end)} h · ${r.stats.km.toFixed(1)} km`, hl: true });
+  out.push({ minute: end, text: `HIKA arrives ${r.to} · ${hm(end)} h · ${r.stats.km.toFixed(1)} km`, hl: true });
   return out.sort((a, b) => a.minute - b.minute);
 }
