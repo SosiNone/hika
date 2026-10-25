@@ -164,6 +164,10 @@ export type TrailMode = 'auto' | 'all' | 'off';
 /** Camera distances (m) in 'auto': the network is fully shown below the first and hidden beyond the second. */
 const NETWORK_FADE = [4000, 7000];
 
+/** Camera distances (m) over which route ribbons narrow to `RIBBON_FAR` of their width, so they don't swamp the overview. */
+const RIBBON_SHRINK = [4000, 16000];
+const RIBBON_FAR = 0.55;
+
 export interface RenderInfo { vp: Mat4; width: number; height: number; eye: number[]; focus: number; scanAlt: number; fps: number; points: number }
 
 /** `count` is the number of segments (instances). */
@@ -411,14 +415,18 @@ export class TerrainView {
     gl.uniform1f(R.u.uBase, this.base);
     gl.uniform3fv(R.u.uClasses, new Float32Array([...pal.trails, pal.hover].flat()));
     /**
-     * Half-widths are CSS pixels. `color` null draws the ribbon in its trail-class colours. Ribbons
-     * are opaque: where neighbouring capsules overlap at a join, a translucent one would show a bead.
+     * Half-widths are CSS pixels up close and narrow as the camera pulls back. `color` null draws
+     * the ribbon in its trail-class colours. Ribbons are opaque: where neighbouring capsules overlap
+     * at a join, a translucent one would show a bead.
      */
+    const [near, far] = RIBBON_SHRINK;
+    const s = Math.min(1, Math.max(0, (this.camera.dist - near) / (far - near)));
+    const zoom = 1 - (1 - RIBBON_FAR) * s * s * (3 - 2 * s);
     const ribbon = (r: Ribbon, color: number[] | null, half: number) => {
       gl.clear(gl.DEPTH_BUFFER_BIT);
       gl.uniform1i(R.u.uByClass, color ? 0 : 1);
       if (color) gl.uniform3fv(R.u.uColor, color);
-      gl.uniform1f(R.u.uHalf, half * dpr);
+      gl.uniform1f(R.u.uHalf, half * zoom * dpr);
       gl.bindVertexArray(r.vao);
       gl.drawArraysInstanced(gl.TRIANGLES, 0, 6, r.count);
     };
@@ -426,13 +434,14 @@ export class TerrainView {
     gl.depthFunc(gl.LESS);
     if (this.hovered) {
       // In the trail-class colours, like the network, with a casing so they read over the point cloud.
-      ribbon(this.hovered, pal.clear, 2.8);
-      ribbon(this.hovered, null, 1.5);
+      ribbon(this.hovered, pal.clear, 2.2);
+      ribbon(this.hovered, null, 1.1);
     }
     if (this.selected) {
-      // Casing first, so the route stands clear of the network and the point cloud.
-      ribbon(this.selected, pal.clear, 4);
-      ribbon(this.selected, pal.accent, 2.5);
+      // Like the hover ribbon, a bit wider: a casing clears the network and the point cloud, and
+      // the core shows the trail classes.
+      ribbon(this.selected, pal.clear, 3);
+      ribbon(this.selected, null, 1.8);
     }
     gl.disable(gl.DEPTH_TEST);
     gl.bindVertexArray(null);
