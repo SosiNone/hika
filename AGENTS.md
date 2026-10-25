@@ -1,6 +1,6 @@
-# CLAUDE.md
+# AGENTS.md
 
-This file provides guidance to Claude Code (claude.ai/code) when working with code in this repository.
+This file provides guidance to coding agents (Claude Code and others) working in this repository.
 
 ## What this is
 
@@ -55,4 +55,4 @@ Route `stats` are computed in the pipeline (`finishRoute`). The per-sample cumul
 
 ## Deploy
 
-`.github/workflows/pages.yml` runs `npm test` and `npm run build` with `BASE=/<repo>/`, then publishes `dist/` to GitHub Pages on every push to `main`.
+`.github/workflows/pages.yml` runs `npm test` and `npm run build` with `BASE=/<repo>/`, then publishes `dist/` to GitHub Pages on every push to `main`. `.github/workflows/ci.yml` runs `typecheck`, `test`, `check:region` and `build` on pull requests and on pushes to other branches.

@@ -61,7 +61,11 @@ This runs the type-checker and the unit tests (`task test` for the tests alone).
 ## Deploy
 
 `.github/workflows/pages.yml` builds and publishes to GitHub Pages on every push to `main`
-(enable Pages → "GitHub Actions" in the repository settings).
+(enable Pages → "GitHub Actions" in the repository settings). The live site is
+<https://sosinone.github.io/hika/>.
+
+`.github/workflows/ci.yml` runs the type-checker, the tests, the region check and the build on
+pull requests and on pushes to other branches.
 
 ## Credits
 
@@ -75,7 +79,9 @@ HIKA would not exist without two sci-fi console projects:
   an open re-creation of that style with design tokens, a single accent colour and corner-bracket
   panels, which showed how to structure the look as reusable tokens.
 
-## Data licence
+## Licence
 
-Geodata © swisstopo, free to use with attribution (opendata.swiss terms "BY"). Routes ©
-SchweizMobil / ASTRA. See `NOTICE.md`.
+The code is released under the [MIT licence](LICENSE).
+
+The bundled data in `public/data/` is not covered by it. Geodata © swisstopo, free to use with
+attribution (opendata.swiss terms "BY"). Routes © SchweizMobil / ASTRA. See [NOTICE.md](NOTICE.md).

@@ -4,3 +4,6 @@ dist/
 *.log
 .DS_Store
 .task/
+.claude/settings.local.json
+.env
+.env.*

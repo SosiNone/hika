@@ -1,5 +1,8 @@
 # Notices
 
+The HIKA source code is MIT-licensed (see `LICENSE`). The third-party data, font and references
+below keep their own terms.
+
 ## Data
 
 - swissALTI3D, SWISSIMAGE, swissTLM3D Wanderwege, swissNAMES3D, swissBOUNDARIES3D:
