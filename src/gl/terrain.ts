@@ -173,8 +173,18 @@ const REACH_GROW = 0.8;
 /** Camera distances (m) over which route ribbons narrow to `RIBBON_FAR` of their width, so they don't swamp the overview. */
 const RIBBON_SHRINK = [4000, 16000];
 const RIBBON_FAR = 0.55;
+/** Likewise for the 2D map markers (hiker, waypoint pins and rings), over the whole zoom range. */
+const MARKER_SHRINK = [4000, 40000];
+const MARKER_FAR = 0.45;
 
-export interface RenderInfo { vp: Mat4; width: number; height: number; eye: number[]; focus: number; scanAlt: number; fps: number; points: number }
+/** Scale factor that eases (smoothstep) from 1 at camera distance `near` down to `floor` at `far`. */
+export function zoomScale(dist: number, [near, far]: number[], floor: number): number {
+  const s = Math.min(1, Math.max(0, (dist - near) / (far - near)));
+  return 1 - (1 - floor) * s * s * (3 - 2 * s);
+}
+
+/** `markers` scales the 2D map markers with the zoom, see `MARKER_SHRINK`. */
+export interface RenderInfo { vp: Mat4; width: number; height: number; eye: number[]; focus: number; scanAlt: number; fps: number; points: number; markers: number }
 
 /** `count` is the number of segments (instances). */
 interface Ribbon { vao: WebGLVertexArrayObject; count: number }
@@ -466,9 +476,7 @@ export class TerrainView {
      * the ribbon in its trail-class colours. Ribbons are opaque: where neighbouring capsules overlap
      * at a join, a translucent one would show a bead.
      */
-    const [near, far] = RIBBON_SHRINK;
-    const s = Math.min(1, Math.max(0, (this.camera.dist - near) / (far - near)));
-    const zoom = 1 - (1 - RIBBON_FAR) * s * s * (3 - 2 * s);
+    const zoom = zoomScale(this.camera.dist, RIBBON_SHRINK, RIBBON_FAR);
     const ribbon = (r: Ribbon, color: number[] | null, half: number) => {
       gl.clear(gl.DEPTH_BUFFER_BIT);
       gl.uniform1i(R.u.uByClass, color ? 0 : 1);
@@ -495,6 +503,6 @@ export class TerrainView {
 
     this.fps.frames++;
     if (t - this.fps.since > 0.5) { this.fps.value = this.fps.frames / (t - this.fps.since); this.fps.frames = 0; this.fps.since = t; }
-    return { vp, width: this.canvas.clientWidth, height: this.canvas.clientHeight, eye, focus, scanAlt, fps: this.fps.value, points: count };
+    return { vp, width: this.canvas.clientWidth, height: this.canvas.clientHeight, eye, focus, scanAlt, fps: this.fps.value, points: count, markers: zoomScale(this.camera.dist, MARKER_SHRINK, MARKER_FAR) };
   }
 }

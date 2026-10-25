@@ -88,9 +88,9 @@ export class LabelLayer {
           : state === 'next' ? `NEXT · ETA ${hm(Math.max(0, wp.time - now))}`
           : `${Math.round(p.alt || wp.alt)} M · T+${hm(wp.time)}`;
         const breathe = state === 'next' ? 1 + 0.12 * (1 - Math.cos(a * 2.4)) : 1;
-        this.ring(at, route.e[i], route.n[i], route.alt[i], info.eye, tone(state).stroke, breathe);
+        this.ring(at, route.e[i], route.n[i], route.alt[i], info.eye, tone(state).stroke, breathe * info.markers);
         // A waypoint label that would collide shrinks to its ID instead of disappearing.
-        if (!this.waypoint(s.x, s.y, 34, id, p.name.toUpperCase(), sub, state, end, taken, W)) this.waypoint(s.x, s.y, 16, id, '', '', state, end, taken, W, true);
+        if (!this.waypoint(s.x, s.y, 34, id, p.name.toUpperCase(), sub, state, end, info.markers, taken, W)) this.waypoint(s.x, s.y, 16, id, '', '', state, end, info.markers, taken, W, true);
       });
     }
     for (const p of this.candidates) {
@@ -110,10 +110,10 @@ export class LabelLayer {
     if (route && top && callout) {
       const i = hikerIndex!;
       const ground = at(route.e[i], route.n[i], this.region.bundle.grid.minAlt);
-      this.hiker(top, ground, this.smoothHeading(screenHeading(route, i), route, t), route, i, a, callout);
+      this.hiker(top, ground, this.smoothHeading(screenHeading(route, i), route, t), route, i, a, info.markers, callout);
     }
     // Last, so the hover readout stays on top of the hiker's callout.
-    if (route && hoverIndex !== null) this.hoverMark(at(route.e[hoverIndex], route.n[hoverIndex], route.alt[hoverIndex]), screenHeading(route, hoverIndex), route.alt[hoverIndex], route.km[hoverIndex]);
+    if (route && hoverIndex !== null) this.hoverMark(at(route.e[hoverIndex], route.n[hoverIndex], route.alt[hoverIndex]), screenHeading(route, hoverIndex), route.alt[hoverIndex], route.km[hoverIndex], info.markers);
   }
 
   /**
@@ -181,10 +181,11 @@ export class LabelLayer {
 
   /**
    * A route waypoint's pin and label: a straight leader up from the ground to a small hollow
-   * circle (larger at DEP/ARR), the ID and name beside it and a status line below. Returns
+   * circle (larger at DEP/ARR), the ID and name beside it and a status line below. `zoom` (see
+   * `RenderInfo.markers`) shrinks the circle, by its square root so it stays hollow. Returns
    * false when it was skipped for overlapping.
    */
-  private waypoint(x: number, y: number, lift: number, id: string, name: string, sub: string, state: WaypointState, end: boolean, taken: Rect[], W: number, force = false): boolean {
+  private waypoint(x: number, y: number, lift: number, id: string, name: string, sub: string, state: WaypointState, end: boolean, zoom: number, taken: Rect[], W: number, force = false): boolean {
     const { ctx } = this;
     ctx.font = STRONG;
     const idW = ctx.measureText(id).width;
@@ -192,7 +193,7 @@ export class LabelLayer {
     const rowW = idW + (name ? ctx.measureText(name).width + 5 : 0);
     ctx.font = SMALL;
     const tw = Math.max(rowW, sub ? ctx.measureText(sub).width : 0);
-    const r = end ? 5 : 3.5;
+    const m = Math.sqrt(zoom), r = (end ? 5 : 3.5) * m;
     const ax = px(x), cy = px(y - lift);
     const flip = x + 10 + tw > W - 150;
     const left = Math.round(flip ? ax - 10 - tw : ax + 10);
@@ -207,7 +208,7 @@ export class LabelLayer {
     ctx.arc(ax, cy, r, 0, Math.PI * 2);
     this.stroke(c.stroke);
     ctx.beginPath();
-    ctx.arc(ax, cy, 1.6, 0, Math.PI * 2);
+    ctx.arc(ax, cy, 1.6 * m, 0, Math.PI * 2);
     ctx.fillStyle = c.mark;
     ctx.fill();
 
@@ -229,7 +230,8 @@ export class LabelLayer {
 
   /**
    * A waypoint's ground ring: a level circle around the track, projected so it lies flat on the
-   * terrain. Its radius grows with the camera distance, so it keeps about the same size on screen.
+   * terrain. Its radius grows with the camera distance, so it keeps about the same size on screen
+   * before `scale` (which carries the zoom, `RenderInfo.markers`) shrinks it.
    */
   private ring(at: (e: number, n: number, alt: number) => Screen, e: number, n: number, alt: number, eye: number[], color: string, scale: number) {
     const { ctx } = this;
@@ -275,11 +277,11 @@ export class LabelLayer {
   }
 
   /** The profile-chart hover point: an outlined arrowhead along the track, like the chart's hover cursor. */
-  private hoverMark(s: Screen, heading: number | null, alt: number, km: number) {
+  private hoverMark(s: Screen, heading: number | null, alt: number, km: number, zoom: number) {
     if (s.w <= 0) return;
     const { ctx } = this;
     const x = px(s.x), y = px(s.y);
-    pointer(ctx, x, y, heading ?? -Math.PI / 2, C.ink(0.85), false, 1.5);
+    pointer(ctx, x, y, heading ?? -Math.PI / 2, C.ink(0.85), false, 1.5 * zoom);
     // On a plate, since it can land on the hiker's callout.
     const readout = `${Math.round(alt)} M · KM ${km.toFixed(1)}`;
     ctx.font = SMALL;
@@ -292,9 +294,10 @@ export class LabelLayer {
 
   /**
    * The preview hiker: a filled arrowhead along the track (the charts' pointer) with a sonar ping,
-   * an altitude stake down to the region floor, and a telemetry callout on an elbow leader.
+   * an altitude stake down to the region floor, and a telemetry callout on an elbow leader. The
+   * arrowhead and ping shrink with `zoom` (`RenderInfo.markers`); the callout keeps its size.
    */
-  private hiker(top: Screen, ground: Screen, heading: number | null, route: RouteView, i: number, a: number, box: ReturnType<LabelLayer['callout']>) {
+  private hiker(top: Screen, ground: Screen, heading: number | null, route: RouteView, i: number, a: number, zoom: number, box: ReturnType<LabelLayer['callout']>) {
     const { ctx } = this;
     const x = px(top.x), y = px(top.y);
     const TAU = Math.PI * 2;
@@ -303,7 +306,7 @@ export class LabelLayer {
     ctx.lineWidth = 1;
     ctx.setLineDash([2, 3]);
     ctx.beginPath();
-    ctx.moveTo(x, y + 12);
+    ctx.moveTo(x, y + 12 * zoom);
     ctx.lineTo(ground.x, ground.y);
     ctx.stroke();
     ctx.setLineDash([]);
@@ -317,20 +320,20 @@ export class LabelLayer {
     if (!this.still) {
       const f = (a / 2) % 1;
       ctx.beginPath();
-      ctx.arc(x, y, 6 + 20 * f, 0, TAU);
+      ctx.arc(x, y, (6 + 20 * f) * zoom, 0, TAU);
       ctx.lineWidth = 1;
       ctx.strokeStyle = C.ac(0.6 * (1 - f));
       ctx.stroke();
     }
 
     // Keeps pointing the last way walked after arrival; straight up if the track is off screen.
-    pointer(ctx, x, y, heading ?? -Math.PI / 2, C.accent, true, 1.8);
+    pointer(ctx, x, y, heading ?? -Math.PI / 2, C.accent, true, 1.8 * zoom);
 
     // Telemetry callout on an elbow leader.
     const { x: bx, y: by, w, h, rows, total } = box;
     const sx = box.flip ? -1 : 1;
     ctx.beginPath();
-    ctx.moveTo(x + sx * 11, y - 11);
+    ctx.moveTo(x + sx * 11 * zoom, y - 11 * zoom);
     ctx.lineTo(x + sx * 16, y - 16);
     ctx.lineTo(x + sx * 26, y - 16);
     this.stroke(C.ac(0.85));
