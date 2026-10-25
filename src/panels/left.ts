@@ -17,11 +17,17 @@ export function mountPreview(el: HTMLElement, c: Ctx) {
     </div>
     <div class="preview-bar">
       <button class="btn" data-k="play">PAUSE</button>
-      <input type="range" min="0" max="1000" value="0" data-k="scrub" aria-label="Preview position" />
+      <div class="scrub" data-k="track">
+        <div class="ticks" data-k="ticks"></div>
+        <input type="range" min="0" max="1000" value="0" data-k="scrub" aria-label="Preview position" />
+      </div>
       <button class="btn" data-k="speed"></button>
     </div>`;
   const q = (k: string) => body.querySelector<HTMLElement>(`[data-k="${k}"]`)!;
   const scrub = q('scrub') as HTMLInputElement;
+  const track = q('track');
+  let ticks: HTMLElement[] = [];
+  let built = '';
   const speeds = [1.5, 3, 6];
   q('play').onclick = () => c.store.set({ playing: !c.store.state.playing });
   q('speed').onclick = () => {
@@ -33,6 +39,14 @@ export function mountPreview(el: HTMLElement, c: Ctx) {
   return () => {
     const r = c.route(), i = c.hikerIndex(), s = c.store.state;
     const total = r.minutes[r.minutes.length - 1];
+    if (built !== r.id) {
+      // One tick per waypoint, placed by walking time so it lines up with the scrubber.
+      built = r.id;
+      q('ticks').innerHTML = r.waypoints.map((w) => `<i style="--f:${Math.min(1, w.time / total)}"></i>`).join('');
+      ticks = [...q('ticks').children] as HTMLElement[];
+    }
+    track.style.setProperty('--p', String(Math.min(1, s.minute / total)));
+    r.waypoints.forEach((w, k) => ticks[k].classList.toggle('passed', w.time <= s.minute));
     meta.textContent = `1 H = ${s.secondsPerHour} S`;
     q('km').textContent = r.km[i].toFixed(1);
     q('alt').textContent = num(r.alt[i]);

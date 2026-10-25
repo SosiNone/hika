@@ -23,6 +23,8 @@ export function mountLocator(el: HTMLElement, c: Ctx) {
   return (t: number) => {
     const { w, h } = ch.begin();
     const ctx = ch.ctx;
+    // A panel laid out at zero size (hidden window, collapsed layout) would make createImageData throw and stop the render loop.
+    if (!ctx.canvas.width || !ctx.canvas.height) return;
     const theta = 0.32 * Math.sin(t * 0.12), tilt = 0.95;
     const s = Math.min((w - 16) / (L.bbox[2] - L.bbox[0]), (h - 10) / ((L.bbox[3] - L.bbox[1]) * Math.cos(tilt) + 5000));
     const ct = Math.cos(theta), st = Math.sin(theta);
