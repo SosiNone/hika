@@ -23,6 +23,8 @@ export function mountLocator(el: HTMLElement, c: Ctx) {
   return (t: number) => {
     const { w, h } = ch.begin();
     const ctx = ch.ctx;
+    // Before layout (e.g. a page loaded hidden) the canvas is 0 × 0, and createImageData would throw.
+    if (!ctx.canvas.width || !ctx.canvas.height) return;
     const theta = 0.32 * Math.sin(t * 0.12), tilt = 0.95;
     const s = Math.min((w - 16) / (L.bbox[2] - L.bbox[0]), (h - 10) / ((L.bbox[3] - L.bbox[1]) * Math.cos(tilt) + 5000));
     const ct = Math.cos(theta), st = Math.sin(theta);
@@ -80,12 +82,12 @@ export function mountTerrainStats(el: HTMLElement, c: Ctx) {
   roseBox.style.height = '92px';
   body.append(bars, roseBox);
   const rose = chart(roseBox);
-  let built = '';
+  let built: RouteView | null = null;
   let sectors: number[] = [];
   return () => {
     const r = c.route();
-    if (built !== r.id) {
-      built = r.id;
+    if (built !== r) {
+      built = r;
       const a = analyse(c, r);
       sectors = a.aspect;
       meta.textContent = `MAX SLOPE ${a.maxSlope.toFixed(0)} %`;
@@ -143,11 +145,11 @@ export function mountLog(el: HTMLElement, c: Ctx) {
   const list = document.createElement('div');
   list.className = 'log';
   body.appendChild(list);
-  let events: LogEvent[] = [], shown = 0, built = '';
+  let events: LogEvent[] = [], shown = 0, built: RouteView | null = null;
   return () => {
     const r = c.route(), minute = c.store.state.minute;
-    if (built !== r.id) {
-      built = r.id;
+    if (built !== r) {
+      built = r;
       events = buildEvents(c, r);
       shown = 0;
       list.innerHTML = '';

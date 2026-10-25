@@ -80,6 +80,28 @@ function deriveRoute(r: Route): RouteView {
   return { ...r, km, minutes: cumulativeMinutes(r.alt, r.step), up, down };
 }
 
+/**
+ * The same route walked to → from. Samples are evenly spaced, so reversing the arrays is exact;
+ * times and climbs come from the same helpers as the forward direction.
+ */
+export function reverseRoute(r: Route): RouteView {
+  const flip = <T>(a: T[]) => [...a].reverse();
+  const view = deriveRoute({
+    ...r,
+    from: r.to,
+    to: r.from,
+    clipped: [r.clipped[1], r.clipped[0]],
+    e: flip(r.e), n: flip(r.n), alt: flip(r.alt), cls: flip(r.cls), surf: flip(r.surf),
+  });
+  const last = r.alt.length - 1;
+  view.stats = { ...r.stats, time: r.stats.timeBack, timeBack: r.stats.time, up: Math.round(view.up[last]), down: Math.round(view.down[last]) };
+  view.waypoints = flip(r.waypoints).map((w) => {
+    const i = last - Math.min(last, Math.round((w.km * 1000) / r.step));
+    return { ...w, km: Math.round((i * r.step) / 100) / 10, time: Math.round(view.minutes[i]) };
+  });
+  return view;
+}
+
 /** Sample index at a given hiking minute (binary search on the cumulative series). */
 export function indexAtMinute(r: RouteView, minute: number): number {
   let lo = 0, hi = r.minutes.length - 1;
