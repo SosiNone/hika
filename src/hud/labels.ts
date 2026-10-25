@@ -145,7 +145,7 @@ export class LabelLayer {
     ctx.lineTo(top.x - 5, top.y);
     ctx.closePath();
     ctx.fill();
-    const box = `H1 · KM ${route.km[i].toFixed(1)}`;
+    const box = `HIKA · KM ${route.km[i].toFixed(1)}`;
     ctx.font = FONT;
     const w = ctx.measureText(box).width + 12;
     ctx.fillStyle = C.bgA(0.85);

@@ -9,7 +9,7 @@ export function mountPreview(el: HTMLElement, c: Ctx) {
   const { body, meta } = frame(el, 'A', 'Trail preview');
   body.innerHTML = `
     <div class="kv">
-      <div><div class="k">H1 · KM</div><div class="v" data-k="km">0.0</div></div>
+      <div><div class="k">HIKA · KM</div><div class="v" data-k="km">0.0</div></div>
       <div><div class="k">ALTITUDE · M</div><div class="v" data-k="alt">0</div></div>
       <div><div class="k">D+ SO FAR · M</div><div class="v" data-k="up">0</div></div>
       <div><div class="k">ELAPSED</div><div class="v" data-k="time">0:00</div></div>
