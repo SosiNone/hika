@@ -4,6 +4,16 @@ import { esc, num } from '../panels/common';
 import type { Store } from '../state';
 import { STYLES, THEMES, type Display } from '../theme/tokens';
 
+const REPO = 'https://github.com/SosiNone/hika';
+
+/** Footer version link: the release tag in builds, the repository in the dev server. */
+export function showVersion(el: HTMLAnchorElement) {
+  const tag = `v${__APP_VERSION__}`;
+  el.textContent = import.meta.env.DEV ? `${tag}-DEV` : tag;
+  el.href = import.meta.env.DEV ? REPO : `${REPO}/releases/tag/${tag}`;
+  el.title = 'HIKA version';
+}
+
 /** Footer switches for theme, style and scheme; the store owns the choice, main.ts applies it. */
 export function mountDisplaySwitch(el: HTMLElement, store: Store) {
   const groups: [keyof Display, string, string[]][] = [
