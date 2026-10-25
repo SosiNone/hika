@@ -1,12 +1,13 @@
 import { DatabaseSync } from 'node:sqlite';
 import type { BBox, Locator } from '../../src/data/types';
-import { simplify, type XY } from '../../src/geo/track';
+import { insideRings, simplify, type XY } from '../../src/geo/track';
 import { downloadAsset } from './download';
 import { parseGpkgRings } from './gpkg';
 import { fetchCached, mapLimit } from './http';
 import { latestItem } from './stac';
 
-const CH_BBOX: BBox = [2_484_000, 1_074_000, 2_836_000, 1_298_000];
+/** Switzerland in LV95, the extent of the locator relief. */
+export const CH_BBOX: BBox = [2_484_000, 1_074_000, 2_836_000, 1_298_000];
 const PROFILE = 'https://api3.geo.admin.ch/rest/services/profile.json';
 
 /**
@@ -27,7 +28,7 @@ export async function buildLocator(cell: number): Promise<{ locator: Omit<Locato
     for (const p of res) {
       const i = Math.round((p.easting - e0) / cell);
       const h = p.alts.DTM2 ?? p.alts.COMB;
-      if (i >= 0 && i < cols && h != null && insideAny(border, p.easting, n)) heights[j * cols + i] = h;
+      if (i >= 0 && i < cols && h != null && insideRings(border, p.easting, n)) heights[j * cols + i] = h;
     }
   }, 'locator rows', 25);
   return { locator: { bbox: CH_BBOX, cols, rows, cell, border: border.map(flat), cantons: cantons.map(flat), lakes: [] }, heights };
@@ -35,7 +36,8 @@ export async function buildLocator(cell: number): Promise<{ locator: Omit<Locato
 
 const flat = (ring: XY[]) => ring.flatMap(([e, n]) => [Math.round(e), Math.round(n)]);
 
-async function loadBoundaries(): Promise<{ border: XY[][]; cantons: XY[][] }> {
+/** National border (Switzerland only) and canton outlines from swissBOUNDARIES3D, simplified to 400 m. */
+export async function loadBoundaries(): Promise<{ border: XY[][]; cantons: XY[][] }> {
   const item = await latestItem('ch.swisstopo.swissboundaries3d');
   const asset = Object.values(item.assets).find((a) => a.href.endsWith('.gpkg.zip'))!;
   const [gpkg] = await downloadAsset(asset.href, 'swissboundaries3d', (n) => n.endsWith('.gpkg'));
@@ -52,13 +54,4 @@ async function loadBoundaries(): Promise<{ border: XY[][]; cantons: XY[][] }> {
   const cantons = read(/kantonsgebiet/i).filter((r) => r.length > 50).map((r) => simplify(r, 400));
   db.close();
   return { border, cantons };
-}
-
-function insideAny(rings: XY[][], x: number, y: number): boolean {
-  let inside = false;
-  for (const ring of rings) for (let i = 0, j = ring.length - 1; i < ring.length; j = i++) {
-    const [xi, yi] = ring[i], [xj, yj] = ring[j];
-    if (yi > y !== yj > y && x < ((xj - xi) * (y - yi)) / (yj - yi) + xi) inside = !inside;
-  }
-  return inside;
 }

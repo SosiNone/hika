@@ -1,0 +1,42 @@
+{
+  "id": "lucerne",
+  "title": "Lake Lucerne",
+  "subtitle": "Rigi · Pilatus · Luzern",
+  "cantons": ["LU", "NW", "OW", "SZ"],
+  "bbox": [2658000, 1198000, 2682000, 1217000],
+  "cell": 20,
+  "orthoZoom": 20,
+  "orthoWidth": 2048,
+  "minInside": 0.3,
+  "minInsideKm": 2,
+  "defaultRoute": "c-rigi-kulm-kaenzeli",
+  "excludeRoutes": [],
+  "curated": [
+    {
+      "id": "fraekmuentegg-pilatus",
+      "name": "Fräkmüntegg – Pilatus Kulm",
+      "via": [
+        { "name": "Berghaus Fräkmüntegg", "kind": "inn" },
+        { "name": "Pilatus Kulm", "kind": "lift" }
+      ]
+    },
+    {
+      "id": "rigi-kulm-kaenzeli",
+      "name": "Rigi Kulm – Rigi Staffel – Känzeli",
+      "via": [
+        { "name": "Rigi Kulm", "kind": "stop" },
+        { "name": "Rigi Staffel", "kind": "stop" },
+        { "name": "Rigi Kaltbad-First", "kind": "stop" },
+        { "name": "Rigi Känzeli", "kind": "view" }
+      ]
+    },
+    {
+      "id": "stans-stanserhorn",
+      "name": "Stans – Stanserhorn",
+      "via": [
+        { "name": "Stans", "kind": "stop" },
+        { "name": "Drehrestaurant Stanserhorn", "kind": "inn" }
+      ]
+    }
+  ]
+}

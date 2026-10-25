@@ -1,0 +1,42 @@
+{
+  "id": "verbier",
+  "title": "Verbier",
+  "subtitle": "Val de Bagnes · Mont Fort · Nendaz",
+  "cantons": ["VS"],
+  "bbox": [2571000, 1099000, 2595000, 1118000],
+  "cell": 20,
+  "orthoZoom": 20,
+  "orthoWidth": 2048,
+  "minInside": 0.3,
+  "minInsideKm": 2,
+  "defaultRoute": "sm-58.02",
+  "excludeRoutes": [],
+  "curated": [
+    {
+      "id": "mont-fort-lac-des-vaux",
+      "name": "Cabane du Mont Fort – Lac des Vaux – Les Attelas",
+      "via": [
+        { "name": "Cabane du Mont Fort CAS", "kind": "inn" },
+        { "name": "Lac des Vaux", "kind": "lake" },
+        { "name": "Les Attelas", "kind": "lift" }
+      ]
+    },
+    {
+      "id": "savoleyres-tracouet",
+      "name": "Savoleyres – La Croix-de-Coeur – Tracouet",
+      "via": [
+        { "name": "Savoleyres", "kind": "lift" },
+        { "name": "Restaurant La Croix-de-Coeur", "kind": "inn" },
+        { "name": "Restaurant du Tracouet", "kind": "inn" }
+      ]
+    },
+    {
+      "id": "le-chable-verbier",
+      "name": "Le Châble – Verbier",
+      "via": [
+        { "name": "Le Châble VS", "kind": "stop" },
+        { "name": "Verbier (télécabine)", "kind": "lift" }
+      ]
+    }
+  ]
+}

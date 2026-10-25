@@ -1,0 +1,32 @@
+{
+  "id": "glarus",
+  "title": "Glarus",
+  "subtitle": "Vrenelisgärtli · Klöntal · Walensee",
+  "cantons": ["GL", "SG"],
+  "bbox": [2715000, 1199000, 2739000, 1218000],
+  "cell": 20,
+  "orthoZoom": 20,
+  "orthoWidth": 2048,
+  "minInside": 0.3,
+  "minInsideKm": 2,
+  "defaultRoute": "sm-810.00",
+  "excludeRoutes": [],
+  "curated": [
+    {
+      "id": "fronalpstock",
+      "name": "Fronalp – Fronalpstock",
+      "via": [
+        { "name": "Naturfreundehaus Fronalp", "kind": "inn" },
+        { "name": "Fronalpstock", "kind": "summit" }
+      ]
+    },
+    {
+      "id": "braunwald-ortstockhaus",
+      "name": "Braunwald – Ortstockhaus",
+      "via": [
+        { "name": "Braunwald", "kind": "stop" },
+        { "name": "Ortstockhaus", "kind": "inn" }
+      ]
+    }
+  ]
+}

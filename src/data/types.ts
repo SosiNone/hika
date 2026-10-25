@@ -79,15 +79,21 @@ export interface Source {
   url: string;
 }
 
+/** Bundle format the app reads: 2 stores terrain.bin and trails.bin delta-encoded (src/data/codec.ts). */
+export const BUNDLE_VERSION = 2;
+
 export interface RegionBundle {
-  version: 1;
+  version: typeof BUNDLE_VERSION;
   id: string;
   title: string;
   subtitle: string;
   cantons: string[];
   bbox: BBox;
-  /** terrain.u16: row-major, row 0 at the north edge, cell centres, decimetres; 0 = no data. */
-  grid: { cols: number; rows: number; cell: number; minAlt: number; maxAlt: number };
+  /**
+   * terrain.bin (`encodeGrid`): row-major, row 0 at the north edge, cell centres, decimetres;
+   * 0 = no data.
+   */
+  grid: { file: string; cols: number; rows: number; cell: number; minAlt: number; maxAlt: number };
   ortho: { file: string; width: number; height: number };
   trails: { file: string; lines: number; vertices: number; km: [number, number, number]; hardKm: number };
   places: Place[];
@@ -98,7 +104,7 @@ export interface RegionBundle {
 }
 
 export interface Locator {
-  /** switzerland.u16: coarse national relief, same encoding as terrain.u16. */
+  /** switzerland.u16: coarse national relief as raw Uint16 decimetres (small, and the same file in every bundle). */
   file: string;
   bbox: BBox;
   cols: number;

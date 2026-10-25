@@ -24,8 +24,14 @@ There are two halves joined by a static data bundle:
 `docs/data-coverage.md` tracks which data is in the bundle, which of it the app shows, and what the sources offer beyond that. Update it when you add a source, a bundle field or a panel.
 
 ### Bundle format (`public/data/<id>/`)
-- `terrain.u16` / `switzerland.u16`: Uint16 **decimetres**, row-major, row 0 = **north** edge, values at cell centres, `0` = no data.
-- `trails.bin`: custom layout written by `encodeTrails` (scripts/lib/trails.ts) and read by `decodeTrails` (src/data/load.ts). The two must change together.
+- `region.json` `version` is the bundle format (`BUNDLE_VERSION` in `src/data/types.ts`, now 2). The app refuses any other version and says to rebuild.
+- **Height grid** (`grid.file`, `terrain.bin`): Uint16 **decimetres**, row-major, row 0 = **north** edge, values at cell centres, `0` = no data. swissALTI3D ends at the national border, so a region that reaches abroad (Zermatt, Aletsch) has `0` cells there. They are skipped, never drawn as 0 m: the point shader and the contour worker drop any cell with a `0` corner, and `TerrainView.heightAt` interpolates over the corners that have data.
+- `terrain.bin` and `trails.bin` are delta-encoded by `src/data/codec.ts`, the one module the pipeline encodes with and the app decodes with:
+  - The terrain stores gradient-predictor residuals; the trails store per-line vertex deltas (magic `HKT2`).
+  - Both store 16-bit values modulo 2^16, with the low-byte plane before the high-byte plane.
+  - They are deliberately **not compressed** in the file. Git's zlib and the GitHub Pages gzip roughly halve them, and a small upstream change stays a small change that git can delta.
+- `switzerland.u16`: the coarse national relief, raw Uint16 decimetres, the same file in every bundle (git stores it once).
+- Rebuilds are reproducible. `build-region` rewrites only files whose bytes changed and keeps `generated` when nothing did, so rebuilding unchanged data leaves git clean. Don't add anything that varies per run (timestamps, random order) to a bundle.
 - `region.json`: places and routes. Place `e/n` and route `e/n` arrays are **metres relative to the bbox SW corner**; absolute LV95 (EPSG:2056) only appears in `bbox` and `locator`.
 - Route ids are `sm-<SchweizMobil id>` (e.g. `sm-951.00`) or `c-<curated id>`. The app reads and writes `#route=<id>` in the URL, plus `&reverse=1` when the hike is walked to → from. Ids are only unique within a region: neighbouring regions can share a clipped SchweizMobil route.
 - `public/data/regions.json` (`RegionIndex`) lists every built region with its title, cantons, bbox and `defaultRoute`. `scripts/lib/regions.ts` derives it from the bundles plus `defaultRoute` from `regions/<id>.json`; `build-region` rewrites it, `npm run index:regions` rewrites it on its own, and `check:region` fails when it is stale.
@@ -70,7 +76,17 @@ Route `stats` are computed in the pipeline (`finishRoute`). The per-sample cumul
 ### Regions
 - The app boots from `regions.json`: `pickRegion` (src/regions.ts) takes `?region=<id>`, else `DEFAULT_REGION` (`alpstein`, so links from before regions existed still open the right hike), else the first region. The route comes from `#route=`, else the region's `defaultRoute`.
 - One region is loaded at a time. Switching (`ctx.goToRegion`) is a page load of the `?region=` URL (`regionHref` keeps `?scheme=` and drops the hash), so nothing has to be torn down and the back button returns to the previous region. The picker is the brand subtitle in the top bar (`mountRegionPicker`, a native `<select>` once there are two regions); the Switzerland locator (G) also boxes the other regions, and clicking one opens it.
-- To add a region: write `regions/<id>.json` (bbox, `cell`, `defaultRoute`, curated hikes), run `task region REGION=<id>`, and commit `public/data/<id>/` with the updated `regions.json`. Keep the bbox inside Switzerland (swissALTI3D has no data abroad, and `check:region` allows under 1 % empty cells) and the bundle under its 6 MB budget. Curated hikes should add something SchweizMobil doesn't already have: check the build log's route list first.
+- Regions are 24 × 19 km boxes, which keeps a bundle under its 6 MB budget at 20 m cells. Zermatt is 27 km wide, to take in Saas-Fee: with the Matterhorn pinning its west edge, it would otherwise have too few SchweizMobil routes. Regions don't overlap, and `check:region` fails if two do. They were chosen with `scripts/scout-regions.ts` (`task regions:scout`):
+  - It scores boxes on a 1 km grid built from the cached national data (trail km per class from the Wanderwege R-tree, swissNAMES3D huts, summits, lakes, lifts, rail stops), with the weights in `scripts/lib/scout.ts`.
+  - With no arguments, it ranks the best boxes that overlap no `regions/*.json`. `--at E,N[,E,N …]` places the best box near an anchor while keeping the listed points inside. `--places <id>` lists the places in a box, for writing curated hikes.
+  - Pure ranking favours Graubünden, which signposts most of its network as Bergwanderweg, so the 17 regions were anchored on well-known hiking areas and placed by `--at`.
+- To add a region:
+  1. Scout a box.
+  2. Write `regions/<id>.json` (bbox, `cell`, `defaultRoute`, curated hikes).
+  3. Run `task region REGION=<id>`.
+  4. Commit `public/data/<id>/` with the updated `regions.json`.
+
+  A box may reach abroad: `check:region` only fails when over 1 % of the cells *inside* Switzerland are empty (`emptyCells` in `scripts/lib/coverage.ts`). Curated hikes should add something SchweizMobil doesn't already have, so check the build log's route list first.
 
 ## Deploy
 

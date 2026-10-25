@@ -1,0 +1,45 @@
+{
+  "id": "kandersteg",
+  "title": "Kandersteg",
+  "subtitle": "Oeschinensee · Adelboden · Leukerbad",
+  "cantons": ["BE", "VS"],
+  "bbox": [2599000, 1133000, 2623000, 1152000],
+  "cell": 20,
+  "orthoZoom": 20,
+  "orthoWidth": 2048,
+  "minInside": 0.3,
+  "minInsideKm": 2,
+  "defaultRoute": "c-oeschinensee-heuberg",
+  "excludeRoutes": [],
+  "curated": [
+    {
+      "id": "oeschinensee-heuberg",
+      "name": "Oeschinensee – Oberbärgli – Heuberg",
+      "via": [
+        { "name": "Kandersteg", "kind": "stop" },
+        { "name": "Oeschinensee", "kind": "lake" },
+        { "name": "Berghaus Oberbärgli", "kind": "inn" },
+        { "name": "Heuberg", "kind": "view" }
+      ]
+    },
+    {
+      "id": "sunnbuel-gemmi",
+      "name": "Sunnbüel – Schwarenbach – Gemmipass",
+      "via": [
+        { "name": "Sunnbüel", "kind": "lift" },
+        { "name": "Berghotel Schwarenbach", "kind": "inn" },
+        { "name": "Daubensee", "kind": "lake" },
+        { "name": "Gemmipass", "kind": "view" }
+      ]
+    },
+    {
+      "id": "adelboden-engstligenalp",
+      "name": "Adelboden – Engstligenfälle – Engstligenalp",
+      "via": [
+        { "name": "Adelboden", "kind": "village" },
+        { "name": "Entschligefäll", "kind": "water" },
+        { "name": "Engstligenalp", "kind": "lift" }
+      ]
+    }
+  ]
+}

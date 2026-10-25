@@ -1,0 +1,42 @@
+{
+  "id": "engelberg",
+  "title": "Engelberg",
+  "subtitle": "Titlis · Surenenpass · Altdorf",
+  "cantons": ["OW", "NW", "UR"],
+  "bbox": [2672000, 1179000, 2696000, 1198000],
+  "cell": 20,
+  "orthoZoom": 20,
+  "orthoWidth": 2048,
+  "minInside": 0.3,
+  "minInsideKm": 2,
+  "defaultRoute": "sm-1.07",
+  "excludeRoutes": [],
+  "curated": [
+    {
+      "id": "stand-truebsee",
+      "name": "Stand – Trübsee – Gerschnialp",
+      "via": [
+        { "name": "Stand", "kind": "lift" },
+        { "name": "Trübsee", "kind": "lake" },
+        { "name": "Gerschnialp", "kind": "stop" }
+      ]
+    },
+    {
+      "id": "engelberg-brunnihuette",
+      "name": "Engelberg – Ristis – Brunnihütte",
+      "via": [
+        { "name": "Engelberg", "kind": "stop" },
+        { "name": "Ristis (Brunni-Bahnen)", "kind": "lift" },
+        { "name": "Brunnihütte", "kind": "inn" }
+      ]
+    },
+    {
+      "id": "fuerenalp-blackenalp",
+      "name": "Fürenalp – Surenen – Blackenalp",
+      "via": [
+        { "name": "Bergrestaurant Fürenalp", "kind": "inn" },
+        { "name": "Alphütte Blackenalp", "kind": "inn" }
+      ]
+    }
+  ]
+}

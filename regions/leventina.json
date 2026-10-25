@@ -1,0 +1,41 @@
+{
+  "id": "leventina",
+  "title": "Leventina",
+  "subtitle": "Campo Tencia · Strada Alta · Ritom",
+  "cantons": ["TI"],
+  "bbox": [2692000, 1139000, 2716000, 1158000],
+  "cell": 20,
+  "orthoZoom": 20,
+  "orthoWidth": 2048,
+  "minInside": 0.3,
+  "minInsideKm": 2,
+  "defaultRoute": "sm-2.26",
+  "excludeRoutes": [],
+  "curated": [
+    {
+      "id": "tremorgio-leit",
+      "name": "Lago Tremorgio – Capanna Leìt",
+      "via": [
+        { "name": "Lago Tremorgio", "kind": "lift" },
+        { "name": "Capanna Tremorgio", "kind": "inn" },
+        { "name": "Capanna Leìt", "kind": "inn" }
+      ]
+    },
+    {
+      "id": "dalpe-campo-tencia",
+      "name": "Dalpe – Capanna Campo Tencia",
+      "via": [
+        { "name": "Dalpe", "kind": "village" },
+        { "name": "Capanna Campo Tencia CAS", "kind": "inn" }
+      ]
+    },
+    {
+      "id": "cari",
+      "name": "Carì – Lago di Carì",
+      "via": [
+        { "name": "Carì Croce", "kind": "lift" },
+        { "name": "Lago di Carì", "kind": "lift" }
+      ]
+    }
+  ]
+}

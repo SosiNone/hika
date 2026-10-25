@@ -1,7 +1,22 @@
 {
   "version": 1,
   "regions": [
+    {"id":"aletsch","title":"Aletsch","subtitle":"Riederalp · Bettmeralp · Eggishorn","cantons":["VS"],"bbox":[2639000,1130000,2663000,1149000],"defaultRoute":"sm-39.01","routes":14},
+    {"id":"alpes-vaudoises","title":"Alpes vaudoises","subtitle":"Les Diablerets · Leysin · Château-d'Oex","cantons":["VD","BE"],"bbox":[2563000,1130000,2587000,1149000],"defaultRoute":"sm-1.19","routes":20},
     {"id":"alpstein","title":"Alpstein","subtitle":"Säntis · Seealpsee · Hoher Kasten","cantons":["AI","AR","SG"],"bbox":[2736000,1227000,2758000,1246000],"defaultRoute":"c-saentis-lisengrat","routes":25},
-    {"id":"jungfrau","title":"Jungfrau","subtitle":"Eiger · Grindelwald · Lauterbrunnen","cantons":["BE","VS"],"bbox":[2628000,1153000,2652000,1172000],"defaultRoute":"sm-353.00","routes":19}
+    {"id":"davos","title":"Davos","subtitle":"Weissfluh · Klosters · Arosa","cantons":["GR"],"bbox":[2765000,1181000,2789000,1200000],"defaultRoute":"sm-35.15","routes":27},
+    {"id":"engadin","title":"Engadin","subtitle":"St. Moritz · Pontresina · Bernina","cantons":["GR"],"bbox":[2776000,1139000,2800000,1158000],"defaultRoute":"sm-53.03","routes":25},
+    {"id":"engelberg","title":"Engelberg","subtitle":"Titlis · Surenenpass · Altdorf","cantons":["OW","NW","UR"],"bbox":[2672000,1179000,2696000,1198000],"defaultRoute":"sm-1.07","routes":26},
+    {"id":"flims","title":"Flims","subtitle":"Laax · Caumasee · Vorab","cantons":["GR","GL"],"bbox":[2727000,1174000,2751000,1193000],"defaultRoute":"sm-657.00","routes":19},
+    {"id":"glarus","title":"Glarus","subtitle":"Vrenelisgärtli · Klöntal · Walensee","cantons":["GL","SG"],"bbox":[2715000,1199000,2739000,1218000],"defaultRoute":"sm-810.00","routes":23},
+    {"id":"jungfrau","title":"Jungfrau","subtitle":"Eiger · Grindelwald · Lauterbrunnen","cantons":["BE","VS"],"bbox":[2628000,1153000,2652000,1172000],"defaultRoute":"sm-353.00","routes":19},
+    {"id":"jura","title":"Jura","subtitle":"Creux du Van · Chasseron · Val-de-Travers","cantons":["NE","VD"],"bbox":[2528000,1184000,2552000,1203000],"defaultRoute":"sm-286.00","routes":12},
+    {"id":"kandersteg","title":"Kandersteg","subtitle":"Oeschinensee · Adelboden · Leukerbad","cantons":["BE","VS"],"bbox":[2599000,1133000,2623000,1152000],"defaultRoute":"c-oeschinensee-heuberg","routes":15},
+    {"id":"lucerne","title":"Lake Lucerne","subtitle":"Rigi · Pilatus · Luzern","cantons":["LU","NW","OW","SZ"],"bbox":[2658000,1198000,2682000,1217000],"defaultRoute":"c-rigi-kulm-kaenzeli","routes":31},
+    {"id":"leventina","title":"Leventina","subtitle":"Campo Tencia · Strada Alta · Ritom","cantons":["TI"],"bbox":[2692000,1139000,2716000,1158000],"defaultRoute":"sm-2.26","routes":14},
+    {"id":"nationalpark","title":"National Park","subtitle":"Zernez · Il Fuorn · Scuol","cantons":["GR"],"bbox":[2800000,1170000,2824000,1189000],"defaultRoute":"sm-45.06","routes":21},
+    {"id":"verbier","title":"Verbier","subtitle":"Val de Bagnes · Mont Fort · Nendaz","cantons":["VS"],"bbox":[2571000,1099000,2595000,1118000],"defaultRoute":"sm-58.02","routes":18},
+    {"id":"verzasca","title":"Verzasca","subtitle":"Valle Verzasca · Maggia · Locarno","cantons":["TI"],"bbox":[2693000,1111000,2717000,1130000],"defaultRoute":"sm-74.02","routes":11},
+    {"id":"zermatt","title":"Zermatt","subtitle":"Matterhorn · Gornergrat · Saas-Fee","cantons":["VS"],"bbox":[2614000,1089000,2641000,1108000],"defaultRoute":"c-gornergrat-riffelberg","routes":10}
   ]
 }

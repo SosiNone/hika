@@ -1,0 +1,42 @@
+{
+  "id": "alpes-vaudoises",
+  "title": "Alpes vaudoises",
+  "subtitle": "Les Diablerets · Leysin · Château-d'Oex",
+  "cantons": ["VD", "BE"],
+  "bbox": [2563000, 1130000, 2587000, 1149000],
+  "cell": 20,
+  "orthoZoom": 20,
+  "orthoWidth": 2048,
+  "minInside": 0.3,
+  "minInsideKm": 2,
+  "defaultRoute": "sm-1.19",
+  "excludeRoutes": [],
+  "curated": [
+    {
+      "id": "pillon-cabane-des-diablerets",
+      "name": "Col du Pillon – Cabane des Diablerets",
+      "via": [
+        { "name": "Col du Pillon", "kind": "pass" },
+        { "name": "Cabane des Diablerets CAS", "kind": "inn" }
+      ]
+    },
+    {
+      "id": "mosses-pic-chaussy",
+      "name": "Col des Mosses – Lac Lioson – Pic Chaussy",
+      "via": [
+        { "name": "Col des Mosses", "kind": "pass" },
+        { "name": "Lac Lioson", "kind": "lake" },
+        { "name": "Pic Chaussy", "kind": "summit" }
+      ]
+    },
+    {
+      "id": "videmanette-rougemont",
+      "name": "La Videmanette – Rougemont",
+      "via": [
+        { "name": "La Videmanette", "kind": "lift" },
+        { "name": "Cabane de la Videmanette", "kind": "inn" },
+        { "name": "Rougemont", "kind": "stop" }
+      ]
+    }
+  ]
+}

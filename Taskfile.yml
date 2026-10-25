@@ -96,6 +96,12 @@ tasks:
     cmds:
       - npm run check:region
 
+  regions:scout:
+    desc: 'Rank good region boxes from the cached national data, e.g. `task regions:scout -- --places zermatt` (see scripts/scout-regions.ts)'
+    deps: [install]
+    cmds:
+      - npm run scout:regions -- {{.CLI_ARGS}}
+
   regions:index:
     desc: Rewrite public/data/regions.json from the built bundles (after deleting one or changing a defaultRoute)
     deps: [install]

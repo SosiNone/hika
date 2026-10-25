@@ -3,8 +3,8 @@
 What data HIKA has, and how much of it the app shows. Use it to plan features: a ✗ or ◐ row in
 section 1 needs only app work, section 2 needs a pipeline change, and section 3 needs a new source.
 
-Counts are from v0.2.0 and the `alpstein` bundle; v0.7.0 added the `jungfrau` bundle, which has the
-same fields. When you add a bundle field, a panel or a source, update the matching row.
+Counts are from v0.2.0 and the `alpstein` bundle. v0.8.0 has 17 regions, whose bundles all have
+the same fields. When you add a bundle field, a panel or a source, update the matching row.
 
 **Legend:** ✅ shown · ◐ partly shown · ✗ in the bundle but not shown
 
@@ -14,7 +14,8 @@ same fields. When you add a bundle field, a panel or a source, update the matchi
 
 | Data | Source | Bundle | Shown | Where | Unused / ideas |
 |---|---|---|---|---|---|
-| Height grid, 20 m (1100 × 950) | swissALTI3D | `terrain.u16` | ✅ | Point cloud, contours (worker), trail draping, slope aspect rose (I) | No height or slope readout under the cursor; no slope shading of the cloud |
+| Height grid, 20 m (1100 × 950) | swissALTI3D | `terrain.bin` | ✅ | Point cloud, contours (worker), trail draping, slope aspect rose (I) | No height or slope readout under the cursor; no slope shading of the cloud |
+| No-data cells beyond the border (`0`) | swissALTI3D (Switzerland only) | `terrain.bin` | ◐ | Left empty: no points or contours (Zermatt, Aletsch) | The Italian side of the Matterhorn is blank; a coarse foreign DEM could fill it |
 | Grid min / max altitude | swissALTI3D | `grid.minAlt`, `grid.maxAlt` | ◐ | Exaggeration base, hiker drop line | Not shown as numbers |
 | Orthophoto, 2048 px wide (about 10.7 m/px) | SWISSIMAGE | `ortho.jpg` | ◐ | Point colour in SWISSIMAGE mode only | Never a draped texture or a 2D map |
 | National relief, 2 km | Profile service (DTM2) | `switzerland.u16` | ✅ | Locator (G) | — |
@@ -90,8 +91,9 @@ appear as a route waypoint (panel B, profile ticks, trail log, footer ticker).
 
 ## 2. Downloaded by the pipeline but dropped
 
-Adding any of these means a pipeline change plus a bundle format change (`types.ts`, and for
-`trails.bin` both `encodeTrails` and `decodeTrails`).
+Adding any of these means a pipeline change plus a bundle format change (`types.ts` and
+`BUNDLE_VERSION`, and for `terrain.bin` or `trails.bin` the encoder and decoder in
+`src/data/codec.ts`).
 
 | Dataset | Kept | Dropped | Feature ideas |
 |---|---|---|---|
@@ -125,8 +127,8 @@ them would be baked into the bundle at build time.
 | swissTLM3D (full model) | `ch.swisstopo.swisstlm3d` (STAC) | Land cover (forest, rock, scree, glacier) to tint the point cloud; waters; cableway lines; buildings | Large download |
 | swissSURFACE3D raster | `ch.swisstopo.swisssurface3d-raster` (STAC) | Surface minus terrain gives forest height: forest vs open ground along a route | Large download |
 | swissBUILDINGS3D 3.0 | `ch.swisstopo.swissbuildings3d_3_0` (STAC) | Huts and summit buildings in 3D | |
-| Slopes over 30° | `ch.swisstopo.hangneigung-ueber_30` (WMTS) | Steep-terrain overlay | Can also be computed from `terrain.u16` with no new data |
-| Relief shading | `ch.swisstopo.swissalti3d-reliefschattierung` (WMTS) | Hillshade texture for the light scheme | Can also be computed from `terrain.u16` |
+| Slopes over 30° | `ch.swisstopo.hangneigung-ueber_30` (WMTS) | Steep-terrain overlay | Can also be computed from `terrain.bin` with no new data |
+| Relief shading | `ch.swisstopo.swissalti3d-reliefschattierung` (WMTS) | Hillshade texture for the light scheme | Can also be computed from `terrain.bin` |
 | National map | `ch.swisstopo.pixelkarte-farbe` (WMTS) | A third colour mode next to MONO and SWISSIMAGE | |
 | Snowshoe and ski touring routes | `ch.swisstopo-karto.schneeschuhrouten`, `ch.swisstopo-karto.skitouren` | Winter routes | Outside hiking scope; owner decision |
 | Mountain bike routes | `ch.astra.mountainbikeland` | Shared trail segments | Outside hiking scope; owner decision |

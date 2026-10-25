@@ -1,0 +1,43 @@
+{
+  "id": "flims",
+  "title": "Flims",
+  "subtitle": "Laax · Caumasee · Vorab",
+  "cantons": ["GR", "GL"],
+  "bbox": [2727000, 1174000, 2751000, 1193000],
+  "cell": 20,
+  "orthoZoom": 20,
+  "orthoWidth": 2048,
+  "minInside": 0.3,
+  "minInsideKm": 2,
+  "defaultRoute": "sm-657.00",
+  "excludeRoutes": [],
+  "curated": [
+    {
+      "id": "flims-caumasee",
+      "name": "Flims – Caumasee – Crestasee",
+      "via": [
+        { "name": "Flims", "kind": "village" },
+        { "name": "Lag la Cauma", "kind": "lake" },
+        { "name": "Lag la Cresta", "kind": "lake" }
+      ]
+    },
+    {
+      "id": "naraus-segneshuette",
+      "name": "Naraus – Segneshütte – Startgels",
+      "via": [
+        { "name": "Ustria Naraus", "kind": "inn" },
+        { "name": "Segneshütte", "kind": "inn" },
+        { "name": "Bergrestaurant Startgels", "kind": "inn" }
+      ]
+    },
+    {
+      "id": "piz-mundaun",
+      "name": "Stein – Piz Mundaun – Cuolm Sura",
+      "via": [
+        { "name": "Stein Bergstation", "kind": "lift" },
+        { "name": "Piz Mundaun", "kind": "view" },
+        { "name": "Berggasthaus Cuolm Sura", "kind": "inn" }
+      ]
+    }
+  ]
+}
