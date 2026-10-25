@@ -28,7 +28,7 @@ export function mountPreview(el: HTMLElement, c: Ctx) {
     </div>
     <div class="kv">
       <div><div class="k">HIKA · KM</div><div class="v nowrap"><span data-k="km">0.0</span><small data-k="kmTotal"></small></div></div>
-      <div><div class="k">D+ · M</div><div class="v nowrap"><span data-k="up">0</span><small data-k="upTotal"></small></div></div>
+      <div><div class="k">CLIMB · M</div><div class="v nowrap"><span data-k="up">0</span><small data-k="upTotal"></small></div></div>
       <div><div class="k">ELAPSED</div><div class="v nowrap"><span data-k="time">0:00</span><small data-k="total"></small></div></div>
       <div class="full"><div class="k">NEXT POINT</div><div class="v" data-k="next" style="font-size:13px">—</div></div>
     </div>

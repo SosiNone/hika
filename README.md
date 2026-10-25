@@ -33,7 +33,7 @@ live instruments.
 - **Route player.** A hiker walks the route at signpost pace, past each waypoint with its distance,
   altitude and expected time. The region's routes play like a playlist: previous / next, repeat,
   shuffle, and the next route starts when the hiker arrives (Space and ← / → work too).
-- **Instruments.** Elevation profile, climb and descent per km, cumulative D+ / D-, slope histogram,
+- **Instruments.** Elevation profile, climb and descent per km, cumulative climb and descent, slope histogram,
   aspect rose, trail-class breakdown, a Switzerland locator and today's sunrise and sunset.
 - **Real Swiss hiking times,** from a pace table digitised from the official Schweizer Wanderwege
   chart (see [Hiking time](#hiking-time)).

@@ -60,7 +60,7 @@ appear as a route waypoint (panel B, profile ticks, trail log, footer ticker).
 | Number, name, from, to, category | `number` … `category` | ✅ | Route list (D), tickers, stage title | — |
 | Source (SchweizMobil / curated) | `source` | ◐ | Implied by the "classic" group | — |
 | Clipped at either end | `clipped` | ◐ | ✂ in the route list, "Region edge →" waypoints | Not marked on the map or the profile |
-| Distance, D+, D−, time | `stats.km/up/down/time` | ✅ | Everywhere | — |
+| Distance, climb, descent, time | `stats.km/up/down/time` | ✅ | Everywhere | — |
 | Time in reverse | `stats.timeBack` | ✅ | ⇄ REV in the route player (A) walks the route to → from (`reverseRoute`, `&reverse=1` in the URL); top ticker "BACK" | — |
 | Min / max altitude | `stats.minAlt/maxAlt` | ✅ | Terrain analysis (I), chart scales | — |
 | Km per trail class, off network | `stats.classKm` | ✅ | Trail class (C) | — |
@@ -82,7 +82,7 @@ appear as a route waypoint (panel B, profile ticks, trail log, footer ticker).
 
 | Data | Computed in | Shown in |
 |---|---|---|
-| Cumulative minutes, D+, D− per sample | `deriveRoute` (`src/data/load.ts`) | Route player (A), profile (E), gradient (F), cumulative (H), log (J) |
+| Cumulative minutes, climb, descent per sample | `deriveRoute` (`src/data/load.ts`) | Route player (A), profile (E), gradient (F), cumulative (H), log (J) |
 | Slope classes, max slope over 100 m | `analyse` (`src/panels/right.ts`) | Terrain analysis (I) |
 | Slope aspect along the route | `analyse`, from `heightAt` | Terrain analysis (I) rose |
 | Sunrise / sunset at the region centre | `sunTimes` (`src/ui/chrome.ts`) | Top-bar clock |

@@ -29,7 +29,7 @@ export function mountProfile(el: HTMLElement, c: Ctx) {
 
   return () => {
     const r = c.route(), i = c.hikerIndex(), hover = c.store.state.hoverIndex;
-    meta.textContent = `${r.stats.km.toFixed(1)} KM · ${num(r.stats.up)} D+ · ${num(r.stats.down)} D−`;
+    meta.textContent = `${r.stats.km.toFixed(1)} KM · ↑${num(r.stats.up)} M · ↓${num(r.stats.down)} M`;
     v.textContent = `${num((hover ?? i) < r.alt.length ? r.alt[hover ?? i] : 0)} m`;
     const { w, h } = ch.begin();
     const ctx = ch.ctx;
@@ -70,7 +70,7 @@ export function mountProfile(el: HTMLElement, c: Ctx) {
 
 /** F · Climb and descent rate in 200 m bins (metres per km), tinted by trail class. */
 export function mountGradient(el: HTMLElement, c: Ctx) {
-  const { body, meta } = frame(el, 'F', 'D+ / D− per km');
+  const { body, meta } = frame(el, 'F', 'Climb / descent per km');
   const ch = chart(body);
   const BIN = 200;
   return () => {
@@ -115,7 +115,7 @@ export function mountGradient(el: HTMLElement, c: Ctx) {
 
 /** H · Cumulative climb and descent against distance, with hourly ticks of hiking time. */
 export function mountCumulative(el: HTMLElement, c: Ctx) {
-  const { body, meta } = frame(el, 'H', 'Cumulative D+ / D−');
+  const { body, meta } = frame(el, 'H', 'Cumulative climb / descent');
   body.style.height = '150px';
   body.style.flex = 'none';
   const ch = chart(body);
@@ -152,9 +152,9 @@ export function mountCumulative(el: HTMLElement, c: Ctx) {
     }
     ctx.textAlign = 'left';
     ctx.fillStyle = COLORS.text2;
-    ctx.fillText(`D+ ${num(r.up[i])}`, PAD.l + 4, PAD.t + 10);
+    ctx.fillText(`CLIMB ${num(r.up[i])}`, PAD.l + 4, PAD.t + 10);
     ctx.fillStyle = COLORS.accent;
-    ctx.fillText(`D− ${num(r.down[i])}`, PAD.l + 4, PAD.t + 21);
+    ctx.fillText(`DESCENT ${num(r.down[i])}`, PAD.l + 4, PAD.t + 21);
   };
 }
 
