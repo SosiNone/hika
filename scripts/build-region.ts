@@ -5,7 +5,7 @@
 import { mkdirSync, readFileSync, writeFileSync } from 'node:fs';
 import { OFF_NETWORK, type Place, type RegionBundle, type RegionConfig, type Route, type Waypoint } from '../src/data/types';
 import { cumulativeMinutes, MAX_SLOPE, smoothAltitudes } from '../src/geo/hikingTime';
-import { climb, polylineLength, resample, type XY } from '../src/geo/track';
+import { polylineLength, resample, routeClimb, type XY } from '../src/geo/track';
 import { TrailGraph } from './lib/graph';
 import { buildLocator } from './lib/locator';
 import { inBox, loadPlaces, resolvePlace } from './lib/names';
@@ -155,7 +155,8 @@ async function finishRoute(meta: Omit<Route, 'step' | 'e' | 'n' | 'alt' | 'cls' 
   const minutes = cumulativeMinutes(alt, STEP);
   const back = cumulativeMinutes([...alt].reverse(), STEP);
   const smooth = smoothAltitudes(alt, 3);
-  const { up, down } = climb(smooth, 3);
+  const climbed = routeClimb(alt);
+  const up = climbed.up[climbed.up.length - 1], down = climbed.down[climbed.down.length - 1];
   const classKm: [number, number, number, number] = [0, 0, 0, 0];
   let hard = 0, steep = 0;
   for (let i = 1; i < pts.length; i++) {

@@ -1,5 +1,7 @@
 /** Polyline helpers shared by the data pipeline and the app. Coordinates are planar metres (LV95). */
 
+import { smoothAltitudes } from './hikingTime';
+
 export type XY = [number, number];
 
 export function polylineLength(pts: XY[]): number {
@@ -56,6 +58,15 @@ export function cumulativeClimb(alt: ArrayLike<number>, threshold = 3): { up: Fl
     else if (d <= -threshold) { down[i] -= d; ref = alt[i]; }
   }
   return { up, down };
+}
+
+/**
+ * The one climb rule for everything the UI shows: altitudes smoothed over ±3 samples, then a
+ * 3 m hysteresis. The pipeline's route stats and the app's per-sample series both use it, so
+ * the route list and the replay panels agree.
+ */
+export function routeClimb(alt: ArrayLike<number>): { up: Float64Array; down: Float64Array } {
+  return cumulativeClimb(smoothAltitudes(alt, 3), 3);
 }
 
 /** Squared distance from p to segment ab and the parameter t of the closest point. */

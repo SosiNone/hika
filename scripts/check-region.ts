@@ -4,6 +4,7 @@
  */
 import { readFileSync, statSync } from 'node:fs';
 import type { RegionBundle } from '../src/data/types';
+import { routeClimb } from '../src/geo/track';
 
 const id = process.argv[2] ?? 'alpstein';
 const dir = `public/data/${id}`;
@@ -30,7 +31,10 @@ for (const r of b.routes) {
   const altOk = r.alt.every((a) => a > 200 && a < 4700);
   const stepKm = ((n - 1) * r.step) / 1000;
   const timeOk = r.stats.time > stepKm * 9 && r.stats.time < stepKm * 60; // between 6.7 and 1 km/h
-  check(lengthsOk && altOk && timeOk && r.waypoints.length >= 2, `${(r.number ?? r.id).padEnd(22)} ${r.stats.km.toFixed(1).padStart(5)} km ↑${r.stats.up} ↓${r.stats.down} ${r.stats.time} min, ${r.waypoints.length} waypoints`);
+  // The app re-derives climb on load; the stored totals must match what it will show.
+  const { up, down } = routeClimb(r.alt);
+  const climbOk = Math.abs(up[n - 1] - r.stats.up) <= 1 && Math.abs(down[n - 1] - r.stats.down) <= 1;
+  check(lengthsOk && altOk && timeOk && climbOk && r.waypoints.length >= 2, `${(r.number ?? r.id).padEnd(22)} ${r.stats.km.toFixed(1).padStart(5)} km ↑${r.stats.up} ↓${r.stats.down} ${r.stats.time} min, ${r.waypoints.length} waypoints`);
 }
 
 const size = ['region.json', 'terrain.u16', 'trails.bin', 'ortho.jpg', b.locator.file].reduce((s, f) => s + statSync(`${dir}/${f}`).size, 0);

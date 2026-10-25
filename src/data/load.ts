@@ -1,5 +1,5 @@
 import { cumulativeMinutes } from '../geo/hikingTime';
-import { cumulativeClimb } from '../geo/track';
+import { routeClimb } from '../geo/track';
 import type { Place, RegionBundle, Route } from './types';
 
 /** A route with per-sample cumulative series derived on load. */
@@ -76,7 +76,7 @@ function decodeTrails(buf: ArrayBuffer): Trails {
 
 function deriveRoute(r: Route): RouteView {
   const km = Float64Array.from(r.alt, (_, i) => (i * r.step) / 1000);
-  const { up, down } = cumulativeClimb(r.alt, 3);
+  const { up, down } = routeClimb(r.alt);
   return { ...r, km, minutes: cumulativeMinutes(r.alt, r.step), up, down };
 }
 
