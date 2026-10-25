@@ -67,12 +67,22 @@ This runs the type-checker and the unit tests (`task test` for the tests alone).
 
 ## Deploy
 
-`.github/workflows/pages.yml` builds and publishes to GitHub Pages on every push to `main`
-(enable Pages → "GitHub Actions" in the repository settings). The live site is
+Releases are deployed, not every commit. `.github/workflows/pages.yml` builds and publishes to
+GitHub Pages when a `v*` tag is pushed (it can also be run by hand from the Actions tab). The
+tag must match the `version` in `package.json`. From `main`, run:
+
+```bash
+task release BUMP=patch
+```
+
+This runs the checks, then `npm version` (commit + `vX.Y.Z` tag) and `git push --follow-tags`.
+
+Enable Pages → "GitHub Actions" in the repository settings, and allow `v*` tags under
+Settings → Environments → `github-pages` → Deployment branches and tags. The live site is
 <https://sosinone.github.io/hika/>.
 
 `.github/workflows/ci.yml` runs the type-checker, the tests, the region check and the build on
-pull requests and on pushes to other branches.
+pull requests and on every branch push.
 
 ## Credits
 
