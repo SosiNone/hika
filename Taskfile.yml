@@ -22,7 +22,8 @@ tasks:
       - node_modules/.package-lock.json
 
   dev:
-    desc: Start the Vite dev server
+    desc: Run the app locally with the Vite dev server (installs dependencies first)
+    aliases: [run, start]
     deps: [install]
     cmds:
       - npm run dev -- {{.CLI_ARGS}}
