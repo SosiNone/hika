@@ -9,8 +9,9 @@ Pushing a `v*` tag is what deploys the site: `.github/workflows/pages.yml` build
 GitHub Pages, and fails unless the tag equals `v` + the `package.json` version. Pushes to `main`
 alone deploy nothing. `task release` wraps the mechanics (checks, `npm version`, `git push --follow-tags`).
 
-Pushing a tag publishes the live site, so **get the user's explicit go-ahead on the version before
-step 5**, unless they already named the version or bump in their request.
+Choosing the bump is your call (AGENTS.md: "Bump the version to your own judgement"). Pushing the
+tag publishes the live site, so only push when the user asked for a release; if you got here some
+other way, ask first.
 
 ## 1. Check the starting point
 
@@ -45,8 +46,8 @@ The project is pre-1.0 (`0.y.z`), so follow the usual 0.x semver convention:
 - **patch** (`0.1.0 → 0.1.1`): fixes, docs, CI, refactors, data refreshes with no format change.
 - **major**: only when the user decides the project is 1.0 or later.
 
-Show the user the proposed version, the bump and a short grouped summary of the commits
-(features / fixes / other), and wait for a yes. They may pick a different bump.
+Use the bump the user named if they named one; otherwise decide yourself. Note the version and a
+short grouped summary of the commits (features / fixes / other) for the final report.
 
 ## 4. Run the checks
 
@@ -68,8 +69,7 @@ From the main checkout:
 task --yes release BUMP=<patch|minor|major>
 ```
 
-`--yes` answers the task's confirmation prompt (the shell here is non-interactive); only pass it
-once the user has approved. This creates the `Release vX.Y.Z` commit and the `vX.Y.Z` tag, then
+`--yes` answers the task's confirmation prompt (the shell here is non-interactive). This creates the `Release vX.Y.Z` commit and the `vX.Y.Z` tag, then
 pushes `main` and the tag.
 
 If `task` is unavailable, do the same by hand: `npm version <bump> -m "Release v%s"`, then
