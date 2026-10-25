@@ -112,6 +112,9 @@ through swissNAMES3D) and routes to exclude. The pipeline caches downloads in `.
 | Heights | geo.admin.ch profile service (DTM2) every 10 m | `region.json` |
 | Locator | profile-service rows over CH + swissBOUNDARIES3D | `switzerland.u16`, `region.json` |
 
+[`docs/data-coverage.md`](docs/data-coverage.md) maps every piece of that data to where the app
+shows it, and lists what is downloaded but dropped or not used yet.
+
 ### Hiking time
 
 Times follow the Schweizer Wanderwege signpost method (4.2 km/h on the flat, slope-dependent pace).

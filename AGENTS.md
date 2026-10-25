@@ -22,6 +22,8 @@ There are two halves joined by a static data bundle:
 
 `src/data/types.ts` (`RegionBundle`, `Route`, `Place`, `RegionConfig`) is the contract between them. The pipeline imports from `src/geo/*` and `src/data/types.ts`; keep those modules free of DOM code.
 
+`docs/data-coverage.md` tracks which data is in the bundle, which of it the app shows, and what the sources offer beyond that. Update it when you add a source, a bundle field or a panel.
+
 ### Bundle format (`public/data/<id>/`)
 - `terrain.u16` / `switzerland.u16`: Uint16 **decimetres**, row-major, row 0 = **north** edge, values at cell centres, `0` = no data.
 - `trails.bin`: custom layout written by `encodeTrails` (scripts/lib/trails.ts) and read by `decodeTrails` (src/data/load.ts). The two must change together.
