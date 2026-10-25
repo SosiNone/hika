@@ -26,7 +26,8 @@ live instruments.
   lines, an optional SWISSIMAGE overlay and adjustable vertical exaggeration.
 - **The whole trail network.** Every Wanderweg, Bergwanderweg and Alpinwanderweg from swissTLM3D,
   drawn in the official signpost colours, with over 1 100 named summits, passes, inns, stops and
-  lakes from swissNAMES3D.
+  lakes from swissNAMES3D. It fades in as you zoom in, so the overview shows the selected route on
+  its own; the TRAILS button switches it to always on or off.
 - **25 routes.** 21 SchweizMobil "Wanderland" stages and 4 curated Alpstein classics, such as
   Schwägalp – Säntis and Säntis – Lisengrat – Meglisalp.
 - **Trail replay.** A hiker walks the route at signpost pace, past each waypoint with its distance,

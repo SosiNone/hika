@@ -147,6 +147,12 @@ void main() {
 }`;
 
 
+/** When the trail network is drawn: 'auto' only when zoomed in (see `NETWORK_FADE`), 'all' always, 'off' never. */
+export type TrailMode = 'auto' | 'all' | 'off';
+
+/** Camera distances (m) in 'auto': the network is fully shown below the first and hidden beyond the second. */
+const NETWORK_FADE = [4000, 7000];
+
 export interface RenderInfo { vp: Mat4; width: number; height: number; eye: number[]; focus: number; scanAlt: number; fps: number; points: number }
 
 interface Ribbon { vao: WebGLVertexArrayObject; count: number }
@@ -161,6 +167,7 @@ export class TerrainView {
   readonly gl: WebGL2RenderingContext;
   exaggeration = 1.5;
   mode = 0;
+  trailMode: TrailMode = 'auto';
   private points: Program;
   private lines: Program;
   private trails: Program;
@@ -264,6 +271,18 @@ export class TerrainView {
     worker.postMessage({ heights: this.region.heights, cols: grid.cols, rows: grid.rows, interval: 50, major: 250 });
   }
 
+  /**
+   * 0–1. In 'auto' the network fades in as the camera closes in: at overview distances it buries
+   * the selected route, up close it shows the junctions and alternatives around it.
+   */
+  networkOpacity(): number {
+    if (this.network.count === 0 || this.trailMode === 'off') return 0;
+    if (this.trailMode === 'all') return 1;
+    const [near, far] = NETWORK_FADE;
+    const s = Math.min(1, Math.max(0, (far - this.camera.dist) / (far - near)));
+    return s * s * (3 - 2 * s);
+  }
+
   setRoute(route: RouteView | null) { this.selected = route ? this.buildRibbon(route) : null; }
   setHover(route: RouteView | null) { this.hovered = route ? this.buildRibbon(route) : null; }
 
@@ -355,22 +374,25 @@ export class TerrainView {
     // The trail network, as on a printed map: a casing in the background colour clears the
     // point cloud underneath, then the class colours go on top.
     gl.blendFunc(gl.ONE, gl.ONE_MINUS_SRC_ALPHA);
-    const N = this.trails;
-    gl.useProgram(N.program);
-    gl.uniformMatrix4fv(N.u.uVP, false, vp);
-    gl.uniform2f(N.u.uViewport, w / 2, h / 2);
-    gl.uniform3fv(N.u.uEye, eye);
-    gl.uniform1f(N.u.uExag, this.exaggeration);
-    gl.uniform1f(N.u.uBase, this.base);
-    gl.uniform1f(N.u.uFocus, focus);
-    gl.uniform3fv(N.u.uColors, new Float32Array(pal.trails.flat()));
-    gl.uniform3fv(N.u.uCasing, pal.clear);
-    gl.bindVertexArray(this.network.vao);
-    for (const [pass, half, alpha] of [[0, 1.8, 0.5], [1, 0.7, this.selected ? 0.6 : 0.9]]) {
-      gl.uniform1i(N.u.uPass, pass);
-      gl.uniform1f(N.u.uHalf, half * dpr);
-      gl.uniform1f(N.u.uAlpha, alpha);
-      gl.drawArraysInstanced(gl.TRIANGLES, 0, 6, this.network.count);
+    const show = this.networkOpacity();
+    if (show > 0.01) {
+      const N = this.trails;
+      gl.useProgram(N.program);
+      gl.uniformMatrix4fv(N.u.uVP, false, vp);
+      gl.uniform2f(N.u.uViewport, w / 2, h / 2);
+      gl.uniform3fv(N.u.uEye, eye);
+      gl.uniform1f(N.u.uExag, this.exaggeration);
+      gl.uniform1f(N.u.uBase, this.base);
+      gl.uniform1f(N.u.uFocus, focus);
+      gl.uniform3fv(N.u.uColors, new Float32Array(pal.trails.flat()));
+      gl.uniform3fv(N.u.uCasing, pal.clear);
+      gl.bindVertexArray(this.network.vao);
+      for (const [pass, half, alpha] of [[0, 1.8, 0.5], [1, 0.7, this.selected ? 0.6 : 0.9]]) {
+        gl.uniform1i(N.u.uPass, pass);
+        gl.uniform1f(N.u.uHalf, half * dpr);
+        gl.uniform1f(N.u.uAlpha, alpha * show);
+        gl.drawArraysInstanced(gl.TRIANGLES, 0, 6, this.network.count);
+      }
     }
 
     // Route ribbons.

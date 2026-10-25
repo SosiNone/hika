@@ -1,7 +1,7 @@
 import './styles/hud.css';
 import { indexAtMinute, loadRegion, type Region, type RouteView } from './data/load';
 import { project } from './gl/glkit';
-import { TerrainView } from './gl/terrain';
+import { TerrainView, type TrailMode } from './gl/terrain';
 import { LabelLayer } from './hud/labels';
 import { mountCumulative, mountGradient, mountProfile } from './panels/charts';
 import type { Ctx } from './panels/common';
@@ -177,7 +177,8 @@ function mountStageOverlay(region: Region, store: Store, view: TerrainView) {
     <div class="stage-head"><span class="slot">01</span><span>${region.bundle.title.toUpperCase()} — HIKING NETWORK</span></div>
     <div class="stage-readout" data-k="cam"></div>
     <div class="stage-toggles"><div class="seg" role="group" aria-label="Colour mode"><button data-mode="mono" aria-pressed="true">MONO</button><button data-mode="natural" aria-pressed="false">SWISSIMAGE</button></div>
-      <button class="btn" data-k="vert" style="margin-left:6px">VERT ×1.5</button></div>
+      <button class="btn" data-k="vert" style="margin-left:6px">VERT ×1.5</button>
+      <button class="btn" data-k="trails" style="margin-left:6px"></button></div>
     <div class="stage-route" data-k="route"></div>
     <div class="coords" data-k="coords"></div>
     <div class="stage-hints">DRAG · ORBIT &nbsp;&nbsp; RIGHT-DRAG · PAN &nbsp;&nbsp; WHEEL · ZOOM &nbsp;&nbsp; CLICK · SELECT ROUTE &nbsp;&nbsp; DBL-CLICK · RESET</div>
@@ -195,6 +196,20 @@ function mountStageOverlay(region: Region, store: Store, view: TerrainView) {
     view.exaggeration = exags[(exags.indexOf(view.exaggeration) + 1) % exags.length];
     q('vert').textContent = `VERT ×${view.exaggeration}`;
   };
+  const trailModes: [TrailMode, string][] = [
+    ['auto', 'Trail network: shown when zoomed in'],
+    ['all', 'Trail network: always shown'],
+    ['off', 'Trail network: hidden, the selected route only'],
+  ];
+  const showTrailMode = () => {
+    q('trails').textContent = `TRAILS ${view.trailMode.toUpperCase()}`;
+    q('trails').title = trailModes.find(([m]) => m === view.trailMode)![1];
+  };
+  q('trails').onclick = () => {
+    view.trailMode = trailModes[(trailModes.findIndex(([m]) => m === view.trailMode) + 1) % trailModes.length][0];
+    showTrailMode();
+  };
+  showTrailMode();
   const { grid } = region.bundle;
   let lastIdx = -1;
   return (info: { focus: number; scanAlt: number; fps: number; points: number }, r: RouteView, hiker: number) => {
