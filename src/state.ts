@@ -13,7 +13,7 @@ export interface AppState {
   /** Replay speed: real seconds per hiking hour. */
   secondsPerHour: number;
   mode: 'mono' | 'natural';
-  /** Theme × style × scheme (see src/theme). */
+  /** Dark or light scheme (see src/theme). */
   display: Display;
 }
 

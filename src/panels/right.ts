@@ -32,7 +32,7 @@ export function mountLocator(el: HTMLElement, c: Ctx) {
     };
     const img = ctx.createImageData(ctx.canvas.width, ctx.canvas.height);
     const dpr = ctx.canvas.width / w;
-    // Relief brightens from the background towards the style's terrain colour with altitude.
+    // Relief brightens from the background towards the scheme's terrain colour with altitude.
     const bg = COLORS.gl.clear, hi = COLORS.gl.high;
     for (const [x, z, alt] of pts) {
       const [sx, sy] = P(x, z, alt);

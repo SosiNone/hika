@@ -177,7 +177,7 @@ export class TerrainView {
   readonly size: [number, number];
   readonly base: number;
   doneMetres = 0;
-  /** Colours and blending of the current display (src/theme); reassigned on every theme change. */
+  /** Colours and blending of the current display (src/theme); reassigned on every scheme change. */
   palette!: Resolved['gl'];
 
   constructor(readonly canvas: HTMLCanvasElement, readonly region: Region) {

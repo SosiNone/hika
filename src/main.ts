@@ -13,7 +13,7 @@ import { mountDisplaySwitch, renderTickers, showVersion, startClock } from './ui
 
 const DEFAULT_ROUTE = 'c-saentis-lisengrat';
 
-// Before the region loads, so the boot screen already wears the chosen theme.
+// Before the region loads, so the boot screen already wears the chosen scheme.
 const initialDisplay = loadDisplay();
 applyDisplay(initialDisplay);
 showVersion(document.getElementById('version') as HTMLAnchorElement);

@@ -47,7 +47,7 @@ export const num = (v: number, digits = 0) => v.toFixed(digits).replace(/\B(?=(\
 
 export const hm = (min: number) => `${Math.floor(min / 60)}:${String(Math.floor(min % 60)).padStart(2, '0')}`;
 
-/** The live display palette (src/theme/apply.ts); it changes in place when the theme does. */
+/** The live display palette (src/theme/apply.ts); it changes in place when the scheme does. */
 export { palette as COLORS } from '../theme/apply';
 
 export const FONT = (size = 9, weight = 300) => `${weight} ${size}px "IBM Plex Mono", monospace`;
