@@ -9,13 +9,14 @@ import { mountReplay, mountRoutes, mountTrailClass, mountWaypoints } from './pan
 import { mountLocator, mountLog, mountTerrainStats } from './panels/right';
 import { Store } from './state';
 import { applyDisplay, loadDisplay, palette, saveDisplay } from './theme/apply';
-import { mountDisplaySwitch, renderTickers, startClock } from './ui/chrome';
+import { mountDisplaySwitch, renderTickers, showVersion, startClock } from './ui/chrome';
 
 const DEFAULT_ROUTE = 'c-saentis-lisengrat';
 
 // Before the region loads, so the boot screen already wears the chosen theme.
 const initialDisplay = loadDisplay();
 applyDisplay(initialDisplay);
+showVersion(document.getElementById('version') as HTMLAnchorElement);
 
 async function boot() {
   const bootEl = document.getElementById('boot')!;
