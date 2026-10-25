@@ -115,6 +115,8 @@ export function mountGradient(el: HTMLElement, c: Ctx) {
 /** H · Cumulative climb and descent against distance, with hourly ticks of hiking time. */
 export function mountCumulative(el: HTMLElement, c: Ctx) {
   const { body, meta } = frame(el, 'H', 'Cumulative D+ / D−');
+  body.style.height = '150px';
+  body.style.flex = 'none';
   const ch = chart(body);
   return () => {
     const r = c.route(), i = c.hikerIndex();
