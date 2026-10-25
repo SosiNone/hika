@@ -1,3 +1,5 @@
+import type { Display } from './theme/tokens';
+
 /** Tiny observable store shared by the terrain view and the panels. */
 export interface AppState {
   routeId: string;
@@ -11,6 +13,8 @@ export interface AppState {
   /** Replay speed: real seconds per hiking hour. */
   secondsPerHour: number;
   mode: 'mono' | 'natural';
+  /** Theme × style × scheme (see src/theme). */
+  display: Display;
 }
 
 type Listener = (s: AppState, prev: AppState) => void;

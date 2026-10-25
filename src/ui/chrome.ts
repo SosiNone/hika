@@ -1,6 +1,35 @@
 import type { Region, RouteView } from '../data/load';
 import { lv95ToWgs84 } from '../geo/lv95';
 import { esc, num } from '../panels/common';
+import type { Store } from '../state';
+import { STYLES, THEMES, type Display } from '../theme/tokens';
+
+/** Footer switches for theme, style and scheme; the store owns the choice, main.ts applies it. */
+export function mountDisplaySwitch(el: HTMLElement, store: Store) {
+  const groups: [keyof Display, string, string[]][] = [
+    ['theme', 'Theme', Object.keys(THEMES)],
+    ['style', 'Style', Object.keys(STYLES)],
+    ['scheme', 'Scheme', ['dark', 'light']],
+  ];
+  el.innerHTML = groups.map(([k, label, ids]) => `<div class="seg" role="group" aria-label="${label}" data-group="${k}">${ids.map((id) => `<button data-${k}="${id}">${id.toUpperCase()}</button>`).join('')}</div>`).join('');
+  const themeGroup = el.querySelector<HTMLElement>('[data-group="theme"]')!;
+  const sync = () => {
+    const d = store.state.display;
+    for (const [k] of groups) el.querySelectorAll<HTMLButtonElement>(`[data-${k}]`).forEach((b) => b.setAttribute('aria-pressed', String(b.dataset[k] === d[k])));
+    // A style with its own accent (paperlab) hides the theme's, as in hud-console-framework.
+    const own = STYLES[d.style].accent !== null;
+    themeGroup.classList.toggle('muted', own);
+    themeGroup.title = own ? `${d.style} uses its own accent` : '';
+  };
+  el.addEventListener('click', (e) => {
+    const b = (e.target as HTMLElement).closest('button');
+    if (!b) return;
+    const [k] = groups.find(([k]) => b.dataset[k]) ?? [];
+    if (k && b.dataset[k] !== store.state.display[k]) store.set({ display: { ...store.state.display, [k]: b.dataset[k] } });
+  });
+  store.subscribe((s, prev) => { if (s.display !== prev.display) sync(); });
+  sync();
+}
 
 /** Top-bar clock (Swiss local time) with today's sunrise / sunset over the region. */
 export function startClock(region: Region) {

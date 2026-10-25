@@ -2,23 +2,29 @@
 @import '@fontsource/ibm-plex-mono/400.css';
 @import '@fontsource/ibm-plex-mono/500.css';
 
-/* Design tokens. One accent (signpost yellow); the three trail-class colours are semantic. */
+/*
+ * Design tokens. src/theme sets the colours at runtime (theme × style × scheme); the values
+ * here are the default display (cinder · paperlab · dark) so the first paint already matches.
+ * One accent; the three trail-class colours are semantic and never follow the theme.
+ */
 :root {
-  --bg: #060809;
-  --bg-2: #0a0d0e;
-  --panel: rgba(10, 13, 14, 0.82);
-  --line: rgba(214, 232, 226, 0.1);
-  --line-2: rgba(214, 232, 226, 0.2);
-  --line-3: rgba(214, 232, 226, 0.42);
-  --text: #d6e2de;
-  --text-2: #8b9894;
-  --text-3: #4f5a57;
-  --accent: #f2c230;
-  --accent-dim: rgba(242, 194, 48, 0.16);
-  --terrain: #78f0cc;
+  --bg: #0c0c0c;
+  --bg-2: #171717;
+  --bg-rgb: 12, 12, 12;
+  --panel: #171717;
+  --line: #2e2e2e;
+  --line-2: #3a3a3a;
+  --line-3: #555555;
+  --text: #e6e6e6;
+  --text-2: #b0b0b0;
+  --text-3: #909090;
+  --accent: #c8746a;
+  --accent-rgb: 200, 116, 106;
+  --accent-dim: rgba(200, 116, 106, 0.16);
   --wander: #f2c230;
   --berg: #ec4a4f;
   --alpin: #4a92f6;
+  --stripe: #ffffff;
   --danger: #ff5a4a;
   --font: 'IBM Plex Mono', ui-monospace, 'SFMono-Regular', Menlo, monospace;
   --gap: 8px;
@@ -51,8 +57,8 @@ table { border-collapse: collapse; width: 100%; }
 .legend span { display: flex; align-items: center; gap: 6px; }
 .sw { display: inline-block; width: 14px; height: 0; border-top: 2px solid; }
 .sw-0 { border-color: var(--wander); }
-.sw-1 { border-image: linear-gradient(90deg, #fff 0 33%, var(--berg) 33% 67%, #fff 67%) 1; }
-.sw-2 { border-image: linear-gradient(90deg, #fff 0 33%, var(--alpin) 33% 67%, #fff 67%) 1; }
+.sw-1 { border-image: linear-gradient(90deg, var(--stripe) 0 33%, var(--berg) 33% 67%, var(--stripe) 67%) 1; }
+.sw-2 { border-image: linear-gradient(90deg, var(--stripe) 0 33%, var(--alpin) 33% 67%, var(--stripe) 67%) 1; }
 .clock { text-align: right; line-height: 1.1; }
 .clock-date, .clock-sun { color: var(--text-2); font-size: var(--fs-xs); letter-spacing: 0.16em; }
 .clock-time { font-size: 20px; font-weight: 300; letter-spacing: 0.08em; font-variant-numeric: tabular-nums; }
@@ -63,6 +69,9 @@ table { border-collapse: collapse; width: 100%; }
 .foot-ticker span { margin-right: 22px; }
 .foot-ticker i { font-style: normal; color: var(--accent); margin-right: 6px; }
 @keyframes ticker { from { transform: translateX(0); } to { transform: translateX(-50%); } }
+.display { display: flex; gap: 6px; flex: none; }
+.display .seg button { padding: 0 6px; line-height: 14px; }
+.display .seg.muted { opacity: 0.45; }
 .attribution a { color: inherit; text-decoration: none; }
 .attribution a:hover { color: var(--text); }
 
@@ -91,7 +100,7 @@ table { border-collapse: collapse; width: 100%; }
 #terrain { cursor: grab; }
 #terrain.dragging { cursor: grabbing; }
 #terrain-hud { pointer-events: none; }
-.stage-overlay { position: absolute; inset: 0; pointer-events: none; padding: var(--pad) 12px; background: linear-gradient(rgba(6, 8, 9, 0.78), rgba(6, 8, 9, 0) 110px), linear-gradient(0deg, rgba(6, 8, 9, 0.7), rgba(6, 8, 9, 0) 44px); }
+.stage-overlay { position: absolute; inset: 0; pointer-events: none; padding: var(--pad) 12px; background: linear-gradient(rgba(var(--bg-rgb), 0.78), rgba(var(--bg-rgb), 0) 110px), linear-gradient(0deg, rgba(var(--bg-rgb), 0.7), rgba(var(--bg-rgb), 0) 44px); }
 .stage-overlay > * { pointer-events: auto; }
 .stage-head { display: flex; align-items: baseline; gap: 10px; font-size: var(--fs-l); letter-spacing: 0.16em; }
 .stage-head .slot { font-size: var(--fs-xs); border: 1px solid var(--line-3); padding: 0 4px; letter-spacing: 0; }
@@ -134,7 +143,7 @@ table.list tr.next td:first-child { box-shadow: inset 2px 0 var(--accent); }
 
 .routes { display: flex; flex-direction: column; }
 .route-row { display: grid; grid-template-columns: 44px 1fr auto; gap: 2px 8px; align-items: center; text-align: left; padding: 6px 6px; border-bottom: 1px solid var(--line); }
-.route-row:hover { background: rgba(255, 255, 255, 0.03); }
+.route-row:hover { background: color-mix(in srgb, var(--text) 4%, transparent); }
 .route-row[aria-current='true'] { background: var(--accent-dim); box-shadow: inset 2px 0 var(--accent); }
 .route-row .no { font-size: var(--fs-xs); color: var(--text-2); border: 1px solid var(--line-2); text-align: center; padding: 1px 0; letter-spacing: 0.06em; }
 .route-row[aria-current='true'] .no { border-color: var(--accent); color: var(--accent); }
@@ -184,6 +193,7 @@ table.list tr.next td:first-child { box-shadow: inset 2px 0 var(--accent); }
   .panel.stage { height: 56vh; }
   .stage-route, .stage-hints { display: none; }
   .clock-sun { display: none; }
+  .display [data-group='theme'] { display: none; }
 }
 @media (prefers-reduced-motion: reduce) {
   .foot-ticker .track, .log-row { animation: none; }

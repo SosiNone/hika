@@ -1,6 +1,7 @@
 import type { Region, RouteView } from '../data/load';
 import { createProgram, createVao, fitCanvas, type Mat4, type Program } from './glkit';
 import { OrbitCamera } from './camera';
+import type { Resolved } from '../theme/tokens';
 
 const POINTS_VS = `#version 300 es
 precision highp float; precision highp int; precision highp usampler2D;
@@ -8,6 +9,7 @@ uniform usampler2D uH; uniform sampler2D uOrtho;
 uniform ivec2 uGrid; uniform int uStride; uniform float uCell; uniform vec2 uSize;
 uniform mat4 uVP; uniform vec3 uEye; uniform float uExag, uBase, uMinAlt, uMaxAlt;
 uniform float uFocus, uAperture, uDpr, uScan, uMode, uGain, uPointSize, uViewH;
+uniform vec3 uLow, uHigh, uSteep, uScanColor;
 out vec3 vColor; out float vAlpha;
 
 float hash(int n) { n = (n << 13) ^ n; n = n * (n * n * 15731 + 789221) + 1376312589; return float(n & 0x7fffffff) / 2147483647.0; }
@@ -37,13 +39,13 @@ void main() {
   float t = clamp((alt - uMinAlt) / (uMaxAlt - uMinAlt), 0.0, 1.0);
   float lam = clamp(dot(n, normalize(vec3(-0.45, 0.75, -0.5))), 0.0, 1.0);
   float steep = clamp(length(vec2(dx, dz)) * 1.4, 0.0, 1.0);
-  vec3 mono = mix(vec3(0.05, 0.26, 0.27), vec3(0.62, 1.0, 0.86), pow(t, 0.75)) * (0.3 + 0.95 * lam) + vec3(0.2, 0.35, 0.3) * steep * 0.5;
+  vec3 mono = mix(uLow, uHigh, pow(t, 0.75)) * (0.3 + 0.95 * lam) + uSteep * steep * 0.5;
   vec3 photo = texture(uOrtho, (g + 0.5) / vec2(uGrid)).rgb;
   photo = mix(vec3(dot(photo, vec3(0.3, 0.59, 0.11))), photo, 1.7); // SWISSIMAGE is muted; lift saturation
   vec3 nat = max(photo, 0.0) * (0.55 + 0.8 * lam) * 1.4;
   vec3 col = mix(mono, nat, uMode);
   float scan = exp(-pow((alt - uScan) / 5.0, 2.0));
-  vColor = col + vec3(1.0, 0.82, 0.3) * scan * 1.4;
+  vColor = max(col + uScanColor * scan * 1.4, 0.0);
   // Far terrain piles up at grazing angles; fade it so the foreground keeps its relief.
   float far = mix(1.0, 0.3, smoothstep(uFocus * 0.9, uFocus * 2.4, dist));
   vAlpha = (uGain * (0.5 + 0.5 * lam) + scan * 0.5) * energy * far;
@@ -102,19 +104,17 @@ void main() {
 const RIBBON_FS = `#version 300 es
 precision mediump float;
 in float vDist; in float vSide; out vec4 o;
-uniform vec3 uColor; uniform float uTime, uAlpha, uFlow, uDone;
+uniform vec3 uColor, uFlash; uniform float uTime, uAlpha, uFlow, uDone;
 void main() {
   float edge = 1.0 - smoothstep(0.55, 1.0, abs(vSide));
   float dash = fract((vDist - uTime * 180.0) / 240.0);
   float pulse = uFlow * smoothstep(0.0, 0.08, dash) * smoothstep(0.45, 0.08, dash);
   float walked = step(vDist, uDone);
-  vec3 c = mix(uColor, vec3(1.0), pulse * 0.6 + walked * 0.25);
+  vec3 c = mix(uColor, uFlash, pulse * 0.6 + walked * 0.25);
   float a = uAlpha * edge * (0.75 + pulse * 0.25 + walked * 0.2);
   o = vec4(c * a, a);
 }`;
 
-export const TRAIL_RGB: [number, number, number][] = [[0.95, 0.76, 0.19], [0.93, 0.29, 0.31], [0.29, 0.57, 0.97]];
-const ACCENT: [number, number, number] = [0.95, 0.76, 0.19];
 
 export interface RenderInfo { vp: Mat4; width: number; height: number; eye: number[]; focus: number; scanAlt: number; fps: number; points: number }
 
@@ -144,6 +144,8 @@ export class TerrainView {
   readonly size: [number, number];
   readonly base: number;
   doneMetres = 0;
+  /** Colours and blending of the current display (src/theme); reassigned on every theme change. */
+  palette!: Resolved['gl'];
 
   constructor(readonly canvas: HTMLCanvasElement, readonly region: Region) {
     const gl = canvas.getContext('webgl2', { antialias: true, premultipliedAlpha: true, alpha: false });
@@ -248,7 +250,8 @@ export class TerrainView {
     const w = this.canvas.width, h = this.canvas.height;
     const dpr = w / Math.max(1, this.canvas.clientWidth);
     gl.viewport(0, 0, w, h);
-    gl.clearColor(0.024, 0.031, 0.035, 1);
+    const pal = this.palette;
+    gl.clearColor(pal.clear[0], pal.clear[1], pal.clear[2], 1);
     gl.clear(gl.COLOR_BUFFER_BIT);
     const vp = this.camera.viewProj(w / h);
     const eye = this.camera.eye();
@@ -258,7 +261,9 @@ export class TerrainView {
     const stride = this.camera.dist > 16000 ? 2 : 1;
 
     gl.enable(gl.BLEND);
-    gl.blendFunc(gl.ONE, gl.ONE);
+    // Additive light on dark; premultiplied "over" on light paper, where additive light washes out.
+    const over = pal.blend === 'over';
+    gl.blendFunc(gl.ONE, over ? gl.ONE_MINUS_SRC_ALPHA : gl.ONE);
 
     // Point cloud.
     const P = this.points;
@@ -281,7 +286,11 @@ export class TerrainView {
     gl.uniform1f(P.u.uDpr, dpr);
     gl.uniform1f(P.u.uScan, scanAlt);
     gl.uniform1f(P.u.uMode, this.mode);
-    gl.uniform1f(P.u.uGain, (stride === 2 ? 0.9 : 0.6) * (this.mode ? 0.9 : 1));
+    gl.uniform1f(P.u.uGain, (stride === 2 ? 0.9 : 0.6) * (this.mode ? 0.9 : pal.gain));
+    gl.uniform3fv(P.u.uLow, pal.low);
+    gl.uniform3fv(P.u.uHigh, pal.high);
+    gl.uniform3fv(P.u.uSteep, pal.steep);
+    gl.uniform3fv(P.u.uScanColor, over ? [0, 0, 0] : pal.accent);
     gl.uniform1f(P.u.uPointSize, 1.6);
     const count = Math.ceil(grid.cols / stride) * Math.ceil(grid.rows / stride);
     gl.bindVertexArray(this.emptyVao);
@@ -301,7 +310,7 @@ export class TerrainView {
       gl.uniform1i(L.u.uMode, 0);
       gl.uniform1f(L.u.uLift, 0);
       gl.uniform1f(L.u.uAlpha, this.mode ? 0.06 : 0.16);
-      gl.uniform3fv(L.u.uColors, new Float32Array([0.55, 0.95, 0.82, 0, 0, 0, 0, 0, 0, 0, 0, 0]));
+      gl.uniform3fv(L.u.uColors, new Float32Array([...pal.contour, 0, 0, 0, 0, 0, 0, 0, 0, 0]));
       gl.bindVertexArray(this.contours.vao);
       gl.drawArrays(gl.LINES, 0, this.contours.count);
     }
@@ -310,7 +319,7 @@ export class TerrainView {
     gl.uniform1i(L.u.uMode, 1);
     gl.uniform1f(L.u.uLift, 0);
     gl.uniform1f(L.u.uAlpha, this.selected ? 0.16 : 0.3);
-    gl.uniform3fv(L.u.uColors, new Float32Array([...TRAIL_RGB.flat(), 1, 1, 1]));
+    gl.uniform3fv(L.u.uColors, new Float32Array([...pal.trails.flat(), ...pal.hover]));
     gl.bindVertexArray(this.network.vao);
     gl.drawArrays(gl.LINES, 0, this.network.count);
 
@@ -323,8 +332,9 @@ export class TerrainView {
     gl.uniform1f(R.u.uBase, this.base);
     gl.uniform1f(R.u.uLift, 0);
     gl.uniform1f(R.u.uTime, t);
+    gl.uniform3fv(R.u.uFlash, pal.flash);
     if (this.hovered) {
-      gl.uniform3f(R.u.uColor, 1, 1, 1);
+      gl.uniform3fv(R.u.uColor, pal.hover);
       gl.uniform1f(R.u.uWidth, 1.4 * dpr);
       gl.uniform1f(R.u.uAlpha, 0.7);
       gl.uniform1f(R.u.uFlow, 0);
@@ -333,7 +343,7 @@ export class TerrainView {
       gl.drawArrays(gl.TRIANGLES, 0, this.hovered.count);
     }
     if (this.selected) {
-      gl.uniform3fv(R.u.uColor, ACCENT);
+      gl.uniform3fv(R.u.uColor, pal.accent);
       gl.uniform1f(R.u.uWidth, 2.2 * dpr);
       gl.uniform1f(R.u.uAlpha, 1);
       gl.uniform1f(R.u.uFlow, 1);
