@@ -33,13 +33,17 @@ walks it at official Swiss signpost pace while the instruments follow along.
 - **Shareable links** for every route, e.g. the
   [Eiger Trail](https://sosinone.github.io/hika/?region=jungfrau#route=sm-353.00).
 - **Dark and light schemes,** and no backend: the app reads a static data bundle.
+- **Works on phones and tablets,** with touch gestures on the map and the route player right
+  under it.
 
 [![HIKA in the light scheme](docs/light.webp)](https://sosinone.github.io/hika/?scheme=light#route=sm-951.00)
 
 | Input | Action |
 |---|---|
 | Drag / right-drag / wheel | Orbit / pan / zoom |
-| Click / double-click | Select route / reset camera |
+| One finger / two fingers / pinch | Orbit / pan / zoom |
+| Click or tap / double-click or double tap | Select route / reset camera |
+| Drag along the elevation profile | Move the hiker |
 | Space | Play / pause |
 | ← / → | Previous / next route |
 

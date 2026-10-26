@@ -198,8 +198,9 @@ export function mountRoutes(el: HTMLElement, c: Ctx) {
       b.innerHTML = `<span class="no">${r.number ?? '★'}</span><span class="nm" title="${esc(r.name)} (${esc(r.from)} → ${esc(r.to)})">${esc(r.name)}</span><canvas></canvas>
         <span class="st"><span>${r.stats.km.toFixed(1)} KM</span><span>${climbs}</span><span>${formatDuration(r.stats.time, true)}</span>${r.clipped.some(Boolean) ? '<span title="continues beyond the region">✂</span>' : ''}</span>`;
       b.onclick = () => c.store.set({ routeId: r.id, reversed: r.id === c.store.state.routeId && c.store.state.reversed, minute: 0, playing: true });
-      b.onmouseenter = () => c.store.set({ hoverRouteId: r.id });
-      b.onmouseleave = () => c.store.set({ hoverRouteId: null });
+      // Mouse only: a tap would leave the hover set, ghosting this route once another one plays.
+      b.onpointerenter = (e) => { if (e.pointerType === 'mouse') c.store.set({ hoverRouteId: r.id }); };
+      b.onpointerleave = () => c.store.set({ hoverRouteId: null });
       list.appendChild(b);
       buttons.set(r.id, b);
       sparks.push([b.querySelector('canvas')!, r]);

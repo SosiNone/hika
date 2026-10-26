@@ -143,8 +143,10 @@ export class LabelLayer {
     this.ctx.font = FONT;
     const w = Math.ceil(Math.max(...rows.map((r) => this.ctx.measureText(r).width), 100)) + 14, h = 50;
     const x = px(top.x), y = px(top.y);
-    const flip = x + 26 + w > W - 150;
-    return { x: flip ? x - 26 - w : x + 26, y: Math.round(y - 16 - h / 2) + 0.5, w, h, flip, rows, total };
+    // Right of the hiker, clear of the LV95 column; left where it would reach that and fits; on
+    // screen either way (a phone's map is narrower than two callouts).
+    const flip = x + 26 + w > W - 150 && x - 26 - w >= 0;
+    return { x: flip ? x - 26 - w : Math.max(4, Math.min(W - w - 4, x + 26)), y: Math.round(y - 16 - h / 2) + 0.5, w, h, flip, rows, total };
   }
 
   /** Claims a rect in the collision list; returns false when it overlaps something already drawn. */
