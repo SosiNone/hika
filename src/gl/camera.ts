@@ -3,7 +3,8 @@ import { lookAt, multiply, perspective, type Mat4 } from './glkit';
 type Pose = { az: number; el: number; dist: number; target: number[] };
 
 /**
- * Orbit camera around a target: drag to orbit, wheel to zoom, right-drag / shift-drag to pan.
+ * Orbit camera around a target: drag to orbit, wheel to zoom, right-drag / shift-drag to pan. On a
+ * touch screen one finger orbits, two fingers pinch to zoom and drag to pan, and a double tap resets.
  * Left alone, it slowly circles the target; any interaction pauses that until the pointer has been still for `resume` seconds.
  */
 export class OrbitCamera {
@@ -11,7 +12,10 @@ export class OrbitCamera {
   el = 0.62;
   dist = 26000;
   target = [0, 600, 0];
+  /** Vertical field of view of a view at least `minAspect` wide. */
   fov = (34 * Math.PI) / 180;
+  /** A narrower view (a phone held upright) widens its vertical field instead, to keep this one's horizontal field. */
+  minAspect = 1.2;
   /** Idle orbit speed in rad/s (0 = off); one turn takes about 2.5 min. */
   spin = 0.04;
   /** Seconds without interaction before the idle orbit resumes. */
@@ -65,15 +69,40 @@ export class OrbitCamera {
   }
 
   viewProj(aspect: number): Mat4 {
-    return multiply(perspective(this.fov, aspect, Math.max(10, this.dist * 0.02), this.dist * 6), lookAt(this.eye(), this.target));
+    const fov = aspect < this.minAspect ? 2 * Math.atan((Math.tan(this.fov / 2) * this.minAspect) / aspect) : this.fov;
+    return multiply(perspective(fov, aspect, Math.max(10, this.dist * 0.02), this.dist * 6), lookAt(this.eye(), this.target));
   }
 
   attach(el: HTMLElement, onChange: () => void) {
     if (matchMedia('(prefers-reduced-motion: reduce)').matches) this.spin = 0;
-    let last: { x: number; y: number; pan: boolean } | null = null;
+    // The pointers that are down, at their last position: one orbits (or pans, on a right or
+    // shift drag), two pinch and pan.
+    const down = new Map<number, { x: number; y: number }>();
+    let pan = false;
+    let press = { x: 0, y: 0 }, lastTap = { t: -Infinity, x: 0, y: 0 };
+    const pair = () => {
+      const [a, b] = [...down.values()];
+      return { x: (a.x + b.x) / 2, y: (a.y + b.y) / 2, span: Math.max(1, Math.hypot(a.x - b.x, a.y - b.y)) };
+    };
+    // Grab-style pan: the ground under the pointer follows it.
+    const panBy = (dx: number, dy: number) => {
+      const s = this.dist / el.clientHeight;
+      const ca = Math.cos(this.az), sa = Math.sin(this.az);
+      this.target[0] += (-dx * ca - dy * sa) * s;
+      this.target[2] += (dx * sa - dy * ca) * s;
+      this.framed = true;
+    };
+    const zoomBy = (f: number) => {
+      this.dist = Math.min(this.maxDist, Math.max(this.minDist, this.dist * f));
+      this.framed = true;
+    };
     el.addEventListener('contextmenu', (e) => e.preventDefault());
     el.addEventListener('pointerdown', (e) => {
-      last = { x: e.clientX, y: e.clientY, pan: e.button === 2 || e.shiftKey };
+      if (down.size >= 2) return;
+      // A gesture that ever had two pointers is no tap.
+      press = down.size ? { x: NaN, y: NaN } : { x: e.clientX, y: e.clientY };
+      down.set(e.pointerId, { x: e.clientX, y: e.clientY });
+      pan = e.button === 2 || e.shiftKey;
       el.setPointerCapture(e.pointerId);
       el.classList.add('dragging');
       this.goal = null;
@@ -81,31 +110,44 @@ export class OrbitCamera {
       this.touch();
     });
     el.addEventListener('pointermove', (e) => {
+      const last = down.get(e.pointerId);
       if (!last) return;
-      const dx = e.clientX - last.x, dy = e.clientY - last.y;
-      if (last.pan) {
-        const s = this.dist / el.clientHeight;
-        const ca = Math.cos(this.az), sa = Math.sin(this.az);
-        // Grab-style pan: the ground under the cursor follows the pointer.
-        this.target[0] += (-dx * ca - dy * sa) * s;
-        this.target[2] += (dx * sa - dy * ca) * s;
-        this.framed = true;
-      } else {
-        this.az -= dx * 0.005;
-        this.el = Math.min(1.45, Math.max(0.08, this.el + dy * 0.004));
+      const before = down.size === 2 ? pair() : null;
+      down.set(e.pointerId, { x: e.clientX, y: e.clientY });
+      if (before) {
+        const after = pair();
+        zoomBy(before.span / after.span);
+        panBy(after.x - before.x, after.y - before.y);
+      } else if (pan) panBy(e.clientX - last.x, e.clientY - last.y);
+      else {
+        this.az -= (e.clientX - last.x) * 0.005;
+        this.el = Math.min(1.45, Math.max(0.08, this.el + (e.clientY - last.y) * 0.004));
       }
-      last = { ...last, x: e.clientX, y: e.clientY };
       onChange();
     });
-    const end = () => { last = null; this.held = false; this.touch(); el.classList.remove('dragging'); };
-    el.addEventListener('pointerup', end);
+    const end = (e: PointerEvent) => {
+      if (!down.delete(e.pointerId) || down.size) return;
+      this.held = false;
+      this.touch();
+      el.classList.remove('dragging');
+    };
+    el.addEventListener('pointerup', (e) => {
+      // Not every touch browser sends dblclick, so a double tap is caught here.
+      if (e.pointerType === 'touch' && down.size === 1 && Math.hypot(e.clientX - press.x, e.clientY - press.y) < 10) {
+        if (e.timeStamp - lastTap.t < 300 && Math.hypot(e.clientX - lastTap.x, e.clientY - lastTap.y) < 30) {
+          lastTap = { t: -Infinity, x: 0, y: 0 };
+          this.reset();
+          onChange();
+        } else lastTap = { t: e.timeStamp, x: e.clientX, y: e.clientY };
+      }
+      end(e);
+    });
     el.addEventListener('pointercancel', end);
     el.addEventListener('wheel', (e) => {
       e.preventDefault();
       this.goal = null;
       this.touch();
-      this.dist = Math.min(this.maxDist, Math.max(this.minDist, this.dist * Math.exp(e.deltaY * 0.0012)));
-      this.framed = true;
+      zoomBy(Math.exp(e.deltaY * 0.0012));
       onChange();
     }, { passive: false });
     el.addEventListener('dblclick', () => { this.reset(); this.touch(); onChange(); });

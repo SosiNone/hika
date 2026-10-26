@@ -123,13 +123,17 @@ function start(region: Region, summary: RegionSummary, regions: RegionSummary[])
     }
   });
 
-  // Click (not drag) on the map selects the nearest route under the cursor.
-  let down: { x: number; y: number } | null = null;
-  canvas.addEventListener('pointerdown', (e) => { down = { x: e.clientX, y: e.clientY }; });
+  // Click or tap (not drag, not pinch) on the map selects the nearest route under the pointer; a
+  // finger gets more slack than a mouse.
+  let down: { x: number; y: number; id: number } | null = null, pressed = 0;
+  canvas.addEventListener('pointerdown', (e) => { down = pressed++ ? null : { x: e.clientX, y: e.clientY, id: e.pointerId }; });
+  canvas.addEventListener('pointercancel', () => { pressed = Math.max(0, pressed - 1); down = null; });
   canvas.addEventListener('pointerup', (e) => {
-    if (!down || Math.hypot(e.clientX - down.x, e.clientY - down.y) > 4) return;
+    pressed = Math.max(0, pressed - 1);
+    const mouse = e.pointerType === 'mouse';
+    if (down?.id !== e.pointerId || Math.hypot(e.clientX - down.x, e.clientY - down.y) > (mouse ? 4 : 10)) return;
     const rect = canvas.getBoundingClientRect();
-    const hit = pickRoute(region, view, lastVp, e.clientX - rect.left, e.clientY - rect.top, rect.width, rect.height);
+    const hit = pickRoute(region, view, lastVp, e.clientX - rect.left, e.clientY - rect.top, rect.width, rect.height, mouse ? 14 : 24);
     if (hit && hit !== store.state.routeId) store.set({ routeId: hit, reversed: false, minute: 0, playing: true });
   });
   view.camera.attach(canvas, () => {});
@@ -216,8 +220,8 @@ function flyToRoute(view: TerrainView, r: RouteView) {
   view.camera.flyTo({ target: [x, (maxA - view.base) * view.exaggeration * 0.45, z], dist: Math.min(42000, extent * 1.9 + 4000) });
 }
 
-function pickRoute(region: Region, view: TerrainView, vp: Float32Array, x: number, y: number, w: number, h: number): string | null {
-  let best: string | null = null, bd = 14;
+function pickRoute(region: Region, view: TerrainView, vp: Float32Array, x: number, y: number, w: number, h: number, radius: number): string | null {
+  let best: string | null = null, bd = radius;
   for (const r of region.routes) {
     for (let i = 0; i < r.e.length; i += 3) {
       const [wx, wy, wz] = view.world(r.e[i], r.n[i], r.alt[i] + 6);
@@ -235,16 +239,19 @@ function mountStageOverlay(region: Region, store: Store, view: TerrainView) {
   const stage = document.getElementById('p-terrain')!;
   const el = document.createElement('div');
   el.className = 'stage-overlay';
+  // Mouse and keyboard hints, or touch hints on a touch screen (hud.css picks one).
+  const hints = (items: string[]) => items.map((h) => `<span>${h}</span>`).join('');
   el.innerHTML = `
-    <div class="stage-head"><span class="slot">01</span><span>${region.bundle.title.toUpperCase()} — HIKING NETWORK</span></div>
+    <div class="stage-head"><span class="slot">01</span><span class="title">${region.bundle.title.toUpperCase()} — HIKING NETWORK</span></div>
     <div class="stage-readout" data-k="cam"></div>
     <div class="stage-toggles"><div class="seg" role="group" aria-label="Colour mode"><button data-mode="mono" aria-pressed="true">MONO</button><button data-mode="natural" aria-pressed="false">SWISSIMAGE</button></div>
-      <button class="btn" data-k="vert" style="margin-left:6px">VERT ×1.5</button>
-      <button class="btn" data-k="trails" style="margin-left:6px"></button></div>
+      <button class="btn" data-k="vert">VERT ×1.5</button>
+      <button class="btn" data-k="trails"></button></div>
     <div class="stage-route" data-k="route"></div>
     <div class="coords" data-k="coords"></div>
     <div class="alt-meter" data-k="meter" aria-hidden="true"></div>
-    <div class="stage-hints">DRAG · ORBIT &nbsp;&nbsp; RIGHT-DRAG · PAN &nbsp;&nbsp; WHEEL · ZOOM &nbsp;&nbsp; CLICK · SELECT ROUTE &nbsp;&nbsp; DBL-CLICK · RESET &nbsp;&nbsp; SPACE · PLAY &nbsp;&nbsp; ←/→ · ROUTE</div>
+    <div class="stage-hints">${hints(['DRAG · ORBIT', 'RIGHT-DRAG · PAN', 'WHEEL · ZOOM', 'CLICK · SELECT ROUTE', 'DBL-CLICK · RESET', 'SPACE · PLAY', '←/→ · ROUTE'])}</div>
+    <div class="stage-hints touch">${hints(['DRAG · ORBIT', 'PINCH · ZOOM', 'TWO FINGERS · PAN', 'TAP · SELECT ROUTE', 'DOUBLE-TAP · RESET'])}</div>
     <div class="stage-status" data-k="status"></div>`;
   stage.appendChild(el);
   const q = (k: string) => el.querySelector<HTMLElement>(`[data-k="${k}"]`)!;

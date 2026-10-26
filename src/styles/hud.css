@@ -38,6 +38,8 @@
 
 * { box-sizing: border-box; }
 html, body { margin: 0; height: 100%; background: var(--bg); color: var(--text); }
+/* Taps give their own feedback (pressed states); the browser's grey flash doesn't fit the HUD. */
+html { -webkit-tap-highlight-color: transparent; }
 body { font: 300 var(--fs-m) / 1.45 var(--font); letter-spacing: 0.04em; -webkit-font-smoothing: antialiased; overflow: hidden; }
 button { font: inherit; color: inherit; background: none; border: 0; padding: 0; cursor: pointer; letter-spacing: inherit; }
 table { border-collapse: collapse; width: 100%; }
@@ -105,20 +107,26 @@ table { border-collapse: collapse; width: 100%; }
 .panel-body { flex: 1; min-height: 0; position: relative; }
 .panel-body.scroll { overflow-y: auto; scrollbar-width: thin; scrollbar-color: var(--line-2) transparent; }
 .panel canvas.fill { position: absolute; inset: 0; width: 100%; height: 100%; }
+/* A finger dragged along the profile scrubs the hiker (src/panels/charts.ts); vertical swipes still scroll. */
+#p-profile canvas.fill { touch-action: pan-y; }
 
 .stage canvas { position: absolute; inset: 0; width: 100%; height: 100%; }
-#terrain { cursor: grab; }
+/* The map takes every touch gesture itself (src/gl/camera.ts); the page scrolls around it. */
+#terrain { cursor: grab; touch-action: none; -webkit-user-select: none; user-select: none; -webkit-touch-callout: none; }
 #terrain.dragging { cursor: grabbing; }
 #terrain-hud { pointer-events: none; }
 .stage-overlay { position: absolute; inset: 0; pointer-events: none; padding: var(--pad) 12px; background: linear-gradient(rgba(var(--bg-rgb), 0.78), rgba(var(--bg-rgb), 0) 110px), linear-gradient(0deg, rgba(var(--bg-rgb), 0.7), rgba(var(--bg-rgb), 0) 44px); }
 .stage-overlay > * { pointer-events: auto; }
 .stage-head { display: flex; align-items: baseline; gap: 10px; font-size: var(--fs-l); letter-spacing: 0.16em; }
 .stage-head .slot { font-size: var(--fs-xs); border: 1px solid var(--line-3); padding: 0 4px; letter-spacing: 0; }
+.stage-head .title { min-width: 0; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
 .stage-head .meta { margin-left: auto; color: var(--text-3); font-size: var(--fs-xs); }
 .stage-readout { margin-top: 10px; color: var(--text-2); font-size: var(--fs-xs); line-height: 1.6; letter-spacing: 0.12em; white-space: pre; font-variant-numeric: tabular-nums; }
-.stage-toggles { position: absolute; top: 80px; left: 12px; display: flex; }
+.stage-toggles { position: absolute; top: 80px; left: 12px; display: flex; flex-wrap: wrap; gap: 6px; }
 .stage-toggles .seg, .stage-toggles .btn { background: rgba(var(--bg-rgb), 0.72); }
-.stage-hints { position: absolute; bottom: 8px; left: 12px; color: var(--text-3); font-size: var(--fs-xs); letter-spacing: 0.2em; }
+/* Hints wrap short of the status block in the bottom-right corner. */
+.stage-hints { position: absolute; bottom: 8px; left: 12px; right: 216px; display: flex; flex-wrap: wrap; gap: 2px 1.6em; color: var(--text-3); font-size: var(--fs-xs); letter-spacing: 0.2em; }
+.stage-hints.touch { display: none; }
 .stage-status { position: absolute; bottom: 8px; right: 12px; text-align: right; color: var(--text-2); font-size: var(--fs-xs); letter-spacing: 0.12em; white-space: pre; line-height: 1.6; font-variant-numeric: tabular-nums; }
 .stage-route { position: absolute; top: var(--pad); right: 12px; border: 1px solid var(--accent); color: var(--accent); padding: 3px 10px; font-size: var(--fs-xs); letter-spacing: 0.16em; max-width: 46%; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
 .coords { position: absolute; top: 90px; right: 12px; bottom: 40px; white-space: pre; overflow: hidden; color: var(--text-3); font-size: var(--fs-xs); line-height: 1.75; text-align: right; font-variant-numeric: tabular-nums; mask-image: linear-gradient(transparent, #000 15%, #000 85%, transparent); pointer-events: none; }
@@ -246,19 +254,74 @@ table.list tr.next td:first-child { box-shadow: inset 2px 0 var(--accent); }
   .topbar-ticker, .legend { display: none; }
   .grid { display: flex; flex-direction: column; }
   .col-center { order: -1; }
-  .panel.stage { flex: none; height: 62vh; min-height: 380px; }
-  .row-bottom { grid-template-columns: 1fr; height: auto; }
+  .panel.stage { flex: none; height: 62vh; height: 62svh; min-height: 380px; }
+  .row-bottom { height: auto; }
   .row-bottom .panel { height: 160px; }
+  /* Two by two: the player beside the trail classes, then the two lists at one height. */
   .col-left, .col-right { display: grid; grid-template-columns: 1fr 1fr; }
+  #p-class { order: 1; }
+  #p-waypoints { order: 2; }
+  #p-routes { order: 3; }
+  #p-waypoints, #p-routes { height: 420px; }
   .panel.grow { min-height: 260px; }
   .coords { display: none; }
 }
+/* A phone on its side: leave a strip below the map to scroll the page by. */
+@media (max-width: 1100px) and (max-height: 520px) {
+  .panel.stage { height: 78vh; height: 78svh; min-height: 0; }
+  .stage-readout, .alt-meter { display: none; }
+  .stage-toggles { top: 34px; }
+}
+/* Phones: one column, the route player straight under the map, then the profile, waypoints and
+   routes, then the other instruments in panel order. */
 @media (max-width: 640px) {
   :root { --gap: 6px; --pad: 8px; }
-  .col-left, .col-right { display: flex; }
-  .panel.stage { height: 56vh; }
-  .stage-route, .stage-hints, .alt-meter { display: none; }
-  .clock-sun { display: none; }
+  .topbar { grid-template-columns: minmax(0, 1fr) auto; gap: 12px; }
+  .brand, .brand > div { min-width: 0; }
+  .region-pick { display: block; }
+  .region-pick select { max-width: 100%; text-overflow: ellipsis; }
+  .clock-date, .clock-sun { display: none; }
+  .clock-time { font-size: 15px; }
+  .col, .row-bottom { display: contents; }
+  #p-preview { order: 1; }
+  #p-profile { order: 2; }
+  #p-waypoints { order: 3; height: auto; max-height: 70svh; }
+  #p-routes { order: 4; height: 70vh; height: 70svh; }
+  #p-class { order: 5; }
+  #p-gradient { order: 6; }
+  #p-locator { order: 7; }
+  #p-cumulative { order: 8; }
+  #p-terrainstats { order: 9; }
+  #p-log { order: 10; }
+  .panel.grow { flex: none; min-height: 0; }
+  #p-log { height: 260px; }
+  .panel.stage { height: 56vh; height: 56svh; min-height: 340px; }
+  .stage-readout, .stage-route, .stage-status, .alt-meter, .stage-hints:not(.touch) { display: none; }
+  .stage-toggles { top: 34px; left: 8px; right: 8px; }
+  .stage-hints { left: 8px; right: 8px; bottom: 6px; }
+  .footbar { flex-wrap: wrap; height: auto; padding: 4px 6px; gap: 4px 12px; }
+  .foot-ticker { flex: 1 0 100%; }
+  .attribution { flex: 1; min-width: 0; text-align: right; }
+}
+/* Touch screens: touch hints on the map, and controls a finger can hit. */
+@media (hover: none) and (pointer: coarse) {
+  .stage-hints { display: none; }
+  .stage-hints.touch { display: flex; }
+}
+@media (pointer: coarse) {
+  .btn.icon { width: 40px; height: 34px; }
+  .btn.icon svg { width: 14px; height: 14px; }
+  .transport { gap: 6px; }
+  .transport .btn:not(.icon) { height: 34px; }
+  .stage-toggles .seg button, .stage-toggles .btn { padding: 7px 8px; }
+  .panel-head .speed { padding: 4px 8px; }
+  .scrub { --tw: 14px; height: 32px; }
+  .scrub input::-webkit-slider-thumb { height: 28px; }
+  .scrub input::-moz-range-thumb { height: 28px; }
+  .scrub .mark { height: 16px; }
+  .route-row { padding: 10px 6px; }
+  .footbar { height: auto; min-height: 22px; }
+  .display .seg button { padding: 0 12px; line-height: 28px; }
 }
 @media (prefers-reduced-motion: reduce) {
   .foot-ticker .track, .log-row { animation: none; }

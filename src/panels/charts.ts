@@ -14,18 +14,28 @@ export function mountProfile(el: HTMLElement, c: Ctx) {
   body.appendChild(readout);
   const v = readout.querySelector<HTMLElement>('[data-v]')!;
 
-  ch.canvas.addEventListener('mousemove', (e) => {
-    const r = c.route(), w = ch.canvas.clientWidth;
-    const f = (e.offsetX - PAD.l) / (w - PAD.l - PAD.r);
-    if (f < 0 || f > 1) return c.store.set({ hoverIndex: null });
-    c.store.set({ hoverIndex: Math.round(f * (r.alt.length - 1)) });
-  });
-  ch.canvas.addEventListener('mouseleave', () => c.store.set({ hoverIndex: null }));
-  ch.canvas.addEventListener('click', (e) => {
-    const r = c.route(), w = ch.canvas.clientWidth;
-    const f = Math.min(1, Math.max(0, (e.offsetX - PAD.l) / (w - PAD.l - PAD.r)));
+  // Hover shows a point on the map; pressing, or dragging a finger along the profile, moves the
+  // hiker there. The page still scrolls vertically over it (touch-action in hud.css).
+  const fraction = (e: PointerEvent) => (e.offsetX - PAD.l) / (ch.canvas.clientWidth - PAD.l - PAD.r);
+  const seek = (e: PointerEvent) => {
+    const r = c.route(), f = Math.min(1, Math.max(0, fraction(e)));
     c.store.set({ minute: r.minutes[Math.round(f * (r.alt.length - 1))], playing: false });
+  };
+  const leave = () => c.store.set({ hoverIndex: null });
+  ch.canvas.addEventListener('pointerdown', (e) => {
+    if (e.button) return;
+    ch.canvas.setPointerCapture(e.pointerId);
+    if (e.pointerType === 'mouse') seek(e);
   });
+  ch.canvas.addEventListener('pointermove', (e) => {
+    const f = fraction(e);
+    if (e.buttons === 1) seek(e);
+    if (f < 0 || f > 1) return leave();
+    c.store.set({ hoverIndex: Math.round(f * (c.route().alt.length - 1)) });
+  });
+  ch.canvas.addEventListener('pointerup', (e) => { if (!e.button) seek(e); });
+  ch.canvas.addEventListener('pointerleave', leave);
+  ch.canvas.addEventListener('pointercancel', leave);
 
   return () => {
     const r = c.route(), i = c.hikerIndex(), hover = c.store.state.hoverIndex;
