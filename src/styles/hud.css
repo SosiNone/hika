@@ -156,6 +156,8 @@ table { border-collapse: collapse; width: 100%; }
 .stage canvas { position: absolute; inset: 0; width: 100%; height: 100%; }
 /* The map takes every touch gesture itself (src/gl/camera.ts); the page scrolls around it. */
 #terrain { cursor: grab; touch-action: none; -webkit-user-select: none; user-select: none; -webkit-touch-callout: none; }
+/* Over a route a click would select (src/gl/picker.ts); a drag still grabs. */
+#terrain.over-route { cursor: pointer; }
 #terrain.dragging { cursor: grabbing; }
 #terrain-hud { pointer-events: none; }
 .stage-overlay { position: absolute; inset: 0; pointer-events: none; padding: var(--pad) 12px; background: linear-gradient(rgba(var(--bg-rgb), 0.78), rgba(var(--bg-rgb), 0) 110px), linear-gradient(0deg, rgba(var(--bg-rgb), 0.7), rgba(var(--bg-rgb), 0) 44px); }

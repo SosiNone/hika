@@ -45,6 +45,7 @@ walks it at official Swiss signpost pace while the instruments follow along.
 | Drag / right-drag / wheel | Orbit / pan / zoom |
 | One finger / two fingers / pinch | Orbit / pan / zoom |
 | Click or tap / double-click or double tap | Select route / reset camera |
+| Hover a route on the map or in the list | Highlight it |
 | Drag along the elevation profile | Move the hiker |
 | Space | Play / pause |
 | G | Region browser |

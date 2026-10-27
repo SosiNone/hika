@@ -2,6 +2,7 @@ import './styles/hud.css';
 import { indexAtMinute, loadRegion, loadRegionIndex, reverseRoute, type Region, type RouteView } from './data/load';
 import type { RegionSummary } from './data/types';
 import { project } from './gl/glkit';
+import { RoutePicker } from './gl/picker';
 import { TerrainView, type TrailMode } from './gl/terrain';
 import { LabelLayer } from './hud/labels';
 import { mountCumulative, mountGradient, mountProfile } from './panels/charts';
@@ -117,7 +118,12 @@ function start(region: Region, summary: RegionSummary, regions: RegionSummary[])
       holdUntil = 0;
     }
     if (s.shuffle !== prev.shuffle) playlist.setShuffle(s.shuffle, s.routeId);
-    if (s.hoverRouteId !== prev.hoverRouteId) view.setHover(s.hoverRouteId && s.hoverRouteId !== s.routeId ? byId.get(s.hoverRouteId)! : null);
+    // The selected route is never ghosted, also when it becomes or stops being the hovered one.
+    if (s.hoverRouteId !== prev.hoverRouteId || s.routeId !== prev.routeId) {
+      const hover = s.hoverRouteId && s.hoverRouteId !== s.routeId ? byId.get(s.hoverRouteId)! : null;
+      view.setHover(hover);
+      canvas.classList.toggle('over-route', hover !== null);
+    }
     if (s.mode !== prev.mode) view.mode = s.mode === 'natural' ? 1 : 0;
     if (s.display !== prev.display) {
       applyDisplay(s.display);
@@ -126,19 +132,13 @@ function start(region: Region, summary: RegionSummary, regions: RegionSummary[])
     }
   });
 
-  // Click or tap (not drag, not pinch) on the map selects the nearest route under the pointer; a
-  // finger gets more slack than a mouse.
-  let down: { x: number; y: number; id: number } | null = null, pressed = 0;
-  canvas.addEventListener('pointerdown', (e) => { down = pressed++ ? null : { x: e.clientX, y: e.clientY, id: e.pointerId }; });
-  canvas.addEventListener('pointercancel', () => { pressed = Math.max(0, pressed - 1); down = null; });
-  canvas.addEventListener('pointerup', (e) => {
-    pressed = Math.max(0, pressed - 1);
-    const mouse = e.pointerType === 'mouse';
-    if (down?.id !== e.pointerId || Math.hypot(e.clientX - down.x, e.clientY - down.y) > (mouse ? 4 : 10)) return;
-    const rect = canvas.getBoundingClientRect();
-    const hit = pickRoute(region, view, lastVp, e.clientX - rect.left, e.clientY - rect.top, rect.width, rect.height, mouse ? 14 : 24);
-    if (hit && hit !== store.state.routeId) store.set({ routeId: hit, reversed: false, minute: 0, playing: true });
-  });
+  // Click or tap on the map selects the nearest route under the pointer; a resting mouse hovers it.
+  const picker = new RoutePicker(
+    canvas,
+    (x, y, radius) => pickRoute(region, view, lastVp, x, y, canvas.clientWidth, canvas.clientHeight, radius),
+    (id) => { if (id !== store.state.routeId) store.set({ routeId: id, reversed: false, minute: 0, playing: true }); },
+    (id) => store.set({ hoverRouteId: id }),
+  );
   view.camera.attach(canvas, () => {});
   window.addEventListener('hashchange', () => {
     const hash = new URLSearchParams(location.hash.slice(1));
@@ -196,6 +196,7 @@ function start(region: Region, summary: RegionSummary, regions: RegionSummary[])
     const hiker = indexAtMinute(r, store.state.minute);
     const info = view.render(t, dt);
     lastVp = info.vp;
+    picker.frame(now, view.camera.flying);
     labels.draw(info, t, r, hiker, store.state.hoverIndex, ids);
     overlay(info, r, hiker);
     if (now - lastPanels > 50) {

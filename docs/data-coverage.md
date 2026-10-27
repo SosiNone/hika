@@ -54,7 +54,7 @@ appear as a route waypoint (panel B, profile ticks, trail log, footer ticker).
 
 | Data | Bundle field | Shown | Where | Unused / ideas |
 |---|---|---|---|---|
-| Geometry, sampled every 10 m | `e`, `n` | ✅ | Selected and hover ribbons, click picking, LV95 coordinate column | No export (GPX) |
+| Geometry, sampled every 10 m | `e`, `n` | ✅ | Selected and hover ribbons, click and hover picking on the map, LV95 coordinate column | No export (GPX) |
 | Altitude per sample (DTM2) | `alt` | ✅ | Profile (E), sparklines, hiker | — |
 | Trail class per sample | `cls` | ✅ | Selected and hover ribbons, profile and gradient tint (E, F), trail log events (J) | — |
 | Surface per sample | `surf` | ✗ | — | Mark asphalt stretches on the profile or ribbon; log "on asphalt for 2 km" |

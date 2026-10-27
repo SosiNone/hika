@@ -45,6 +45,9 @@ export class OrbitCamera {
   /** Marks user interaction: pauses the idle orbit. */
   touch() { this.still = 0; }
 
+  /** True while easing toward a fly-to goal. */
+  get flying(): boolean { return this.goal !== null; }
+
   /** Eases toward a fly-to goal and advances the idle orbit; returns true while flying. */
   update(dt: number): boolean {
     this.still += dt;
