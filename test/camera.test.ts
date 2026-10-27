@@ -45,6 +45,13 @@ describe('OrbitCamera', () => {
     expect(ndc(camera, 2, 1000, 0).x).toBeLessThan(wide);
   });
 
+  it('reports the horizontal field, the same for every view narrower than 1.2:1', () => {
+    const camera = new OrbitCamera();
+    const wide = 2 * Math.atan(Math.tan(camera.fov / 2) * 1.2);
+    for (const aspect of [0.45, 1, 1.2]) expect(camera.hfov(aspect)).toBeCloseTo(wide, 9);
+    expect(camera.hfov(2)).toBeCloseTo(2 * Math.atan(Math.tan(camera.fov / 2) * 2), 9);
+  });
+
   it('orbits with one finger', () => {
     const { camera, el } = attached();
     const { az, dist } = camera;

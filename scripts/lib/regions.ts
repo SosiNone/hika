@@ -13,8 +13,13 @@ export const INDEX_FILE = `${DATA_DIR}/regions.json`;
 export function summariseRegion(bundle: RegionBundle, cfg: Pick<RegionConfig, 'defaultRoute'>): RegionSummary {
   const defaultRoute = cfg.defaultRoute ?? bundle.routes.find((r) => r.source === 'curated')?.id ?? bundle.routes[0]?.id;
   if (!bundle.routes.some((r) => r.id === defaultRoute)) throw new Error(`${bundle.id}: default route ${defaultRoute ?? '(none)'} is not in the bundle`);
-  const { id, title, subtitle, cantons, bbox } = bundle;
-  return { id, title, subtitle, cantons, bbox, defaultRoute: defaultRoute!, routes: bundle.routes.length };
+  const { id, title, subtitle, cantons, bbox, trails, grid } = bundle;
+  return {
+    id, title, subtitle, cantons, bbox, defaultRoute: defaultRoute!, routes: bundle.routes.length,
+    classics: bundle.routes.filter((r) => r.source === 'curated').length,
+    trailKm: trails.km.map((km) => Math.round(km)) as [number, number, number],
+    alt: [Math.round(grid.minAlt), Math.round(grid.maxAlt)],
+  };
 }
 
 /** Ids of the regions that have a bundle (public/data/<id>/region.json). */
@@ -30,7 +35,7 @@ export function buildRegionIndex(): RegionIndex {
   const read = <T>(file: string) => JSON.parse(readFileSync(file, 'utf8')) as T;
   const regions = builtRegions().map((id) => summariseRegion(read<RegionBundle>(`${DATA_DIR}/${id}/region.json`), read<RegionConfig>(`regions/${id}.json`)));
   regions.sort((a, b) => a.title.localeCompare(b.title, 'de'));
-  return { version: 1, regions };
+  return { version: 2, regions };
 }
 
 /** Index file contents: one region per line, so a new region is a one-line diff. */

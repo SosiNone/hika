@@ -1,9 +1,9 @@
 import { describe, expect, it } from 'vitest';
 import type { RegionBundle, RegionSummary } from '../src/data/types';
-import { DEFAULT_REGION, pickRegion, regionHref } from '../src/regions';
+import { DEFAULT_REGION, filterRegions, pickRegion, regionHref } from '../src/regions';
 import { formatIndex, summariseRegion } from '../scripts/lib/regions';
 
-const summary = (id: string): RegionSummary => ({ id, title: id, subtitle: '', cantons: [], bbox: [0, 0, 1, 1], defaultRoute: 'c-x', routes: 1 });
+const summary = (id: string): RegionSummary => ({ id, title: id, subtitle: '', cantons: [], bbox: [0, 0, 1, 1], defaultRoute: 'c-x', routes: 1, classics: 1, trailKm: [1, 0, 0], alt: [400, 900] });
 
 describe('pickRegion', () => {
   const regions = [summary('jungfrau'), summary(DEFAULT_REGION)];
@@ -24,20 +24,48 @@ describe('regionHref', () => {
   });
 });
 
+describe('filterRegions', () => {
+  const regions = [
+    { ...summary('jura'), title: 'Jura', subtitle: 'Creux du Van · Chasseron', cantons: ['NE', 'VD'] },
+    { ...summary('engadin'), title: 'Engadin', subtitle: 'St. Moritz · Pontresina', cantons: ['GR'] },
+    { ...summary('verbier'), title: 'Verbier', subtitle: 'Val de Bagnes · Nendaz', cantons: ['VS'] },
+  ];
+  const ids = (q: string) => filterRegions(regions, q).map((r) => r.id);
+
+  it('keeps every region for an empty query', () => expect(ids('  ')).toEqual(['jura', 'engadin', 'verbier']));
+  it('matches titles and subtitles, ignoring case', () => expect(ids('moritz')).toEqual(['engadin']));
+  it('ignores accents both ways', () => {
+    expect(ids('neuchatel')).toEqual(['jura']);
+    expect(ids('Grisöns')).toEqual(['engadin']);
+  });
+  it('matches canton codes and names', () => {
+    expect(ids('vs')).toEqual(['verbier']);
+    expect(ids('wallis')).toEqual(['verbier']);
+  });
+  it('needs every word', () => expect(ids('val nendaz')).toEqual(['verbier']));
+});
+
 describe('summariseRegion', () => {
   const route = (id: string, source: 'schweizmobil' | 'curated') => ({ id, source }) as RegionBundle['routes'][number];
-  const bundle = { id: 'r', title: 'R', subtitle: 'S', cantons: ['BE'], bbox: [0, 0, 1000, 1000], routes: [route('sm-1.01', 'schweizmobil'), route('c-a', 'curated')] } as unknown as RegionBundle;
+  const bundle = {
+    id: 'r', title: 'R', subtitle: 'S', cantons: ['BE'], bbox: [0, 0, 1000, 1000], routes: [route('sm-1.01', 'schweizmobil'), route('c-a', 'curated')],
+    trails: { km: [512.4, 300.6, 9.49] }, grid: { minAlt: 567.4, maxAlt: 3970.6 },
+  } as unknown as RegionBundle;
 
   it('uses the configured default route', () => expect(summariseRegion(bundle, { defaultRoute: 'sm-1.01' }).defaultRoute).toBe('sm-1.01'));
   it('defaults to the first curated hike', () => expect(summariseRegion(bundle, {}).defaultRoute).toBe('c-a'));
   it('rejects a default route the bundle lacks', () => expect(() => summariseRegion(bundle, { defaultRoute: 'c-gone' })).toThrow(/c-gone/));
   it('counts routes', () => expect(summariseRegion(bundle, {}).routes).toBe(2));
+  it('sums up the region', () => {
+    const { classics, trailKm, alt } = summariseRegion(bundle, {});
+    expect({ classics, trailKm, alt }).toEqual({ classics: 1, trailKm: [512, 301, 9], alt: [567, 3971] });
+  });
 });
 
 describe('formatIndex', () => {
   it('writes valid JSON with one region per line', () => {
-    const text = formatIndex({ version: 1, regions: [summary('a'), summary('b')] });
-    expect(JSON.parse(text)).toEqual({ version: 1, regions: [summary('a'), summary('b')] });
+    const text = formatIndex({ version: 2, regions: [summary('a'), summary('b')] });
+    expect(JSON.parse(text)).toEqual({ version: 2, regions: [summary('a'), summary('b')] });
     expect(text.split('\n').filter((l) => l.includes('"id"'))).toHaveLength(2);
   });
 });

@@ -50,6 +50,32 @@ export async function loadRegion(id: string): Promise<Region> {
   };
 }
 
+const prefetched = new Set<string>();
+
+/**
+ * Warms the HTTP cache with another region's bundle, so opening it (a page load) is quicker: its
+ * region.json, then prefetch hints for the files it names. Once per region, and never when the
+ * browser asks to save data.
+ */
+export function prefetchRegion(id: string) {
+  const connection = (navigator as Navigator & { connection?: { saveData?: boolean } }).connection;
+  if (prefetched.has(id) || connection?.saveData) return;
+  prefetched.add(id);
+  const base = `${import.meta.env.BASE_URL}data/${id}/`;
+  fetch(`${base}region.json`, { priority: 'low' } as RequestInit)
+    .then((res) => (res.ok ? (res.json() as Promise<RegionBundle>) : null))
+    .then((bundle) => {
+      if (bundle?.version !== BUNDLE_VERSION) return;
+      for (const file of [bundle.grid.file, bundle.trails.file, bundle.locator.file, bundle.ortho.file]) {
+        const link = document.createElement('link');
+        link.rel = 'prefetch';
+        link.href = `${base}${file}`;
+        document.head.appendChild(link);
+      }
+    })
+    .catch(() => prefetched.delete(id));
+}
+
 async function json<T>(url: string): Promise<T> {
   const res = await fetch(url);
   if (!res.ok) throw new Error(`${url}: HTTP ${res.status}`);

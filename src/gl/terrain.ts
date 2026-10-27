@@ -265,6 +265,11 @@ export class TerrainView {
     return [e - this.size[0] / 2, (alt - this.base) * this.exaggeration, this.size[1] / 2 - n];
   }
 
+  /** The inverse of `world` on the ground: metres from the bbox SW corner of world (x, z). */
+  ground(x: number, z: number): [number, number] {
+    return [x + this.size[0] / 2, this.size[1] / 2 - z];
+  }
+
   /** Bilinear terrain height at metres from the bbox SW corner. */
   heightAt(e: number, n: number): number {
     const { cols, rows, cell } = this.region.bundle.grid;

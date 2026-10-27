@@ -28,7 +28,9 @@ walks it at official Swiss signpost pace while the instruments follow along.
 - **Route player:** scrub, change speed, walk the hike in reverse, or let the region's routes play
   as a playlist with repeat and shuffle.
 - **Instruments:** elevation profile, climb and descent, slope and aspect, trail classes, a
-  Switzerland locator, and sunrise and sunset.
+  Switzerland locator with lakes and every region, and sunrise and sunset.
+- **Region browser:** a map of Switzerland and a filterable list of the regions, with their routes,
+  trail kilometres and altitude range.
 - **Real hiking times** from a pace table digitised from the official Schweizer Wanderwege chart.
 - **Shareable links** for every route, e.g. the
   [Eiger Trail](https://sosinone.github.io/hika/?region=jungfrau#route=sm-353.00).
@@ -45,6 +47,7 @@ walks it at official Swiss signpost pace while the instruments follow along.
 | Click or tap / double-click or double tap | Select route / reset camera |
 | Drag along the elevation profile | Move the hiker |
 | Space | Play / pause |
+| G | Region browser |
 | ← / → | Previous / next route |
 
 ## Regions

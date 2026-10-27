@@ -68,8 +68,13 @@ export class OrbitCamera {
     return [this.target[0] + this.dist * c * Math.sin(this.az), this.target[1] + this.dist * Math.sin(this.el), this.target[2] + this.dist * c * Math.cos(this.az)];
   }
 
+  /** Horizontal field of view of a view `aspect` wide: the same for every view narrower than `minAspect`. */
+  hfov(aspect: number): number {
+    return 2 * Math.atan(Math.tan(this.fov / 2) * Math.max(aspect, this.minAspect));
+  }
+
   viewProj(aspect: number): Mat4 {
-    const fov = aspect < this.minAspect ? 2 * Math.atan((Math.tan(this.fov / 2) * this.minAspect) / aspect) : this.fov;
+    const fov = 2 * Math.atan(Math.tan(this.hfov(aspect) / 2) / aspect);
     return multiply(perspective(fov, aspect, Math.max(10, this.dist * 0.02), this.dist * 6), lookAt(this.eye(), this.target));
   }
 

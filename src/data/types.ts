@@ -113,12 +113,11 @@ export interface Locator {
   /** Simplified national border and canton borders as flat [e0, n0, e1, n1, …] LV95 rings. */
   border: number[][];
   cantons: number[][];
-  lakes: number[][];
 }
 
 /** public/data/regions.json: every built region, written by the pipeline (scripts/lib/regions.ts). */
 export interface RegionIndex {
-  version: 1;
+  version: 2;
   /** Sorted by title. */
   regions: RegionSummary[];
 }
@@ -132,6 +131,12 @@ export interface RegionSummary {
   /** Route id selected when a link names no route (or one the region doesn't have). */
   defaultRoute: string;
   routes: number;
+  /** How many of the routes are curated hikes (classics). */
+  classics: number;
+  /** Signposted network in the box, km per class (Wanderweg, Bergwanderweg, Alpinwanderweg). */
+  trailKm: [number, number, number];
+  /** Lowest and highest terrain in the box (m). */
+  alt: [number, number];
 }
 
 export interface RegionConfig {
