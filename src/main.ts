@@ -83,7 +83,7 @@ function start(region: Region, summary: RegionSummary, regions: RegionSummary[])
   const labels = new LabelLayer(document.getElementById('terrain-hud') as HTMLCanvasElement, region, view);
   // A region is a different bundle, so switching is a page load: the back button returns to the last one.
   const goToRegion = (id: string) => { if (id !== region.bundle.id) location.assign(regionHref(id, location.href)); };
-  const browser = mountRegionBrowser(region, regions, view, goToRegion);
+  const browser = mountRegionBrowser(region, regions, view, goToRegion, document.getElementById('p-locator')!);
   const openRegions = () => browser.open();
   const ctx: Ctx = { region, regions, goToRegion, openRegions, store, view, route, hikerIndex: () => indexAtMinute(route(), store.state.minute), waypointIds: () => ids, playlist, skip };
   mountRegionPicker(document.getElementById('brand-sub')!, regions, summary, openRegions);

@@ -2,24 +2,17 @@ import { prefetchRegion, type Region } from '../data/load';
 import type { RegionSummary } from '../data/types';
 import type { TerrainView } from '../gl/terrain';
 import { cameraCone, hitRegion, regionDetail, SwissMap, type Target } from '../hud/switzerland';
-import { chart, COLORS, esc, num } from '../panels/common';
+import { chart, esc, num } from '../panels/common';
 import { filterRegions } from '../regions';
 
-/**
- * Opening, the browser powers up like an old screen: a line widens across the middle and opens into
- * the panel (`POWER` on the dialog, `SCAN` on the line), the contents fade in, the list rows tick in
- * one after another and the map spreads out from the current region (`REVEAL`). Closing plays
- * `POWER` back, faster. None of it runs under prefers-reduced-motion.
- */
-const POWER: Keyframe[] = [
-  { clipPath: 'inset(calc(50% - 1px) 50%)', easing: 'ease-out' },
-  { clipPath: 'inset(calc(50% - 1px) 0)', offset: 0.35, easing: 'cubic-bezier(0.2, 0.8, 0.2, 1)' },
-  { clipPath: 'inset(0)' },
-];
-const SCAN: Keyframe[] = [{ opacity: 1 }, { opacity: 1, offset: 0.35 }, { opacity: 0 }];
-const OPEN_MS = 360, CLOSE_MS = 220;
-/** The map's reveal: its delay and duration after opening, in ms, and its soft edge in px. */
-const REVEAL = { delay: 120, ms: 600, edge: 48 };
+/** The view-transition name the tile and the browser hand between them (styled in hud.css). */
+const MORPH = 'region-browser';
+
+/** Whether at least half of `el` is in the viewport. */
+function onScreen(el: Element): boolean {
+  const r = el.getBoundingClientRect();
+  return r.width > 0 && r.right > 0 && r.left < innerWidth && Math.min(r.bottom, innerHeight) - Math.max(r.top, 0) > r.height / 2;
+}
 
 /**
  * The region browser: a dialog with a large map of Switzerland, every region boxed and named, and a
@@ -27,14 +20,18 @@ const REVEAL = { delay: 120, ms: 600, edge: 48 };
  * hovering either or moving with ↑ / ↓ in the filter sets it, and lingering on it warms the cache.
  * A click opens a region (`go`); on a touch screen a tap on the map first picks the region, and a
  * tap on its list entry (or the same box again) opens it.
+ *
+ * It opens out of `tile`, the locator panel (G): a view transition grows the tile into the browser
+ * while the two cross-fade, and closing shrinks it back. With the tile scrolled off screen it zooms
+ * in and out on its own. Without view transitions, or under prefers-reduced-motion, it opens and
+ * closes at once.
  */
-export function mountRegionBrowser(region: Region, regions: RegionSummary[], view: TerrainView, go: (id: string) => void) {
+export function mountRegionBrowser(region: Region, regions: RegionSummary[], view: TerrainView, go: (id: string) => void, tile: HTMLElement) {
   const current = region.bundle.id;
   const dialog = document.createElement('dialog');
   dialog.className = 'region-browser';
   dialog.setAttribute('aria-labelledby', 'rb-title');
   dialog.innerHTML = `
-    <div class="rb-scan" aria-hidden="true"></div>
     <div class="panel-head"><span class="slot">G</span><h2 id="rb-title">Regions</h2><span class="meta"></span><button class="btn icon" data-k="close" aria-label="Close"><svg viewBox="0 0 12 12" aria-hidden="true"><path d="M2 2l8 8M10 2l-8 8"/></svg></button></div>
     <div class="rb-body">
       <div class="rb-map"></div>
@@ -55,18 +52,34 @@ export function mountRegionBrowser(region: Region, regions: RegionSummary[], vie
   const still = matchMedia('(prefers-reduced-motion: reduce)').matches;
 
   let matches = regions, matchIds: Set<string> | null = null, active: string | null = current, picked: string | null = null;
-  let targets: Target[] = [], pointerType = 'mouse', dwell = 0, frame = 0, openedAt = -Infinity;
-  let folding: Animation | null = null;
+  let targets: Target[] = [], pointerType = 'mouse', dwell = 0, frame = 0;
+  // `shown` is the state asked for, which a view transition reaches a frame or two later.
+  let shown = false, named: HTMLElement | null = null, morphing: ViewTransition | null = null;
 
-  /** Closes the browser, folding it away first; it stays modal until the fold ends. */
+  /** Gives the transition's name to `el` alone: two elements holding it would abort the transition. */
+  const name = (el: Element | null) => {
+    if (named) named.style.viewTransitionName = '';
+    named = el instanceof HTMLElement ? el : null;
+    if (named) named.style.viewTransitionName = MORPH;
+  };
+  /** Runs `update` (open or close) as a view transition in which `from` becomes `to`. */
+  const morph = (from: Element | null, to: Element | null, update: () => void) => {
+    if (still || !document.startViewTransition) { update(); return; }
+    name(from);
+    const vt = document.startViewTransition(() => { update(); name(to); });
+    morphing = vt;
+    // A newer transition skips this one and takes the name over.
+    const done = () => { if (morphing === vt) { name(null); morphing = null; } };
+    vt.finished.then(done, done);
+  };
+  /** The tile to grow from or shrink back into, while it is on screen. */
+  const anchor = () => (onScreen(tile) ? tile : null);
+
+  /** Closes the browser, shrinking it back into the tile. */
   const shut = () => {
-    if (!dialog.open || folding) return;
-    if (still) { dialog.close(); return; }
-    dialog.classList.add('closing');
-    folding = dialog.animate(POWER, { duration: CLOSE_MS, direction: 'reverse', fill: 'forwards' });
-    q('.rb-scan').animate(SCAN, { duration: CLOSE_MS, direction: 'reverse' });
-    // Closed some other way meanwhile, the fold is cancelled and its promise rejects.
-    folding.finished.then(() => dialog.close(), () => {});
+    if (!shown) return;
+    shown = false;
+    morph(dialog, anchor(), () => dialog.close());
   };
   /** Opens a region; the current one just closes the browser. */
   const choose = (id: string) => (id === current ? shut() : go(id));
@@ -146,19 +159,16 @@ export function mountRegionBrowser(region: Region, regions: RegionSummary[], vie
     const r = dialog.getBoundingClientRect();
     if (e.clientX < r.left || e.clientX > r.right || e.clientY < r.top || e.clientY > r.bottom) shut();
   });
-  // Escape folds it away too, unless the browser won't let the page hold the close (then it just closes).
+  // Escape shrinks it back too, unless the browser won't let the page hold the close (then it just closes).
   dialog.addEventListener('cancel', (e) => {
     if (!e.cancelable) return;
     e.preventDefault();
     shut();
   });
   dialog.addEventListener('close', () => {
+    shown = false;
     cancelAnimationFrame(frame);
     frame = 0;
-    // The fold holds the dialog shut (fill: forwards) until it is dropped here.
-    folding?.cancel();
-    folding = null;
-    dialog.classList.remove('closing');
   });
   // Back from the next region may restore this page from the bfcache with the browser still open.
   window.addEventListener('pageshow', () => { if (dialog.open) dialog.close(); });
@@ -175,50 +185,29 @@ export function mountRegionBrowser(region: Region, regions: RegionSummary[], vie
       detail: regionDetail,
       match: matchIds,
     });
-    const t = (now - openedAt - REVEAL.delay) / REVEAL.ms;
-    if (t < 1) reveal(ch.ctx, w, h, Math.max(0, t));
     frame = requestAnimationFrame(draw);
-  };
-  /** Masks the map to a soft-edged disc around the current region, grown to the far corner by `t`, ringed in the accent. */
-  const reveal = (ctx: CanvasRenderingContext2D, w: number, h: number, t: number) => {
-    const at = targets.find((x) => x.region.id === current);
-    const cx = at?.cx ?? w / 2, cy = at?.cy ?? h / 2;
-    const e = 1 - (1 - t) ** 3, r = 1 + e * (Math.hypot(Math.max(cx, w - cx), Math.max(cy, h - cy)) + REVEAL.edge);
-    const mask = ctx.createRadialGradient(cx, cy, Math.max(0, r - REVEAL.edge), cx, cy, r);
-    mask.addColorStop(0, '#000');
-    mask.addColorStop(1, 'transparent');
-    ctx.globalCompositeOperation = 'destination-in';
-    ctx.fillStyle = mask;
-    ctx.fillRect(0, 0, w, h);
-    ctx.globalCompositeOperation = 'source-over';
-    ctx.strokeStyle = COLORS.ac(0.8 * (1 - e));
-    ctx.lineWidth = 1;
-    ctx.beginPath();
-    ctx.arc(cx, cy, Math.max(0, r - REVEAL.edge / 2), 0, Math.PI * 2);
-    ctx.stroke();
   };
 
   return {
     open() {
-      if (dialog.open) return;
-      filter.value = '';
-      picked = null;
-      // A finger gets the list, not a keyboard popping up over it.
-      const fine = matchMedia('(pointer: fine)').matches;
-      filter.autofocus = fine;
-      close.autofocus = !fine;
-      dialog.showModal();
-      applyFilter();
-      setActive(null);
-      setActive(current, true);
-      if (!still) {
-        openedAt = performance.now();
-        dialog.animate(POWER, OPEN_MS);
-        q('.rb-scan').animate(SCAN, OPEN_MS);
-        for (const el of dialog.querySelectorAll('.panel-head, .rb-body')) el.animate([{ opacity: 0 }, { opacity: 1 }], { duration: 240, delay: 160, fill: 'backwards' });
-        [...items.values()].forEach((el, k) => el.animate([{ opacity: 0, transform: 'translateY(-4px)' }, { opacity: 1, transform: 'none' }], { duration: 300, delay: 180 + Math.min(k, 12) * 20, easing: 'ease-out', fill: 'backwards' }));
-      }
-      frame = requestAnimationFrame(draw);
+      if (shown) return;
+      shown = true;
+      morph(anchor(), dialog, () => {
+        filter.value = '';
+        picked = null;
+        // A finger gets the list, not a keyboard popping up over it.
+        const fine = matchMedia('(pointer: fine)').matches;
+        filter.autofocus = fine;
+        close.autofocus = !fine;
+        dialog.showModal();
+        applyFilter();
+        setActive(null);
+        setActive(current, true);
+        // Drawn now, so the transition's picture of the browser already has the map.
+        draw(performance.now());
+        // The rows tick in one after another, like the log.
+        if (!still) [...items.values()].forEach((el, k) => el.animate([{ opacity: 0, transform: 'translateY(-4px)' }, { opacity: 1, transform: 'none' }], { duration: 300, delay: 120 + Math.min(k, 12) * 20, easing: 'ease-out', fill: 'backwards' }));
+      });
     },
   };
 }
