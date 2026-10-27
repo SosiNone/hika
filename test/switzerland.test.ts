@@ -1,6 +1,6 @@
 import { describe, expect, it } from 'vitest';
 import type { RegionSummary } from '../src/data/types';
-import { hitRegion, placeLabels, type Rect, type Target } from '../src/hud/switzerland';
+import { hitRegion, placeLabels, Sway, type Rect, type Target } from '../src/hud/switzerland';
 
 const target = (id: string, rect: Rect): Target => ({
   region: { id } as RegionSummary, rect, cx: (rect[0] + rect[2]) / 2, cy: (rect[1] + rect[3]) / 2,
@@ -43,5 +43,27 @@ describe('placeLabels', () => {
     const r = placed.get('a')!;
     expect(r[0]).toBeGreaterThanOrEqual(0);
     expect(r[2]).toBeLessThanOrEqual(100);
+  });
+});
+
+describe('Sway', () => {
+  it('starts straight and turns as it steps', () => {
+    const sway = new Sway();
+    expect(sway.theta).toBe(0);
+    sway.step(5);
+    expect(sway.theta).toBeGreaterThan(0.15);
+  });
+
+  it('holds its angle while held, then sways on from it', () => {
+    const sway = new Sway();
+    sway.step(5);
+    const angle = sway.theta;
+    sway.held = true;
+    sway.step(5);
+    expect(sway.theta).toBe(angle);
+    sway.held = false;
+    sway.step(0.1);
+    expect(sway.theta).toBeGreaterThan(angle);
+    expect(sway.theta - angle).toBeLessThan(0.01);
   });
 });

@@ -65,9 +65,12 @@ table { border-collapse: collapse; width: 100%; }
 .region-browser::backdrop { background: rgba(var(--bg-rgb), 0.72); animation: rbFade 0.3s; }
 @keyframes rbFade { from { opacity: 0; } }
 /* The locator tile (G) grows into the browser and shrinks back: in the view transition
-   (src/ui/regionBrowser.ts) they are one box, and their pictures stretch with it as they cross-fade. */
-::view-transition-group(region-browser) { animation-duration: 0.4s; animation-timing-function: cubic-bezier(0.4, 0, 0.2, 1); }
+   (src/ui/regionBrowser.ts) they are one box, and their pictures stretch with it as they cross-fade.
+   The map moves on its own from the tile's body to the browser's map pane. Both draw it centred and
+   as wide as they are, so `contain` keeps the two pictures of it on top of each other. */
+::view-transition-group(region-browser), ::view-transition-group(region-browser-map) { animation-duration: 0.4s; animation-timing-function: cubic-bezier(0.4, 0, 0.2, 1); }
 ::view-transition-old(region-browser), ::view-transition-new(region-browser) { height: 100%; }
+::view-transition-old(region-browser-map), ::view-transition-new(region-browser-map) { height: 100%; object-fit: contain; }
 ::view-transition-old(region-browser) { animation-duration: 0.22s; }
 ::view-transition-new(region-browser) { animation-duration: 0.3s; }
 ::view-transition-old(root), ::view-transition-new(root) { animation-duration: 0.4s; }
@@ -78,7 +81,7 @@ table { border-collapse: collapse; width: 100%; }
 .region-browser .panel-head { align-items: center; }
 .region-browser .panel-head .btn.icon { margin-left: 4px; }
 .rb-body { flex: 1; min-height: 0; display: grid; grid-template-columns: minmax(0, 1fr) 320px; gap: var(--gap); }
-.rb-map { position: relative; min-height: 0; border: 1px solid var(--line); }
+.rb-map { position: relative; min-height: 0; }
 .rb-map canvas.fill { position: absolute; inset: 0; width: 100%; height: 100%; touch-action: manipulation; }
 .rb-side { display: flex; flex-direction: column; min-height: 0; gap: 6px; }
 .rb-filter { flex: none; font: inherit; font-size: var(--fs-s); letter-spacing: 0.12em; color: var(--text); background: var(--bg); border: 1px solid var(--line-2); border-radius: 0; padding: 6px 8px; }

@@ -5,6 +5,7 @@ import { project } from './gl/glkit';
 import { RoutePicker } from './gl/picker';
 import { TerrainView, type TrailMode } from './gl/terrain';
 import { LabelLayer } from './hud/labels';
+import { Sway } from './hud/switzerland';
 import { mountCumulative, mountGradient, mountProfile } from './panels/charts';
 import type { Ctx } from './panels/common';
 import { mountPreview, mountRoutes, mountTrailClass, mountWaypoints } from './panels/left';
@@ -84,7 +85,9 @@ function start(region: Region, summary: RegionSummary, regions: RegionSummary[])
   const labels = new LabelLayer(document.getElementById('terrain-hud') as HTMLCanvasElement, region, view);
   // A region is a different bundle, so switching is a page load: the back button returns to the last one.
   const goToRegion = (id: string) => { if (id !== region.bundle.id) location.assign(regionHref(id, location.href)); };
-  const browser = mountRegionBrowser(region, regions, view, goToRegion, document.getElementById('p-locator')!);
+  // The locator tile (G) and the region browser it grows into draw one map at one angle.
+  const locator = document.getElementById('p-locator')!, sway = new Sway();
+  const browser = mountRegionBrowser(region, regions, view, goToRegion, locator, sway);
   const openRegions = () => browser.open();
   const ctx: Ctx = { region, regions, goToRegion, openRegions, store, view, route, hikerIndex: () => indexAtMinute(route(), store.state.minute), waypointIds: () => ids, playlist, skip };
   mountRegionPicker(document.getElementById('brand-sub')!, regions, summary, openRegions);
@@ -97,7 +100,7 @@ function start(region: Region, summary: RegionSummary, regions: RegionSummary[])
     mountRoutes(document.getElementById('p-routes')!, ctx),
     mountProfile(document.getElementById('p-profile')!, ctx),
     mountGradient(document.getElementById('p-gradient')!, ctx),
-    mountLocator(document.getElementById('p-locator')!, ctx),
+    mountLocator(locator, ctx, sway),
     mountCumulative(document.getElementById('p-cumulative')!, ctx),
     mountTerrainStats(document.getElementById('p-terrainstats')!, ctx),
     mountLog(document.getElementById('p-log')!, ctx),
