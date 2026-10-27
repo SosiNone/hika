@@ -170,11 +170,12 @@ table { border-collapse: collapse; width: 100%; }
 .btn.icon { display: inline-grid; place-items: center; width: 26px; height: 22px; padding: 0; }
 .btn.icon svg { width: 12px; height: 12px; fill: none; stroke: currentColor; stroke-width: 1.2; stroke-linejoin: round; stroke-linecap: round; }
 .transport .btn:not(.icon) { height: 22px; }
-/* Scrubber: a hairline with an accent progress trace, waypoint ticks and an arrowhead playhead
-   pointing the way the hike is walked (the same pointer the charts draw). --p (progress) and each
-   tick's --f are fractions of the walk, set from left.ts; --tw insets both so they line up with the
-   thumb centre at either end. The native thumb stays invisible and only takes the pointer; the
-   arrowhead is .mark, so the focus ring can sit around it without being clipped by its shape. */
+/* Scrubber: a hairline with an accent progress trace, waypoint ticks and a playhead needle. The
+   needle is 2 px wide and taller than the 1 px ticks, in a panel-coloured gap that cuts the track
+   and ticks, so it reads as a marker rather than the trace's tip, even at the finish. --p (progress)
+   and each tick's --f are fractions of the walk, set from left.ts; --tw insets both so they line up
+   with the thumb centre at either end. The native thumb stays invisible and only takes the pointer;
+   the needle is .mark, so the focus ring can sit around it. */
 .scrub { --tw: 10px; --p: 0; position: relative; height: 18px; }
 .scrub::before, .scrub::after { content: ''; position: absolute; top: 50%; left: calc(var(--tw) / 2); transform: translateY(-50%); pointer-events: none; }
 .scrub::before { right: calc(var(--tw) / 2); height: 1px; background: var(--line-3); }
@@ -187,9 +188,10 @@ table { border-collapse: collapse; width: 100%; }
 .scrub input::-webkit-slider-thumb { -webkit-appearance: none; width: var(--tw); height: 16px; border: 0; background: none; }
 .scrub input::-moz-range-thumb { width: var(--tw); height: 16px; border: 0; border-radius: 0; background: none; }
 .scrub input:focus { outline: none; }
-.scrub .mark { position: absolute; top: 50%; left: calc(var(--tw) / 2 + var(--p) * (100% - var(--tw))); width: var(--tw); height: 12px; transform: translate(-50%, -50%); pointer-events: none; transition: transform 0.12s; }
-.scrub .mark::before { content: ''; position: absolute; inset: 0; background: var(--accent); clip-path: polygon(0 0, 100% 50%, 0 100%, 26% 50%); }
-.scrub:hover .mark, .scrub:active .mark { transform: translate(-50%, -50%) scale(1.25); }
+.scrub .mark { position: absolute; top: 50%; left: calc(var(--tw) / 2 + var(--p) * (100% - var(--tw))); width: 6px; height: 16px; transform: translate(-50%, -50%); background: var(--panel); pointer-events: none; transition: transform 0.12s; }
+.scrub .mark::before { content: ''; position: absolute; inset: 0 2px; background: var(--accent); }
+/* Grow only in height, so the needle stays a crisp 2 px. */
+.scrub:hover .mark, .scrub:active .mark { transform: translate(-50%, -50%) scaleY(1.25); }
 .scrub:has(input:focus-visible) .mark { outline: 1px solid var(--text); outline-offset: 2px; }
 .transport .btn { white-space: nowrap; }
 
@@ -318,7 +320,7 @@ table.list tr.next td:first-child { box-shadow: inset 2px 0 var(--accent); }
   .scrub { --tw: 14px; height: 32px; }
   .scrub input::-webkit-slider-thumb { height: 28px; }
   .scrub input::-moz-range-thumb { height: 28px; }
-  .scrub .mark { height: 16px; }
+  .scrub .mark { height: 24px; }
   .route-row { padding: 10px 6px; }
   .footbar { height: auto; min-height: 22px; }
   .display .seg button { padding: 0 12px; line-height: 28px; }

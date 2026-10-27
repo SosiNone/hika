@@ -1,6 +1,7 @@
 /**
  * An arrowhead centred on (x, y), pointing along `angle` (screen radians): filled, or outlined for
- * a secondary cursor. The charts, the scrubber (as CSS) and the map all use this one shape.
+ * a secondary cursor. The charts and the map use this one shape. The route player's scrubber is a
+ * timeline rather than a heading, so it marks its position with a needle instead (hud.css).
  */
 export function pointer(ctx: CanvasRenderingContext2D, x: number, y: number, angle: number, color: string, fill = true, scale = 1) {
   const cos = Math.cos(angle) * scale, sin = Math.sin(angle) * scale;
