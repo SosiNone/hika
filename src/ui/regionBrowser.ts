@@ -1,12 +1,12 @@
 import { prefetchRegion, type Region } from '../data/load';
 import type { RegionSummary } from '../data/types';
 import type { TerrainView } from '../gl/terrain';
-import { cameraCone, hitRegion, regionDetail, SwissMap, type Target } from '../hud/switzerland';
+import { cameraCone, hitRegion, regionDetail, SwissMap, type Sway, type Target } from '../hud/switzerland';
 import { chart, esc, num } from '../panels/common';
 import { filterRegions } from '../regions';
 
-/** The view-transition name the tile and the browser hand between them (styled in hud.css). */
-const MORPH = 'region-browser';
+/** The view-transition names the tile and the browser hand between them (styled in hud.css): the frame, and the map in it. */
+const MORPH = 'region-browser', MORPH_MAP = 'region-browser-map';
 
 /** Whether at least half of `el` is in the viewport. */
 function onScreen(el: Element): boolean {
@@ -21,18 +21,19 @@ function onScreen(el: Element): boolean {
  * A click opens a region (`go`); on a touch screen a tap on the map first picks the region, and a
  * tap on its list entry (or the same box again) opens it.
  *
- * It opens out of `tile`, the locator panel (G): a view transition grows the tile into the browser
- * while the two cross-fade, and closing shrinks it back. With the tile scrolled off screen it zooms
- * in and out on its own. Without view transitions, or under prefers-reduced-motion, it opens and
- * closes at once.
+ * It is the locator panel (G), `tile`, grown: the same title, and the same map at the same angle
+ * (`sway`). A view transition grows the tile into the browser while the two cross-fade, with the
+ * map moving on its own from the tile's body to the browser's map pane, and closing shrinks it
+ * back. With the tile scrolled off screen it zooms in and out on its own. Without view transitions,
+ * or under prefers-reduced-motion, it opens and closes at once.
  */
-export function mountRegionBrowser(region: Region, regions: RegionSummary[], view: TerrainView, go: (id: string) => void, tile: HTMLElement) {
+export function mountRegionBrowser(region: Region, regions: RegionSummary[], view: TerrainView, go: (id: string) => void, tile: HTMLElement, sway: Sway) {
   const current = region.bundle.id;
   const dialog = document.createElement('dialog');
   dialog.className = 'region-browser';
-  dialog.setAttribute('aria-labelledby', 'rb-title');
+  dialog.setAttribute('aria-labelledby', 'rb-title rb-meta');
   dialog.innerHTML = `
-    <div class="panel-head"><span class="slot">G</span><h2 id="rb-title">Regions</h2><span class="meta"></span><button class="btn icon" data-k="close" aria-label="Close"><svg viewBox="0 0 12 12" aria-hidden="true"><path d="M2 2l8 8M10 2l-8 8"/></svg></button></div>
+    <div class="panel-head"><span class="slot">G</span><h2 id="rb-title">Switzerland</h2><span class="meta" id="rb-meta"></span><button class="btn icon" data-k="close" aria-label="Close"><svg viewBox="0 0 12 12" aria-hidden="true"><path d="M2 2l8 8M10 2l-8 8"/></svg></button></div>
     <div class="rb-body">
       <div class="rb-map"></div>
       <div class="rb-side">
@@ -54,22 +55,31 @@ export function mountRegionBrowser(region: Region, regions: RegionSummary[], vie
   let matches = regions, matchIds: Set<string> | null = null, active: string | null = current, picked: string | null = null;
   let targets: Target[] = [], pointerType = 'mouse', dwell = 0, frame = 0;
   // `shown` is the state asked for, which a view transition reaches a frame or two later.
-  let shown = false, named: HTMLElement | null = null, morphing: ViewTransition | null = null;
+  let shown = false, named: HTMLElement[] = [], morphing: ViewTransition | null = null;
 
-  /** Gives the transition's name to `el` alone: two elements holding it would abort the transition. */
-  const name = (el: Element | null) => {
-    if (named) named.style.viewTransitionName = '';
-    named = el instanceof HTMLElement ? el : null;
-    if (named) named.style.viewTransitionName = MORPH;
+  /**
+   * Gives the transition's names to `el` (the tile or the dialog) alone, and with `withMap` the map
+   * name to its map: two elements holding a name would abort the transition.
+   */
+  const name = (el: HTMLElement | null, withMap: boolean) => {
+    for (const n of named) n.style.viewTransitionName = '';
+    const map = withMap ? el?.querySelector<HTMLElement>('canvas.fill') : null;
+    named = [el, map].filter((n): n is HTMLElement => !!n);
+    if (el) el.style.viewTransitionName = MORPH;
+    if (map) map.style.viewTransitionName = MORPH_MAP;
   };
-  /** Runs `update` (open or close) as a view transition in which `from` becomes `to`. */
-  const morph = (from: Element | null, to: Element | null, update: () => void) => {
+  /**
+   * Runs `update` (open or close) as a view transition in which `from` becomes `to`. When both are
+   * there, their maps morph on their own; with one alone, it zooms as one picture.
+   */
+  const morph = (from: HTMLElement | null, to: HTMLElement | null, update: () => void) => {
     if (still || !document.startViewTransition) { update(); return; }
-    name(from);
-    const vt = document.startViewTransition(() => { update(); name(to); });
+    const withMap = !!from && !!to;
+    name(from, withMap);
+    const vt = document.startViewTransition(() => { update(); name(to, withMap); });
     morphing = vt;
-    // A newer transition skips this one and takes the name over.
-    const done = () => { if (morphing === vt) { name(null); morphing = null; } };
+    // A newer transition skips this one and takes the names over.
+    const done = () => { if (morphing === vt) { name(null, false); morphing = null; } };
     vt.finished.then(done, done);
   };
   /** The tile to grow from or shrink back into, while it is on screen. */
@@ -169,6 +179,8 @@ export function mountRegionBrowser(region: Region, regions: RegionSummary[], vie
     shown = false;
     cancelAnimationFrame(frame);
     frame = 0;
+    // The tile held its angle behind the browser; from there it sways on.
+    sway.held = false;
   });
   // Back from the next region may restore this page from the bfcache with the browser still open.
   window.addEventListener('pageshow', () => { if (dialog.open) dialog.close(); });
@@ -176,7 +188,7 @@ export function mountRegionBrowser(region: Region, regions: RegionSummary[], vie
   const draw = (now: number) => {
     const { w, h } = ch.begin();
     targets = map.draw(ch.ctx, w, h, {
-      tilt: 0.7,
+      theta: still ? 0 : sway.theta,
       labels: 'all',
       hover: active,
       selected: picked,
@@ -193,6 +205,8 @@ export function mountRegionBrowser(region: Region, regions: RegionSummary[], vie
       if (shown) return;
       shown = true;
       morph(anchor(), dialog, () => {
+        // The tile holds its angle behind the browser, which draws the map at it.
+        sway.held = true;
         filter.value = '';
         picked = null;
         // A finger gets the list, not a keyboard popping up over it.

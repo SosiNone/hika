@@ -3,7 +3,7 @@ import { OFF_NETWORK, TRAIL_CLASSES, type RegionSummary } from '../data/types';
 import { smoothAltitudes } from '../geo/hikingTime';
 import { lv95ToWgs84 } from '../geo/lv95';
 import { pointer } from '../hud/pointer';
-import { cameraCone, hitRegion, regionDetail, SwissMap, type Target } from '../hud/switzerland';
+import { cameraCone, hitRegion, regionDetail, SwissMap, type Sway, type Target } from '../hud/switzerland';
 import { chart, COLORS, esc, FONT, frame, hm, num, type Ctx } from './common';
 
 /** Four corners, the "expand" glyph of the button that opens the region browser. */
@@ -12,11 +12,11 @@ const EXPAND_ICON = '<svg viewBox="0 0 12 12" aria-hidden="true"><path d="M1 4.5
 /**
  * G · Switzerland locator: the national relief with lakes and every region boxed
  * (src/hud/switzerland.ts), the current region in the accent with the 3D camera's footprint. It
- * sways slowly but holds still under the pointer. Hovering a region names it and a click opens it;
- * on a touch screen the first tap names it and offers an OPEN button, since opening is a page load.
- * The head button opens the region browser.
+ * sways slowly (`sway`, shared with the region browser) but holds still under the pointer. Hovering
+ * a region names it and a click opens it; on a touch screen the first tap names it and offers an
+ * OPEN button, since opening is a page load. The head button opens the region browser.
  */
-export function mountLocator(el: HTMLElement, c: Ctx) {
+export function mountLocator(el: HTMLElement, c: Ctx, sway: Sway) {
   const { body, meta } = frame(el, 'G', 'Switzerland');
   body.style.height = '150px';
   body.style.flex = 'none';
@@ -40,7 +40,7 @@ export function mountLocator(el: HTMLElement, c: Ctx) {
   const coords = `${lat.toFixed(2)}N ${lon.toFixed(2)}E`;
   let targets: Target[] = [];
   let hover: string | null = null, selected: RegionSummary | null = null, over = false, pointerType = 'mouse';
-  let sway = 0, last = 0, dwell = 0;
+  let last = 0, dwell = 0;
 
   /** Another region under the pointer (the current one is not a target), with a finger getting more slack. */
   const at = (e: PointerEvent | MouseEvent) => {
@@ -83,10 +83,10 @@ export function mountLocator(el: HTMLElement, c: Ctx) {
     const dt = last ? t - last : 0;
     last = t;
     // The sway stops while the pointer is over the map or a region is picked, so targets hold still.
-    if (!still && !over && !selected) sway += dt;
+    if (!still && !over && !selected) sway.step(dt);
     const { w, h } = ch.begin();
     targets = map.draw(ch.ctx, w, h, {
-      theta: still ? 0 : 0.32 * Math.sin(sway * 0.12),
+      theta: still ? 0 : sway.theta,
       labels: 'focus',
       hover,
       selected: selected?.id,

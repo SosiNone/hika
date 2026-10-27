@@ -26,12 +26,37 @@ export const regionDetail = (r: RegionSummary) => `${r.cantons.join('/')} · ${r
 const RING_SMOOTH = 2;
 /** Vertical exaggeration of the national relief: the country is 350 km wide, the Alps 4.6 km high. */
 const EXAG = 4;
+/**
+ * Tilt of the view away from straight down (rad). The locator and the region browser share it, so
+ * the tile grows into the same view.
+ */
+const TILT = 0.95;
+
+/**
+ * The locator's slow sway about the vertical axis, shared with the region browser. The browser draws
+ * the map at the tile's angle, and the tile holds it while the browser is open, so the browser grows
+ * out of the tile and shrinks back onto it without a turn. (Turning the browser's large relief would
+ * redraw it every frame.)
+ */
+export class Sway {
+  private t = 0;
+  /** Set while the region browser is open. */
+  held = false;
+
+  /** The angle (rad) to draw at. */
+  get theta(): number {
+    return 0.32 * Math.sin(this.t * 0.12);
+  }
+
+  /** Advances by `dt` seconds, unless held. */
+  step(dt: number) {
+    if (!this.held) this.t += dt;
+  }
+}
 
 export interface SwissMapOptions {
   /** Rotation about the vertical axis (rad), for the sway. */
   theta?: number;
-  /** Tilt of the view away from straight down (rad). */
-  tilt?: number;
   /** 'focus': only the current, hovered and selected regions are named; 'all': every region that fits. */
   labels: 'focus' | 'all';
   hover?: string | null;
@@ -61,7 +86,7 @@ export class SwissMap {
   private readonly boxes: Map<string, { ring: Float32Array; centre: [number, number, number] }>;
   private readonly cE: number;
   private readonly cN: number;
-  private fit: { tilt: number; u0: number; u1: number; v0: number; v1: number } | null = null;
+  private fit: { u0: number; u1: number; v0: number; v1: number } | null = null;
   private relief: HTMLCanvasElement | null = null;
   private reliefKey = '';
 
@@ -128,15 +153,15 @@ export class SwissMap {
   }
 
   /** Extent of the unrotated projection at unit scale, so the map keeps its size while it sways. */
-  private extent(tilt: number) {
-    if (this.fit?.tilt === tilt) return this.fit;
-    const ct = Math.cos(tilt), lift = EXAG * Math.sin(tilt);
+  private extent() {
+    if (this.fit) return this.fit;
+    const ct = Math.cos(TILT), lift = EXAG * Math.sin(TILT);
     let u0 = Infinity, u1 = -Infinity, v0 = Infinity, v1 = -Infinity;
     for (let k = 0; k < this.pts.length; k += 3) {
       const u = this.pts[k], v = this.pts[k + 1] * ct - this.pts[k + 2] * lift;
       u0 = Math.min(u0, u); u1 = Math.max(u1, u); v0 = Math.min(v0, v); v1 = Math.max(v1, v);
     }
-    return (this.fit = { tilt, u0, u1, v0, v1 });
+    return (this.fit = { u0, u1, v0, v1 });
   }
 
   /**
@@ -186,11 +211,11 @@ export class SwissMap {
   draw(ctx: CanvasRenderingContext2D, w: number, h: number, o: SwissMapOptions): Target[] {
     // Before layout (e.g. a page loaded hidden) the canvas is 0 × 0, and createImageData would throw.
     if (!ctx.canvas.width || !ctx.canvas.height) return [];
-    const tilt = o.tilt ?? 0.95, theta = o.theta ?? 0;
-    const f = this.extent(tilt), pad = 8;
+    const theta = o.theta ?? 0;
+    const f = this.extent(), pad = 8;
     const s = Math.min((w - pad * 2) / (f.u1 - f.u0), (h - pad * 2) / (f.v1 - f.v0));
     const ox = w / 2 - ((f.u0 + f.u1) / 2) * s, oy = h / 2 - ((f.v0 + f.v1) / 2) * s;
-    const ct = Math.cos(theta), st = Math.sin(theta), cTilt = Math.cos(tilt), lift = EXAG * Math.sin(tilt);
+    const ct = Math.cos(theta), st = Math.sin(theta), cTilt = Math.cos(TILT), lift = EXAG * Math.sin(TILT);
     const P = (x: number, z: number, alt: number): [number, number] => {
       const xr = x * ct - z * st, zr = x * st + z * ct;
       return [ox + xr * s, oy + (zr * cTilt - alt * lift) * s];
@@ -198,7 +223,7 @@ export class SwissMap {
 
     // The relief is kept while the view, the canvas and the scheme stay the same: a still map only
     // redraws its lines.
-    const key = `${ctx.canvas.width}×${ctx.canvas.height} ${w} ${tilt} ${theta} ${C.gl.clear} ${C.gl.high} ${C.text}`;
+    const key = `${ctx.canvas.width}×${ctx.canvas.height} ${w} ${theta} ${C.gl.clear} ${C.gl.high} ${C.text}`;
     if (key !== this.reliefKey) {
       this.reliefKey = key;
       this.relief ??= document.createElement('canvas');
