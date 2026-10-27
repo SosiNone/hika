@@ -86,13 +86,13 @@ void main() { // minor / major
 
 // The trail network: one instance per segment, extruded to a quad in screen space so lines keep
 // their width at any DPR (GL_LINES is 1 device pixel everywhere). aNear is the walking distance
-// from the selected route at A and B; with uAdjacent the network fades out over uReach (m) of it.
+// from the selected route at A and B, aPrev the same from the route selected before it.
 const NETWORK_VS = `#version 300 es
 precision highp float;
-in vec3 aA; in vec3 aB; in float aClass; in vec2 aNear;
-uniform mat4 uVP; uniform vec2 uViewport; uniform vec3 uEye; uniform float uHalf, uExag, uBase, uFocus, uAdjacent;
-uniform vec2 uReach;
-out float vSide; out float vClass; out float vFade;
+in vec3 aA; in vec3 aB; in float aClass; in vec2 aNear; in vec2 aPrev;
+uniform mat4 uVP; uniform vec2 uViewport; uniform vec3 uEye; uniform float uHalf, uExag, uBase, uFocus;
+out float vSide; out float vClass; out float vFade; out float vAlong;
+flat out vec2 vNear; flat out vec2 vPrev; flat out float vLen;
 const vec2 CORNER[6] = vec2[6](vec2(0, -1), vec2(1, -1), vec2(0, 1), vec2(0, 1), vec2(1, -1), vec2(1, 1));
 void main() {
   vec2 k = CORNER[gl_VertexID];
@@ -105,18 +105,29 @@ void main() {
   p.xy += nrm * k.y * (uHalf + 1.0) / uViewport * p.w;
   gl_Position = p;
   vSide = k.y; vClass = aClass;
-  float near = 1.0 - smoothstep(uReach.x, uReach.y, k.x < 0.5 ? aNear.x : aNear.y);
-  vFade = mix(1.0, 0.35, smoothstep(uFocus * 0.9, uFocus * 2.4, distance(k.x < 0.5 ? wa : wb, uEye))) * mix(1.0, near, uAdjacent);
+  vAlong = k.x; vNear = aNear; vPrev = aPrev; vLen = distance(aA.xz, aB.xz);
+  vFade = mix(1.0, 0.35, smoothstep(uFocus * 0.9, uFocus * 2.4, distance(k.x < 0.5 ? wa : wb, uEye)));
 }`;
 
+// With uAdjacent the network fades out over uReach (m) of walking distance from the selected route,
+// and loads: it is drawn out to uFront, the head of the load in uHead. The trails of the route
+// before fade out (uOut) as far as they had loaded (uPrevFront).
 const NETWORK_FS = `#version 300 es
 precision highp float; // uHalf is shared with the vertex shader, so precisions must match
-in float vSide; in float vClass; in float vFade; out vec4 o;
-uniform vec3 uColors[3]; uniform vec3 uCasing; uniform float uHalf, uAlpha; uniform int uPass;
+in float vSide; in float vClass; in float vFade; in float vAlong; flat in vec2 vNear; flat in vec2 vPrev; flat in float vLen; out vec4 o;
+uniform vec3 uColors[3]; uniform vec3 uCasing, uHead; uniform float uHalf, uAlpha; uniform int uPass;
+uniform vec2 uReach; uniform float uAdjacent, uFront, uPrevFront, uOut, uEdge, uHeadLen;
+// Walking distance here, from whichever end of the segment is nearer along the trails.
+float walk(vec2 d) { return min(d.x + vAlong * vLen, d.y + (1.0 - vAlong) * vLen); }
+float shownTo(float d, float front) { return (1.0 - smoothstep(uReach.x, uReach.y, d)) * (1.0 - smoothstep(front - uEdge, front, d)); }
 void main() {
   float cover = clamp(uHalf + 0.5 - abs(vSide) * (uHalf + 1.0), 0.0, 1.0);
-  vec3 c = uPass == 0 ? uCasing : uColors[int(vClass + 0.5)];
-  float a = uAlpha * cover * vFade;
+  float d = walk(vNear), now = shownTo(d, uFront);
+  float shown = mix(1.0, max(now, shownTo(walk(vPrev), uPrevFront) * uOut), uAdjacent);
+  // Just behind the front, dimming with the reach as it travels out.
+  float head = uPass == 0 ? 0.0 : uAdjacent * now * exp(-pow((uFront - d) / uHeadLen, 2.0));
+  vec3 c = uPass == 0 ? uCasing : mix(uColors[int(vClass + 0.5)], uHead, head);
+  float a = mix(uAlpha, 1.0, head) * cover * vFade * shown;
   o = vec4(c * a, a);
 }`;
 
@@ -167,8 +178,15 @@ export type TrailMode = 'auto' | 'all' | 'off';
 
 /** Walking distances (m) from the selected route in 'auto': trails are fully shown within the first and hidden beyond the second. */
 const NETWORK_REACH = [300, 5000];
-/** Seconds over which that reach grows out from a newly selected route. */
-const REACH_GROW = 0.8;
+/**
+ * A newly selected route loads those trails: a front runs out along them to the end of the reach in
+ * `LOAD` seconds, with a soft edge of `LOAD_EDGE` m and a head of about `LOAD_HEAD` m in the accent.
+ * The trails of the route before fade out over `UNLOAD` seconds.
+ */
+const LOAD = 1.8;
+const LOAD_EDGE = 40;
+const LOAD_HEAD = 200;
+const UNLOAD = 0.4;
 
 /** Camera distances (m) over which route ribbons narrow to `RIBBON_FAR` of their width, so they don't swamp the overview. */
 const RIBBON_SHRINK = [4000, 16000];
@@ -207,13 +225,21 @@ export class TerrainView {
   private heightTex: WebGLTexture;
   private orthoTex: WebGLTexture;
   private contours: { vao: WebGLVertexArrayObject; count: number } | null = null;
-  /** `count` is the number of segments (instances), `first` the line vertex each one starts at, `near` the buffer of `aNear`. */
-  private network: { vao: WebGLVertexArrayObject; count: number; first: Uint32Array; near: WebGLBuffer };
+  /**
+   * `count` is the number of segments (instances), `first` the line vertex each one starts at,
+   * `near` and `prev` the buffers of `aNear` and `aPrev`, and `nearD` what `near` holds.
+   */
+  private network: { vao: WebGLVertexArrayObject; count: number; first: Uint32Array; near: WebGLBuffer; prev: WebGLBuffer; nearD: Float32Array };
   private walk: TrailNetwork;
-  /** The route `aNear` was computed for, and how far (0–1) its reach has grown. */
+  /** The route `aNear` was computed for, seconds into loading its trails and into fading out those of the route before. */
   private reachRoute: string | null = null;
-  private reachGrow = 1;
-  /** Under `prefers-reduced-motion` the reach doesn't grow, it is there at once. */
+  private loadT = LOAD;
+  private unloadT = UNLOAD;
+  /** How far the route before had loaded when it was replaced. */
+  private prevFront = 0;
+  /** The trail mode of the last frame: switching to 'auto' loads the trails again. */
+  private drawnMode: TrailMode = 'auto';
+  /** Under `prefers-reduced-motion` the trails don't load or fade out, they are there at once. */
   private still = matchMedia('(prefers-reduced-motion: reduce)').matches;
   private selected: Ribbon | null = null;
   private hovered: Ribbon | null = null;
@@ -308,30 +334,46 @@ export class TerrainView {
     }
     const gl = this.gl;
     const vao = createVao(gl, this.trails, { aA: [A, 3, 1], aB: [B, 3, 1], aClass: [K, 1, 1] });
-    // aNear changes with the selected route, so it gets its own buffer; until then nothing is near.
-    const near = gl.createBuffer()!;
+    // aNear and aPrev change with the selected route, so they get their own buffers; until then nothing is near.
+    const nearD = new Float32Array(count * 2).fill(NETWORK_REACH[1]);
     gl.bindVertexArray(vao);
-    gl.bindBuffer(gl.ARRAY_BUFFER, near);
-    gl.bufferData(gl.ARRAY_BUFFER, new Float32Array(count * 2).fill(NETWORK_REACH[1]), gl.DYNAMIC_DRAW);
-    const loc = this.trails.a.aNear;
-    gl.enableVertexAttribArray(loc);
-    gl.vertexAttribPointer(loc, 2, gl.FLOAT, false, 0, 0);
-    gl.vertexAttribDivisor(loc, 1);
+    const [near, prev] = [this.trails.a.aNear, this.trails.a.aPrev].map((loc) => {
+      const buffer = gl.createBuffer()!;
+      gl.bindBuffer(gl.ARRAY_BUFFER, buffer);
+      gl.bufferData(gl.ARRAY_BUFFER, nearD, gl.DYNAMIC_DRAW);
+      gl.enableVertexAttribArray(loc);
+      gl.vertexAttribPointer(loc, 2, gl.FLOAT, false, 0, 0);
+      gl.vertexAttribDivisor(loc, 1);
+      return buffer;
+    });
     gl.bindVertexArray(null);
-    return { vao, count, first, near };
+    return { vao, count, first, near, prev, nearD };
   }
 
-  /** Fills `aNear` with each segment's walking distance from `route`, and lets the reach grow out from it. */
+  /**
+   * Fills `aNear` with each segment's walking distance from `route` and loads the trails out from
+   * it; the distances it held move to `aPrev`, whose trails fade out.
+   */
   private updateReach(route: RouteView | null) {
-    const { count, first, near } = this.network, far = NETWORK_REACH[1];
+    const net = this.network, far = NETWORK_REACH[1];
     const d = route ? this.walk.distanceFrom(route.e, route.n, far) : null;
-    const D = new Float32Array(count * 2).fill(far);
-    if (d) for (let s = 0; s < count; s++) { D[s * 2] = d[first[s]]; D[s * 2 + 1] = d[first[s] + 1]; }
+    const D = new Float32Array(net.count * 2).fill(far);
+    if (d) for (let s = 0; s < net.count; s++) { D[s * 2] = d[net.first[s]]; D[s * 2 + 1] = d[net.first[s] + 1]; }
     const gl = this.gl;
-    gl.bindBuffer(gl.ARRAY_BUFFER, near);
+    gl.bindBuffer(gl.ARRAY_BUFFER, net.prev);
+    gl.bufferSubData(gl.ARRAY_BUFFER, 0, net.nearD);
+    gl.bindBuffer(gl.ARRAY_BUFFER, net.near);
     gl.bufferSubData(gl.ARRAY_BUFFER, 0, D);
     gl.bindBuffer(gl.ARRAY_BUFFER, null);
-    this.reachGrow = this.still ? 1 : 0;
+    net.nearD = D;
+    this.prevFront = this.loadFront();
+    this.loadT = this.still ? LOAD : 0;
+    this.unloadT = this.still ? UNLOAD : 0;
+  }
+
+  /** Walking distance (m) from the selected route that its trails have loaded out to. */
+  private loadFront(): number {
+    return (NETWORK_REACH[1] + LOAD_EDGE) * Math.min(1, this.loadT / LOAD);
   }
 
   private buildContours() {
@@ -455,6 +497,13 @@ export class TerrainView {
     // The trail network, as on a printed map: a casing in the background colour clears the
     // point cloud underneath, then the class colours go on top.
     gl.blendFunc(gl.ONE, gl.ONE_MINUS_SRC_ALPHA);
+    // Switching to 'auto' loads the trails again, with none fading out.
+    if (this.trailMode !== this.drawnMode) {
+      this.drawnMode = this.trailMode;
+      if (this.trailMode === 'auto' && !this.still) { this.loadT = 0; this.unloadT = UNLOAD; }
+    }
+    this.loadT = Math.min(LOAD, this.loadT + dt);
+    this.unloadT = Math.min(UNLOAD, this.unloadT + dt);
     const show = this.networkOpacity();
     if (show > 0.01) {
       const N = this.trails;
@@ -465,11 +514,14 @@ export class TerrainView {
       gl.uniform1f(N.u.uExag, this.exaggeration);
       gl.uniform1f(N.u.uBase, this.base);
       gl.uniform1f(N.u.uFocus, focus);
-      this.reachGrow = Math.min(1, this.reachGrow + dt / REACH_GROW);
-      const grow = 1 - (1 - this.reachGrow) ** 3;
       gl.uniform1f(N.u.uAdjacent, this.trailMode === 'auto' ? 1 : 0);
-      // The +1 keeps the smoothstep edges apart while the reach is still 0.
-      gl.uniform2f(N.u.uReach, NETWORK_REACH[0] * grow, NETWORK_REACH[1] * grow + 1);
+      gl.uniform2fv(N.u.uReach, NETWORK_REACH);
+      gl.uniform1f(N.u.uFront, this.loadFront());
+      gl.uniform1f(N.u.uPrevFront, this.prevFront);
+      gl.uniform1f(N.u.uOut, 1 - this.unloadT / UNLOAD);
+      gl.uniform1f(N.u.uEdge, LOAD_EDGE);
+      gl.uniform1f(N.u.uHeadLen, LOAD_HEAD);
+      gl.uniform3fv(N.u.uHead, pal.accent);
       gl.uniform3fv(N.u.uColors, new Float32Array(pal.trails.flat()));
       gl.uniform3fv(N.u.uCasing, pal.clear);
       gl.bindVertexArray(this.network.vao);
