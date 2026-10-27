@@ -13,6 +13,7 @@ import { pickRegion, regionHref } from './regions';
 import { Store } from './state';
 import { applyDisplay, loadDisplay, palette, saveDisplay } from './theme/apply';
 import { mountDisplaySwitch, mountRegionPicker, renderTickers, showVersion, startClock } from './ui/chrome';
+import { mountRegionBrowser } from './ui/regionBrowser';
 
 // Before the region loads, so the boot screen already wears the chosen scheme.
 const initialDisplay = loadDisplay();
@@ -82,8 +83,10 @@ function start(region: Region, summary: RegionSummary, regions: RegionSummary[])
   const labels = new LabelLayer(document.getElementById('terrain-hud') as HTMLCanvasElement, region, view);
   // A region is a different bundle, so switching is a page load: the back button returns to the last one.
   const goToRegion = (id: string) => { if (id !== region.bundle.id) location.assign(regionHref(id, location.href)); };
-  const ctx: Ctx = { region, regions, goToRegion, store, view, route, hikerIndex: () => indexAtMinute(route(), store.state.minute), waypointIds: () => ids, playlist, skip };
-  mountRegionPicker(document.getElementById('brand-sub')!, regions, summary, goToRegion);
+  const browser = mountRegionBrowser(region, regions, view, goToRegion);
+  const openRegions = () => browser.open();
+  const ctx: Ctx = { region, regions, goToRegion, openRegions, store, view, route, hikerIndex: () => indexAtMinute(route(), store.state.minute), waypointIds: () => ids, playlist, skip };
+  mountRegionPicker(document.getElementById('brand-sub')!, regions, summary, openRegions);
   const overlay = mountStageOverlay(region, store, view);
 
   const panels = [
@@ -143,11 +146,12 @@ function start(region: Region, summary: RegionSummary, regions: RegionSummary[])
     if (id && byId.has(id) && (id !== store.state.routeId || reversed !== store.state.reversed)) store.set({ routeId: id, reversed, minute: 0, playing: true });
   });
 
-  // Space plays / pauses, ← / → change route. Focused controls keep their own keys.
+  // Space plays / pauses, ← / → change route, G opens the region browser. Focused controls and an
+  // open dialog keep their own keys.
   window.addEventListener('keydown', (e) => {
     if (e.ctrlKey || e.metaKey || e.altKey || e.shiftKey) return;
     const t = e.target as HTMLElement;
-    if (t.isContentEditable || /^(INPUT|BUTTON|SELECT|TEXTAREA)$/.test(t.tagName)) return;
+    if (t.isContentEditable || /^(INPUT|BUTTON|SELECT|TEXTAREA)$/.test(t.tagName) || t.closest?.('dialog')) return;
     const action: Record<string, () => void> = {
       ' ': () => store.set({ playing: !store.state.playing }),
       MediaPlayPause: () => store.set({ playing: !store.state.playing }),
@@ -155,6 +159,8 @@ function start(region: Region, summary: RegionSummary, regions: RegionSummary[])
       MediaTrackPrevious: () => skip(-1),
       ArrowRight: () => skip(1),
       MediaTrackNext: () => skip(1),
+      g: openRegions,
+      G: openRegions,
     };
     if (!action[e.key]) return;
     e.preventDefault();
@@ -250,7 +256,7 @@ function mountStageOverlay(region: Region, store: Store, view: TerrainView) {
     <div class="stage-route" data-k="route"></div>
     <div class="coords" data-k="coords"></div>
     <div class="alt-meter" data-k="meter" aria-hidden="true"></div>
-    <div class="stage-hints">${hints(['DRAG · ORBIT', 'RIGHT-DRAG · PAN', 'WHEEL · ZOOM', 'CLICK · SELECT ROUTE', 'DBL-CLICK · RESET', 'SPACE · PLAY', '←/→ · ROUTE'])}</div>
+    <div class="stage-hints">${hints(['DRAG · ORBIT', 'RIGHT-DRAG · PAN', 'WHEEL · ZOOM', 'CLICK · SELECT ROUTE', 'DBL-CLICK · RESET', 'SPACE · PLAY', '←/→ · ROUTE', 'G · REGIONS'])}</div>
     <div class="stage-hints touch">${hints(['DRAG · ORBIT', 'PINCH · ZOOM', 'TWO FINGERS · PAN', 'TAP · SELECT ROUTE', 'DOUBLE-TAP · RESET'])}</div>
     <div class="stage-status" data-k="status"></div>`;
   stage.appendChild(el);

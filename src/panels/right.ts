@@ -1,113 +1,101 @@
-import type { RouteView } from '../data/load';
+import { prefetchRegion, type RouteView } from '../data/load';
 import { OFF_NETWORK, TRAIL_CLASSES, type RegionSummary } from '../data/types';
 import { smoothAltitudes } from '../geo/hikingTime';
 import { lv95ToWgs84 } from '../geo/lv95';
 import { pointer } from '../hud/pointer';
+import { cameraCone, hitRegion, regionDetail, SwissMap, type Target } from '../hud/switzerland';
 import { chart, COLORS, esc, FONT, frame, hm, num, type Ctx } from './common';
 
+/** Four corners, the "expand" glyph of the button that opens the region browser. */
+const EXPAND_ICON = '<svg viewBox="0 0 12 12" aria-hidden="true"><path d="M1 4.5V1h3.5M7.5 1H11v3.5M11 7.5V11H7.5M4.5 11H1V7.5"/></svg>';
+
 /**
- * G · Switzerland locator: a swaying point-cloud relief of the country with the region boxed. The
- * other regions are boxed too, dimmer; hovering one highlights it and a click opens it.
+ * G · Switzerland locator: the national relief with lakes and every region boxed
+ * (src/hud/switzerland.ts), the current region in the accent with the 3D camera's footprint. It
+ * sways slowly but holds still under the pointer. Hovering a region names it and a click opens it;
+ * on a touch screen the first tap names it and offers an OPEN button, since opening is a page load.
+ * The head button opens the region browser.
  */
 export function mountLocator(el: HTMLElement, c: Ctx) {
   const { body, meta } = frame(el, 'G', 'Switzerland');
   body.style.height = '150px';
   body.style.flex = 'none';
   const ch = chart(body);
-  const L = c.region.bundle.locator, bb = c.region.bundle.bbox;
-  const others = c.regions.filter((r) => r.id !== c.region.bundle.id);
-  /** Screen rectangles [x0, y0, x1, y1] of the other regions' boxes and labels, as last drawn. */
-  let targets: { region: RegionSummary; rect: number[] }[] = [];
-  let hover: string | null = null;
-  const at = (e: MouseEvent) => {
-    const r = ch.canvas.getBoundingClientRect(), x = e.clientX - r.left, y = e.clientY - r.top;
-    return targets.find(({ rect }) => x >= rect[0] && x <= rect[2] && y >= rect[1] && y <= rect[3])?.region ?? null;
-  };
-  ch.canvas.addEventListener('pointermove', (e) => {
-    const r = at(e);
-    hover = r?.id ?? null;
-    ch.canvas.style.cursor = r ? 'pointer' : '';
-    ch.canvas.title = r ? `${r.title}: ${r.subtitle} · ${r.routes} routes` : '';
-  });
-  ch.canvas.addEventListener('pointerleave', () => { hover = null; });
-  ch.canvas.addEventListener('click', (e) => { const r = at(e); if (r) c.goToRegion(r.id); });
-  const cE = (L.bbox[0] + L.bbox[2]) / 2, cN = (L.bbox[1] + L.bbox[3]) / 2;
+  const expand = document.createElement('button');
+  expand.className = 'btn icon';
+  expand.title = 'All regions (G)';
+  expand.setAttribute('aria-label', 'All regions');
+  expand.innerHTML = EXPAND_ICON;
+  expand.onclick = () => c.openRegions();
+  el.querySelector('.panel-head')!.appendChild(expand);
+  const open = document.createElement('button');
+  open.className = 'btn locator-open';
+  open.hidden = true;
+  body.appendChild(open);
+
+  const current = c.region.bundle.id, bb = c.region.bundle.bbox;
+  const map = new SwissMap(c.region.bundle.locator, c.region.swiss, c.regions, current);
+  const still = matchMedia('(prefers-reduced-motion: reduce)').matches;
   const [lon, lat] = lv95ToWgs84((bb[0] + bb[2]) / 2, (bb[1] + bb[3]) / 2);
-  meta.textContent = `${lat.toFixed(2)}N ${lon.toFixed(2)}E`;
-  const pts: [number, number, number][] = [];
-  for (let j = 0; j < L.rows; j++) for (let i = 0; i < L.cols; i++) {
-    const h = c.region.swiss[j * L.cols + i];
-    if (h) pts.push([L.bbox[0] + (i + 0.5) * L.cell - cE, cN - (L.bbox[3] - (j + 0.5) * L.cell), h * 0.1]);
-  }
+  const coords = `${lat.toFixed(2)}N ${lon.toFixed(2)}E`;
+  let targets: Target[] = [];
+  let hover: string | null = null, selected: RegionSummary | null = null, over = false, pointerType = 'mouse';
+  let sway = 0, last = 0, dwell = 0;
+
+  /** Another region under the pointer (the current one is not a target), with a finger getting more slack. */
+  const at = (e: PointerEvent | MouseEvent) => {
+    const r = ch.canvas.getBoundingClientRect();
+    const hit = hitRegion(targets, e.clientX - r.left, e.clientY - r.top, pointerType === 'mouse' ? 6 : 12);
+    return hit && hit.id !== current ? hit : null;
+  };
+  // Lingering on a region warms the cache for it.
+  const setHover = (id: string | null) => {
+    if (id === hover) return;
+    hover = id;
+    clearTimeout(dwell);
+    if (id) dwell = window.setTimeout(() => prefetchRegion(id), 200);
+  };
+  const select = (r: RegionSummary | null) => {
+    selected = r;
+    open.hidden = !r;
+    if (!r) return;
+    open.textContent = `OPEN ${r.title.toUpperCase()} ›`;
+    prefetchRegion(r.id);
+  };
+  open.onclick = () => { if (selected) c.goToRegion(selected.id); };
+  ch.canvas.addEventListener('pointerdown', (e) => { pointerType = e.pointerType; });
+  ch.canvas.addEventListener('pointermove', (e) => {
+    over = true;
+    if (e.pointerType !== 'mouse') return;
+    const r = at(e);
+    setHover(r?.id ?? null);
+    ch.canvas.style.cursor = r ? 'pointer' : '';
+  });
+  ch.canvas.addEventListener('pointerleave', () => { over = false; setHover(null); });
+  ch.canvas.addEventListener('click', (e) => {
+    const r = at(e);
+    if (pointerType === 'mouse') { if (r) c.goToRegion(r.id); }
+    else if (r && r.id === selected?.id) c.goToRegion(r.id);
+    else select(r);
+  });
 
   return (t: number) => {
+    const dt = last ? t - last : 0;
+    last = t;
+    // The sway stops while the pointer is over the map or a region is picked, so targets hold still.
+    if (!still && !over && !selected) sway += dt;
     const { w, h } = ch.begin();
-    const ctx = ch.ctx;
-    // Before layout (e.g. a page loaded hidden) the canvas is 0 × 0, and createImageData would throw.
-    if (!ctx.canvas.width || !ctx.canvas.height) return;
-    const theta = 0.32 * Math.sin(t * 0.12), tilt = 0.95;
-    const s = Math.min((w - 16) / (L.bbox[2] - L.bbox[0]), (h - 10) / ((L.bbox[3] - L.bbox[1]) * Math.cos(tilt) + 5000));
-    const ct = Math.cos(theta), st = Math.sin(theta);
-    const P = (x: number, z: number, alt: number): [number, number] => {
-      const xr = x * ct - z * st, zr = x * st + z * ct;
-      return [w / 2 + xr * s, h / 2 + 8 + zr * s * Math.cos(tilt) - alt * 4 * s * Math.sin(tilt)];
-    };
-    const img = ctx.createImageData(ctx.canvas.width, ctx.canvas.height);
-    const dpr = ctx.canvas.width / w;
-    // Relief brightens from the background towards the scheme's terrain colour with altitude.
-    const bg = COLORS.gl.clear, hi = COLORS.gl.high;
-    for (const [x, z, alt] of pts) {
-      const [sx, sy] = P(x, z, alt);
-      const px = Math.round(sx * dpr), py = Math.round(sy * dpr);
-      if (px < 0 || py < 0 || px >= img.width || py >= img.height) continue;
-      const k = (py * img.width + px) * 4, f = (60 + Math.min(195, alt / 18)) / 255;
-      for (let ch = 0; ch < 3; ch++) img.data[k + ch] = 255 * (bg[ch] + (hi[ch] - bg[ch]) * f);
-      img.data[k + 3] = 255;
-    }
-    ctx.putImageData(img, 0, 0);
-    const ring = (flat: number[], color: string, close = true) => {
-      ctx.beginPath();
-      for (let k = 0; k < flat.length; k += 2) {
-        const [sx, sy] = P(flat[k] - cE, cN - flat[k + 1], 0);
-        k ? ctx.lineTo(sx, sy) : ctx.moveTo(sx, sy);
-      }
-      if (close) ctx.closePath();
-      ctx.strokeStyle = color;
-      ctx.stroke();
-    };
-    const box = (b: number[]) => [b[0], b[1], b[2], b[1], b[2], b[3], b[0], b[3]];
-    ctx.lineWidth = 1;
-    for (const r of L.cantons) ring(r, COLORS.ink(0.12));
-    for (const r of L.border) ring(r, COLORS.ink(0.55));
-    targets = others.map((r) => {
-      const corners = box(r.bbox), xs: number[] = [], ys: number[] = [];
-      ring(corners, r.id === hover ? COLORS.text : COLORS.ink(0.55));
-      for (let k = 0; k < 8; k += 2) {
-        const [sx, sy] = P(corners[k] - cE, cN - corners[k + 1], 0);
-        xs.push(sx); ys.push(sy);
-      }
-      // Padded: a box is only a dozen pixels across.
-      return { region: r, rect: [Math.min(...xs) - 6, Math.min(...ys) - 6, Math.max(...xs) + 6, Math.max(...ys) + 6] };
+    targets = map.draw(ch.ctx, w, h, {
+      theta: still ? 0 : 0.32 * Math.sin(sway * 0.12),
+      labels: 'focus',
+      hover,
+      selected: selected?.id,
+      pulse: still ? undefined : t,
+      cone: cameraCone(c.view),
+      detail: regionDetail,
     });
-    ring(box(bb), COLORS.accent);
-    const [rx, ry] = P((bb[0] + bb[2]) / 2 - cE, cN - (bb[1] + bb[3]) / 2, 0);
-    const pulse = (t * 0.8) % 1;
-    ctx.strokeStyle = COLORS.ac(1 - pulse);
-    ctx.beginPath(); ctx.arc(rx, ry, 4 + pulse * 14, 0, Math.PI * 2); ctx.stroke();
-    ctx.font = FONT(8);
-    ctx.fillStyle = COLORS.accent;
-    ctx.fillText(c.region.bundle.title.toUpperCase(), rx + 10, ry - 8);
-    // The hovered region's name, on a plate like the map's hover readout: other regions often sit on
-    // the brightest relief.
-    const hovered = targets.find((tg) => tg.region.id === hover);
-    if (hovered) {
-      const name = hovered.region.title.toUpperCase(), tw = ctx.measureText(name).width;
-      const lx = Math.min(w - tw - 4, hovered.rect[2] + 2), ly = hovered.rect[1] + 2;
-      ctx.fillStyle = COLORS.bg;
-      ctx.fillRect(lx - 3, ly - 2, tw + 6, 12);
-      ctx.fillStyle = COLORS.text;
-      ctx.fillText(name, lx, ly + 7);
-    }
+    const focus = c.regions.find((r) => r.id === (hover ?? selected?.id));
+    meta.textContent = focus ? focus.subtitle.toUpperCase() : coords;
   };
 }
 

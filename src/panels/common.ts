@@ -10,6 +10,8 @@ export interface Ctx {
   regions: RegionSummary[];
   /** Opens another region; the page reloads on its `?region=` URL. */
   goToRegion(id: string): void;
+  /** Opens the region browser (src/ui/regionBrowser.ts). */
+  openRegions(): void;
   store: Store;
   view: TerrainView;
   route(): RouteView;

@@ -52,14 +52,45 @@ table { border-collapse: collapse; width: 100%; }
 .brand svg { width: 28px; height: 28px; fill: none; stroke: var(--accent); stroke-width: 1.6; border: 1px solid var(--line-2); padding: 3px; }
 .brand-title { font-weight: 400; font-size: 17px; letter-spacing: 0.42em; line-height: 1; }
 .brand-sub { color: var(--text-2); font-size: var(--fs-xs); letter-spacing: 0.2em; margin-top: 4px; }
-/* The region picker reads as the subtitle line, with a caret and a hairline under it. */
-.region-pick { position: relative; display: inline-block; }
-.region-pick::after { content: '▾'; position: absolute; right: 0; top: 0; color: var(--text-3); pointer-events: none; }
-.region-pick select { appearance: none; font: inherit; letter-spacing: inherit; color: inherit; background: none; border: 0; border-bottom: 1px solid var(--line-2); border-radius: 0; margin: 0; padding: 0 14px 1px 0; cursor: pointer; }
-.region-pick select:hover { color: var(--text); border-color: var(--line-3); }
-.region-pick select:focus { outline: none; }
-.region-pick select:focus-visible { outline: 1px solid var(--text); outline-offset: 2px; }
-.region-pick option { background: var(--bg-2); color: var(--text); }
+/* The region button reads as the subtitle line, with a caret and a hairline under it. */
+.region-pick { position: relative; display: inline-block; max-width: 100%; overflow: hidden; white-space: nowrap; text-overflow: ellipsis; text-align: left; border-bottom: 1px solid var(--line-2); padding: 0 14px 1px 0; }
+.region-pick::after { content: '▾'; position: absolute; right: 0; top: 0; color: var(--text-3); }
+.region-pick:hover { color: var(--text); border-color: var(--line-3); }
+.region-pick:focus { outline: none; }
+.region-pick:focus-visible { outline: 1px solid var(--text); outline-offset: 2px; }
+
+/* ---------- region browser (G) ---------- */
+.region-browser { width: min(1180px, calc(100vw - 32px)); height: min(720px, calc(100vh - 32px)); max-width: none; max-height: none; padding: var(--pad); background: var(--panel); color: var(--text); border: 1px solid var(--line-3); overflow: hidden; }
+.region-browser[open] { display: flex; flex-direction: column; }
+.region-browser::backdrop { background: rgba(var(--bg-rgb), 0.72); }
+.region-browser .panel-head { align-items: center; }
+.region-browser .panel-head .btn.icon { margin-left: 4px; }
+.rb-body { flex: 1; min-height: 0; display: grid; grid-template-columns: minmax(0, 1fr) 320px; gap: var(--gap); }
+.rb-map { position: relative; min-height: 0; border: 1px solid var(--line); }
+.rb-map canvas.fill { position: absolute; inset: 0; width: 100%; height: 100%; touch-action: manipulation; }
+.rb-side { display: flex; flex-direction: column; min-height: 0; gap: 6px; }
+.rb-filter { flex: none; font: inherit; font-size: var(--fs-s); letter-spacing: 0.12em; color: var(--text); background: var(--bg); border: 1px solid var(--line-2); border-radius: 0; padding: 6px 8px; }
+.rb-filter::placeholder { color: var(--text-3); }
+.rb-filter:focus { outline: none; border-color: var(--line-3); }
+.rb-filter:focus-visible { outline: 1px solid var(--text); outline-offset: -1px; }
+.rb-list { flex: 1; min-height: 0; overflow-y: auto; scrollbar-width: thin; scrollbar-color: var(--line-2) transparent; border-top: 1px solid var(--line-2); }
+.rb-item { display: grid; gap: 2px; padding: 7px 8px; border-bottom: 1px solid var(--line); cursor: pointer; }
+.rb-item[hidden] { display: none; }
+.rb-empty { padding: 10px 8px; color: var(--text-3); font-size: var(--fs-xs); letter-spacing: 0.14em; }
+.rb-item[aria-selected='true'] { background: color-mix(in srgb, var(--text) 6%, transparent); box-shadow: inset 2px 0 var(--text); }
+.rb-item.current { background: var(--accent-dim); box-shadow: inset 2px 0 var(--accent); }
+.rb-line { display: flex; align-items: baseline; gap: 8px; font-size: var(--fs-s); letter-spacing: 0.14em; }
+.rb-line b { font-weight: 400; }
+.rb-line span { color: var(--text-3); font-size: var(--fs-xs); }
+.rb-line em { margin-left: auto; font-style: normal; color: var(--accent); font-size: var(--fs-xs); }
+.rb-item.current b { color: var(--accent); }
+.rb-sub { color: var(--text-2); font-size: var(--fs-xs); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.rb-facts { display: flex; justify-content: space-between; gap: 8px; color: var(--text-3); font-size: var(--fs-xs); letter-spacing: 0.08em; font-variant-numeric: tabular-nums; }
+.rb-classes { display: flex; gap: 1px; height: 3px; margin-top: 2px; }
+.rb-classes i { min-width: 1px; }
+/* The locator's OPEN button, after a tap on a region (touch screens). */
+.locator-open { position: absolute; left: 0; bottom: 0; background: var(--bg); color: var(--text); }
+.panel-head .btn.icon { align-self: center; width: 20px; height: 17px; margin: -2px 0; }
 .topbar-ticker { overflow: hidden; white-space: nowrap; color: var(--text-2); font-size: var(--fs-s); mask-image: linear-gradient(90deg, #000 calc(100% - 48px), transparent); }
 .topbar-ticker span { margin-right: 28px; }
 .topbar-ticker b { color: var(--text); font-weight: 400; }
@@ -281,7 +312,8 @@ table.list tr.next td:first-child { box-shadow: inset 2px 0 var(--accent); }
   .topbar { grid-template-columns: minmax(0, 1fr) auto; gap: 12px; }
   .brand, .brand > div { min-width: 0; }
   .region-pick { display: block; }
-  .region-pick select { max-width: 100%; text-overflow: ellipsis; }
+  .region-browser { width: 100vw; height: 100vh; height: 100svh; margin: 0; border: 0; }
+  .rb-body { grid-template-columns: minmax(0, 1fr); grid-template-rows: min(38svh, 66vw) minmax(0, 1fr); }
   .clock-date, .clock-sun { display: none; }
   .clock-time { font-size: 15px; }
   .col, .row-bottom { display: contents; }
@@ -322,6 +354,10 @@ table.list tr.next td:first-child { box-shadow: inset 2px 0 var(--accent); }
   .scrub input::-moz-range-thumb { height: 28px; }
   .scrub .mark { height: 24px; }
   .route-row { padding: 10px 6px; }
+  .rb-item { padding: 10px 8px; }
+  .rb-filter { padding: 9px 8px; }
+  .locator-open { padding: 7px 10px; }
+  .panel-head .btn.icon { width: 34px; height: 26px; margin: -6px 0; }
   .footbar { height: auto; min-height: 22px; }
   .display .seg button { padding: 0 12px; line-height: 28px; }
 }

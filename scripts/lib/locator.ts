@@ -31,7 +31,7 @@ export async function buildLocator(cell: number): Promise<{ locator: Omit<Locato
       if (i >= 0 && i < cols && h != null && insideRings(border, p.easting, n)) heights[j * cols + i] = h;
     }
   }, 'locator rows', 25);
-  return { locator: { bbox: CH_BBOX, cols, rows, cell, border: border.map(flat), cantons: cantons.map(flat), lakes: [] }, heights };
+  return { locator: { bbox: CH_BBOX, cols, rows, cell, border: border.map(flat), cantons: cantons.map(flat) }, heights };
 }
 
 const flat = (ring: XY[]) => ring.flatMap(([e, n]) => [Math.round(e), Math.round(n)]);

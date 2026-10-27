@@ -16,22 +16,18 @@ export function showVersion(el: HTMLAnchorElement) {
 }
 
 /**
- * The brand's subtitle line, "ALPSTEIN · AI / AR / SG": a region picker once there is more than one
- * region. Picking one calls `go`, which loads that region's page.
+ * The brand's subtitle line, "ALPSTEIN · AI / AR / SG": once there is more than one region, a
+ * button that opens the region browser.
  */
-export function mountRegionPicker(el: HTMLElement, regions: RegionSummary[], current: RegionSummary, go: (id: string) => void) {
-  const label = (r: RegionSummary) => `${r.title.toUpperCase()} · ${r.cantons.join(' / ')}`;
+export function mountRegionPicker(el: HTMLElement, regions: RegionSummary[], current: RegionSummary, open: () => void) {
+  const label = `${current.title.toUpperCase()} · ${current.cantons.join(' / ')}`;
   el.title = current.subtitle;
   if (regions.length < 2) {
-    el.textContent = label(current);
+    el.textContent = label;
     return;
   }
-  el.innerHTML = `<label class="region-pick"><select aria-label="Region">${regions.map((r) => `<option value="${esc(r.id)}" title="${esc(r.subtitle)}">${esc(label(r))}</option>`).join('')}</select></label>`;
-  const select = el.querySelector('select')!;
-  select.value = current.id;
-  select.onchange = () => go(select.value);
-  // Back from the next region may restore this page from the bfcache with that region still picked.
-  window.addEventListener('pageshow', () => { select.value = current.id; });
+  el.innerHTML = `<button class="region-pick" aria-haspopup="dialog" title="${esc(current.subtitle)} · all regions (G)">${esc(label)}</button>`;
+  el.querySelector('button')!.onclick = open;
 }
 
 /** Footer dark / light switch; the store owns the choice, main.ts applies it. */

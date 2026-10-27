@@ -18,9 +18,9 @@ the same fields. When you add a bundle field, a panel or a source, update the ma
 | No-data cells beyond the border (`0`) | swissALTI3D (Switzerland only) | `terrain.bin` | ◐ | Left empty: no points or contours (Zermatt, Aletsch) | The Italian side of the Matterhorn is blank; a coarse foreign DEM could fill it |
 | Grid min / max altitude | swissALTI3D | `grid.minAlt`, `grid.maxAlt` | ◐ | Exaggeration base, hiker drop line | Not shown as numbers |
 | Orthophoto, 2048 px wide (about 10.7 m/px) | SWISSIMAGE | `ortho.jpg` | ◐ | Point colour in SWISSIMAGE mode only | Never a draped texture or a 2D map |
-| National relief, 2 km | Profile service (DTM2) | `switzerland.u16` | ✅ | Locator (G) | — |
-| National border, canton borders | swissBOUNDARIES3D | `locator.border`, `locator.cantons` | ✅ | Locator (G) | Canton borders are not drawn on the 3D terrain (the region spans AI, AR and SG) |
-| Lakes for the locator | — | `locator.lakes` | ✗ | — | The field is always `[]`: the pipeline never fills it |
+| National relief, 2 km | Profile service (DTM2) | `switzerland.u16` | ✅ | Locator (G) and region browser, which drape the borders and region boxes on it | — |
+| National border, canton borders | swissBOUNDARIES3D | `locator.border`, `locator.cantons` | ✅ | Locator (G), region browser | Canton borders are not drawn on the 3D terrain (the region spans AI, AR and SG) |
+| Lakes | Derived in the app from the flat cells of `switzerland.u16` (`lakeCells`) | — | ✅ | Locator (G), region browser | At 2 km cells only the larger lakes show (two or more flat cells); no lake names |
 
 ### Trail network
 
@@ -73,10 +73,11 @@ appear as a route waypoint (panel B, profile ticks, trail log, footer ticker).
 
 | Data | Bundle field | Shown | Where | Unused / ideas |
 |---|---|---|---|---|
-| Title, cantons | `title`, `cantons` | ✅ | Region picker (brand line), stage head, locator, classics group in the route list | — |
-| Subtitle | `subtitle` | ◐ | Tooltip on the region picker and on other regions in the locator | "Säntis · Seealpsee · Hoher Kasten" is never on screen without hovering |
+| Title, cantons | `title`, `cantons` | ✅ | Region button (brand line), region browser, stage head, locator, classics group in the route list | — |
+| Subtitle | `subtitle` | ✅ | Region browser list; locator meta while a region is hovered; tooltip on the region button | — |
 | Bounding box | `bbox` | ✅ | Locator box, LV95 and WGS84 readouts, sunrise / sunset | — |
-| Region index: every built region's title, cantons, bbox, default route and route count | `public/data/regions.json` (not in the bundle) | ✅ | Region picker; the other regions' boxes in the locator (G), which open them | No overview of all regions at once (e.g. a start screen comparing them) |
+| Region index: every built region's title, cantons, bbox, default route and route count | `public/data/regions.json` (not in the bundle) | ✅ | Region browser (map and list); the other regions' boxes in the locator (G), which open them | — |
+| Region facts: curated hike count, trail km per class, altitude range | `regions.json` `classics`, `trailKm`, `alt` (from the bundles) | ✅ | Region browser list | — |
 | Source list | `sources` | ✗ | — | The footer hard-codes "© swisstopo · SchweizMobil · geo.admin.ch"; an about panel could list and link them |
 | Build time | `generated` | ✗ | — | Data freshness ("trails as of …") |
 
