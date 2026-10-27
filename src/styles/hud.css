@@ -62,7 +62,13 @@ table { border-collapse: collapse; width: 100%; }
 /* ---------- region browser (G) ---------- */
 .region-browser { width: min(1180px, calc(100vw - 32px)); height: min(720px, calc(100vh - 32px)); max-width: none; max-height: none; padding: var(--pad); background: var(--panel); color: var(--text); border: 1px solid var(--line-3); overflow: hidden; }
 .region-browser[open] { display: flex; flex-direction: column; }
-.region-browser::backdrop { background: rgba(var(--bg-rgb), 0.72); }
+.region-browser::backdrop { background: rgba(var(--bg-rgb), 0.72); animation: rbFade 0.3s; }
+/* Opening and closing are animated in src/ui/regionBrowser.ts; the backdrop fades here. The scan
+   line is the line the panel opens out of. */
+.region-browser.closing { pointer-events: none; }
+.region-browser.closing::backdrop { opacity: 0; transition: opacity 0.22s ease-in; }
+.rb-scan { position: absolute; left: 0; right: 0; top: calc(50% - 0.5px); height: 1px; background: var(--accent); opacity: 0; pointer-events: none; z-index: 1; }
+@keyframes rbFade { from { opacity: 0; } }
 .region-browser .panel-head { align-items: center; }
 .region-browser .panel-head .btn.icon { margin-left: 4px; }
 .rb-body { flex: 1; min-height: 0; display: grid; grid-template-columns: minmax(0, 1fr) 320px; gap: var(--gap); }
@@ -362,5 +368,5 @@ table.list tr.next td:first-child { box-shadow: inset 2px 0 var(--accent); }
   .display .seg button { padding: 0 12px; line-height: 28px; }
 }
 @media (prefers-reduced-motion: reduce) {
-  .foot-ticker .track, .log-row { animation: none; }
+  .foot-ticker .track, .log-row, .region-browser::backdrop { animation: none; }
 }

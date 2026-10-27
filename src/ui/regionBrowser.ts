@@ -2,8 +2,24 @@ import { prefetchRegion, type Region } from '../data/load';
 import type { RegionSummary } from '../data/types';
 import type { TerrainView } from '../gl/terrain';
 import { cameraCone, hitRegion, regionDetail, SwissMap, type Target } from '../hud/switzerland';
-import { chart, esc, num } from '../panels/common';
+import { chart, COLORS, esc, num } from '../panels/common';
 import { filterRegions } from '../regions';
+
+/**
+ * Opening, the browser powers up like an old screen: a line widens across the middle and opens into
+ * the panel (`POWER` on the dialog, `SCAN` on the line), the contents fade in, the list rows tick in
+ * one after another and the map spreads out from the current region (`REVEAL`). Closing plays
+ * `POWER` back, faster. None of it runs under prefers-reduced-motion.
+ */
+const POWER: Keyframe[] = [
+  { clipPath: 'inset(calc(50% - 1px) 50%)', easing: 'ease-out' },
+  { clipPath: 'inset(calc(50% - 1px) 0)', offset: 0.35, easing: 'cubic-bezier(0.2, 0.8, 0.2, 1)' },
+  { clipPath: 'inset(0)' },
+];
+const SCAN: Keyframe[] = [{ opacity: 1 }, { opacity: 1, offset: 0.35 }, { opacity: 0 }];
+const OPEN_MS = 360, CLOSE_MS = 220;
+/** The map's reveal: its delay and duration after opening, in ms, and its soft edge in px. */
+const REVEAL = { delay: 120, ms: 600, edge: 48 };
 
 /**
  * The region browser: a dialog with a large map of Switzerland, every region boxed and named, and a
@@ -18,6 +34,7 @@ export function mountRegionBrowser(region: Region, regions: RegionSummary[], vie
   dialog.className = 'region-browser';
   dialog.setAttribute('aria-labelledby', 'rb-title');
   dialog.innerHTML = `
+    <div class="rb-scan" aria-hidden="true"></div>
     <div class="panel-head"><span class="slot">G</span><h2 id="rb-title">Regions</h2><span class="meta"></span><button class="btn icon" data-k="close" aria-label="Close"><svg viewBox="0 0 12 12" aria-hidden="true"><path d="M2 2l8 8M10 2l-8 8"/></svg></button></div>
     <div class="rb-body">
       <div class="rb-map"></div>
@@ -38,10 +55,21 @@ export function mountRegionBrowser(region: Region, regions: RegionSummary[], vie
   const still = matchMedia('(prefers-reduced-motion: reduce)').matches;
 
   let matches = regions, matchIds: Set<string> | null = null, active: string | null = current, picked: string | null = null;
-  let targets: Target[] = [], pointerType = 'mouse', dwell = 0, frame = 0;
+  let targets: Target[] = [], pointerType = 'mouse', dwell = 0, frame = 0, openedAt = -Infinity;
+  let folding: Animation | null = null;
 
+  /** Closes the browser, folding it away first; it stays modal until the fold ends. */
+  const shut = () => {
+    if (!dialog.open || folding) return;
+    if (still) { dialog.close(); return; }
+    dialog.classList.add('closing');
+    folding = dialog.animate(POWER, { duration: CLOSE_MS, direction: 'reverse', fill: 'forwards' });
+    q('.rb-scan').animate(SCAN, { duration: CLOSE_MS, direction: 'reverse' });
+    // Closed some other way meanwhile, the fold is cancelled and its promise rejects.
+    folding.finished.then(() => dialog.close(), () => {});
+  };
   /** Opens a region; the current one just closes the browser. */
-  const choose = (id: string) => (id === current ? dialog.close() : go(id));
+  const choose = (id: string) => (id === current ? shut() : go(id));
   const setActive = (id: string | null, scroll = false) => {
     if (id === active) return;
     if (active) items.get(active)?.setAttribute('aria-selected', 'false');
@@ -111,14 +139,27 @@ export function mountRegionBrowser(region: Region, regions: RegionSummary[], vie
     }
   });
 
-  close.onclick = () => dialog.close();
+  close.onclick = shut;
   // A click on the backdrop closes the dialog: it lands on the dialog element, outside its box.
   dialog.addEventListener('click', (e) => {
     if (e.target !== dialog) return;
     const r = dialog.getBoundingClientRect();
-    if (e.clientX < r.left || e.clientX > r.right || e.clientY < r.top || e.clientY > r.bottom) dialog.close();
+    if (e.clientX < r.left || e.clientX > r.right || e.clientY < r.top || e.clientY > r.bottom) shut();
   });
-  dialog.addEventListener('close', () => { cancelAnimationFrame(frame); frame = 0; });
+  // Escape folds it away too, unless the browser won't let the page hold the close (then it just closes).
+  dialog.addEventListener('cancel', (e) => {
+    if (!e.cancelable) return;
+    e.preventDefault();
+    shut();
+  });
+  dialog.addEventListener('close', () => {
+    cancelAnimationFrame(frame);
+    frame = 0;
+    // The fold holds the dialog shut (fill: forwards) until it is dropped here.
+    folding?.cancel();
+    folding = null;
+    dialog.classList.remove('closing');
+  });
   // Back from the next region may restore this page from the bfcache with the browser still open.
   window.addEventListener('pageshow', () => { if (dialog.open) dialog.close(); });
 
@@ -134,7 +175,27 @@ export function mountRegionBrowser(region: Region, regions: RegionSummary[], vie
       detail: regionDetail,
       match: matchIds,
     });
+    const t = (now - openedAt - REVEAL.delay) / REVEAL.ms;
+    if (t < 1) reveal(ch.ctx, w, h, Math.max(0, t));
     frame = requestAnimationFrame(draw);
+  };
+  /** Masks the map to a soft-edged disc around the current region, grown to the far corner by `t`, ringed in the accent. */
+  const reveal = (ctx: CanvasRenderingContext2D, w: number, h: number, t: number) => {
+    const at = targets.find((x) => x.region.id === current);
+    const cx = at?.cx ?? w / 2, cy = at?.cy ?? h / 2;
+    const e = 1 - (1 - t) ** 3, r = 1 + e * (Math.hypot(Math.max(cx, w - cx), Math.max(cy, h - cy)) + REVEAL.edge);
+    const mask = ctx.createRadialGradient(cx, cy, Math.max(0, r - REVEAL.edge), cx, cy, r);
+    mask.addColorStop(0, '#000');
+    mask.addColorStop(1, 'transparent');
+    ctx.globalCompositeOperation = 'destination-in';
+    ctx.fillStyle = mask;
+    ctx.fillRect(0, 0, w, h);
+    ctx.globalCompositeOperation = 'source-over';
+    ctx.strokeStyle = COLORS.ac(0.8 * (1 - e));
+    ctx.lineWidth = 1;
+    ctx.beginPath();
+    ctx.arc(cx, cy, Math.max(0, r - REVEAL.edge / 2), 0, Math.PI * 2);
+    ctx.stroke();
   };
 
   return {
@@ -150,6 +211,13 @@ export function mountRegionBrowser(region: Region, regions: RegionSummary[], vie
       applyFilter();
       setActive(null);
       setActive(current, true);
+      if (!still) {
+        openedAt = performance.now();
+        dialog.animate(POWER, OPEN_MS);
+        q('.rb-scan').animate(SCAN, OPEN_MS);
+        for (const el of dialog.querySelectorAll('.panel-head, .rb-body')) el.animate([{ opacity: 0 }, { opacity: 1 }], { duration: 240, delay: 160, fill: 'backwards' });
+        [...items.values()].forEach((el, k) => el.animate([{ opacity: 0, transform: 'translateY(-4px)' }, { opacity: 1, transform: 'none' }], { duration: 300, delay: 180 + Math.min(k, 12) * 20, easing: 'ease-out', fill: 'backwards' }));
+      }
       frame = requestAnimationFrame(draw);
     },
   };
