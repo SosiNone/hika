@@ -217,6 +217,8 @@ export class TerrainView {
   private still = matchMedia('(prefers-reduced-motion: reduce)').matches;
   private selected: Ribbon | null = null;
   private hovered: Ribbon | null = null;
+  /** Built once per route view: hovering the map swaps the hover ribbon often. */
+  private ribbons = new Map<RouteView, Ribbon>();
   private emptyVao: WebGLVertexArrayObject;
   private fps = { frames: 0, since: 0, value: 0 };
   readonly size: [number, number];
@@ -354,14 +356,20 @@ export class TerrainView {
   }
 
   setRoute(route: RouteView | null) {
-    this.selected = route ? this.buildRibbon(route) : null;
+    this.selected = route ? this.ribbonOf(route) : null;
     // A reversed route keeps its id and footprint, so its distances stay.
     if ((route?.id ?? null) !== this.reachRoute) {
       this.reachRoute = route?.id ?? null;
       this.updateReach(route);
     }
   }
-  setHover(route: RouteView | null) { this.hovered = route ? this.buildRibbon(route) : null; }
+  setHover(route: RouteView | null) { this.hovered = route ? this.ribbonOf(route) : null; }
+
+  private ribbonOf(r: RouteView): Ribbon {
+    let ribbon = this.ribbons.get(r);
+    if (!ribbon) this.ribbons.set(r, (ribbon = this.buildRibbon(r)));
+    return ribbon;
+  }
 
   private buildRibbon(r: RouteView): Ribbon {
     const n = r.e.length - 1;
