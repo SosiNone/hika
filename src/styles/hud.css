@@ -62,7 +62,19 @@ table { border-collapse: collapse; width: 100%; }
 /* ---------- region browser (G) ---------- */
 .region-browser { width: min(1180px, calc(100vw - 32px)); height: min(720px, calc(100vh - 32px)); max-width: none; max-height: none; padding: var(--pad); background: var(--panel); color: var(--text); border: 1px solid var(--line-3); overflow: hidden; }
 .region-browser[open] { display: flex; flex-direction: column; }
-.region-browser::backdrop { background: rgba(var(--bg-rgb), 0.72); }
+.region-browser::backdrop { background: rgba(var(--bg-rgb), 0.72); animation: rbFade 0.3s; }
+@keyframes rbFade { from { opacity: 0; } }
+/* The locator tile (G) grows into the browser and shrinks back: in the view transition
+   (src/ui/regionBrowser.ts) they are one box, and their pictures stretch with it as they cross-fade. */
+::view-transition-group(region-browser) { animation-duration: 0.4s; animation-timing-function: cubic-bezier(0.4, 0, 0.2, 1); }
+::view-transition-old(region-browser), ::view-transition-new(region-browser) { height: 100%; }
+::view-transition-old(region-browser) { animation-duration: 0.22s; }
+::view-transition-new(region-browser) { animation-duration: 0.3s; }
+::view-transition-old(root), ::view-transition-new(root) { animation-duration: 0.4s; }
+/* With the tile off screen there is nothing to grow from: the browser zooms in and out on its own. */
+::view-transition-new(region-browser):only-child { animation: rbZoom 0.3s cubic-bezier(0.2, 0.8, 0.2, 1) both; }
+::view-transition-old(region-browser):only-child { animation: rbZoom 0.2s ease-in reverse both; }
+@keyframes rbZoom { from { opacity: 0; transform: scale(0.96); } }
 .region-browser .panel-head { align-items: center; }
 .region-browser .panel-head .btn.icon { margin-left: 4px; }
 .rb-body { flex: 1; min-height: 0; display: grid; grid-template-columns: minmax(0, 1fr) 320px; gap: var(--gap); }
@@ -364,5 +376,5 @@ table.list tr.next td:first-child { box-shadow: inset 2px 0 var(--accent); }
   .display .seg button { padding: 0 12px; line-height: 28px; }
 }
 @media (prefers-reduced-motion: reduce) {
-  .foot-ticker .track, .log-row { animation: none; }
+  .foot-ticker .track, .log-row, .region-browser::backdrop { animation: none; }
 }

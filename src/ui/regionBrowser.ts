@@ -5,14 +5,28 @@ import { cameraCone, hitRegion, regionDetail, SwissMap, type Target } from '../h
 import { chart, esc, num } from '../panels/common';
 import { filterRegions } from '../regions';
 
+/** The view-transition name the tile and the browser hand between them (styled in hud.css). */
+const MORPH = 'region-browser';
+
+/** Whether at least half of `el` is in the viewport. */
+function onScreen(el: Element): boolean {
+  const r = el.getBoundingClientRect();
+  return r.width > 0 && r.right > 0 && r.left < innerWidth && Math.min(r.bottom, innerHeight) - Math.max(r.top, 0) > r.height / 2;
+}
+
 /**
  * The region browser: a dialog with a large map of Switzerland, every region boxed and named, and a
  * filterable list of the regions with their facts. The map and the list share one active region;
  * hovering either or moving with ↑ / ↓ in the filter sets it, and lingering on it warms the cache.
  * A click opens a region (`go`); on a touch screen a tap on the map first picks the region, and a
  * tap on its list entry (or the same box again) opens it.
+ *
+ * It opens out of `tile`, the locator panel (G): a view transition grows the tile into the browser
+ * while the two cross-fade, and closing shrinks it back. With the tile scrolled off screen it zooms
+ * in and out on its own. Without view transitions, or under prefers-reduced-motion, it opens and
+ * closes at once.
  */
-export function mountRegionBrowser(region: Region, regions: RegionSummary[], view: TerrainView, go: (id: string) => void) {
+export function mountRegionBrowser(region: Region, regions: RegionSummary[], view: TerrainView, go: (id: string) => void, tile: HTMLElement) {
   const current = region.bundle.id;
   const dialog = document.createElement('dialog');
   dialog.className = 'region-browser';
@@ -39,9 +53,36 @@ export function mountRegionBrowser(region: Region, regions: RegionSummary[], vie
 
   let matches = regions, matchIds: Set<string> | null = null, active: string | null = current, picked: string | null = null;
   let targets: Target[] = [], pointerType = 'mouse', dwell = 0, frame = 0;
+  // `shown` is the state asked for, which a view transition reaches a frame or two later.
+  let shown = false, named: HTMLElement | null = null, morphing: ViewTransition | null = null;
 
+  /** Gives the transition's name to `el` alone: two elements holding it would abort the transition. */
+  const name = (el: Element | null) => {
+    if (named) named.style.viewTransitionName = '';
+    named = el instanceof HTMLElement ? el : null;
+    if (named) named.style.viewTransitionName = MORPH;
+  };
+  /** Runs `update` (open or close) as a view transition in which `from` becomes `to`. */
+  const morph = (from: Element | null, to: Element | null, update: () => void) => {
+    if (still || !document.startViewTransition) { update(); return; }
+    name(from);
+    const vt = document.startViewTransition(() => { update(); name(to); });
+    morphing = vt;
+    // A newer transition skips this one and takes the name over.
+    const done = () => { if (morphing === vt) { name(null); morphing = null; } };
+    vt.finished.then(done, done);
+  };
+  /** The tile to grow from or shrink back into, while it is on screen. */
+  const anchor = () => (onScreen(tile) ? tile : null);
+
+  /** Closes the browser, shrinking it back into the tile. */
+  const shut = () => {
+    if (!shown) return;
+    shown = false;
+    morph(dialog, anchor(), () => dialog.close());
+  };
   /** Opens a region; the current one just closes the browser. */
-  const choose = (id: string) => (id === current ? dialog.close() : go(id));
+  const choose = (id: string) => (id === current ? shut() : go(id));
   const setActive = (id: string | null, scroll = false) => {
     if (id === active) return;
     if (active) items.get(active)?.setAttribute('aria-selected', 'false');
@@ -111,14 +152,24 @@ export function mountRegionBrowser(region: Region, regions: RegionSummary[], vie
     }
   });
 
-  close.onclick = () => dialog.close();
+  close.onclick = shut;
   // A click on the backdrop closes the dialog: it lands on the dialog element, outside its box.
   dialog.addEventListener('click', (e) => {
     if (e.target !== dialog) return;
     const r = dialog.getBoundingClientRect();
-    if (e.clientX < r.left || e.clientX > r.right || e.clientY < r.top || e.clientY > r.bottom) dialog.close();
+    if (e.clientX < r.left || e.clientX > r.right || e.clientY < r.top || e.clientY > r.bottom) shut();
   });
-  dialog.addEventListener('close', () => { cancelAnimationFrame(frame); frame = 0; });
+  // Escape shrinks it back too, unless the browser won't let the page hold the close (then it just closes).
+  dialog.addEventListener('cancel', (e) => {
+    if (!e.cancelable) return;
+    e.preventDefault();
+    shut();
+  });
+  dialog.addEventListener('close', () => {
+    shown = false;
+    cancelAnimationFrame(frame);
+    frame = 0;
+  });
   // Back from the next region may restore this page from the bfcache with the browser still open.
   window.addEventListener('pageshow', () => { if (dialog.open) dialog.close(); });
 
@@ -139,18 +190,24 @@ export function mountRegionBrowser(region: Region, regions: RegionSummary[], vie
 
   return {
     open() {
-      if (dialog.open) return;
-      filter.value = '';
-      picked = null;
-      // A finger gets the list, not a keyboard popping up over it.
-      const fine = matchMedia('(pointer: fine)').matches;
-      filter.autofocus = fine;
-      close.autofocus = !fine;
-      dialog.showModal();
-      applyFilter();
-      setActive(null);
-      setActive(current, true);
-      frame = requestAnimationFrame(draw);
+      if (shown) return;
+      shown = true;
+      morph(anchor(), dialog, () => {
+        filter.value = '';
+        picked = null;
+        // A finger gets the list, not a keyboard popping up over it.
+        const fine = matchMedia('(pointer: fine)').matches;
+        filter.autofocus = fine;
+        close.autofocus = !fine;
+        dialog.showModal();
+        applyFilter();
+        setActive(null);
+        setActive(current, true);
+        // Drawn now, so the transition's picture of the browser already has the map.
+        draw(performance.now());
+        // The rows tick in one after another, like the log.
+        if (!still) [...items.values()].forEach((el, k) => el.animate([{ opacity: 0, transform: 'translateY(-4px)' }, { opacity: 1, transform: 'none' }], { duration: 300, delay: 120 + Math.min(k, 12) * 20, easing: 'ease-out', fill: 'backwards' }));
+      });
     },
   };
 }
