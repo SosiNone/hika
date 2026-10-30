@@ -2,6 +2,7 @@ import { cumulativeMinutes } from '../geo/hikingTime';
 import { clipToBox, routeClimb, type XY } from '../geo/track';
 import { decodeGrid, decodeRoute, decodeTrails, type Trails } from './codec';
 import { CELL, routeWindow, stitchGrid, TILE_CELLS, TRAIL_BIAS, tileKey, tilesCovering } from './tiles';
+import { routesOf } from '../regions';
 import { ATLAS_FORMAT, type AtlasManifest, type AtlasRoute, type BBox, type Catalogue, type CatalogueEntry, type Locator, type Place, type RegionIndex, type RegionSummary, type Route } from './types';
 
 export type { Trails };
@@ -61,9 +62,9 @@ export async function loadAtlas(): Promise<Atlas> {
   };
 }
 
-/** The routes a region lists, from their files, and the places they name. */
+/** The routes a page lists (`routesOf`), from their files, and the places they name. */
 export async function loadRoutes(atlas: Atlas, region: RegionSummary): Promise<{ routes: RouteView[]; places: Map<string, Place> }> {
-  const files = await Promise.all([...atlas.catalogue.values()].filter((r) => r.regions.includes(region.id)).map((r) => loadRoute(r.id)));
+  const files = await Promise.all(routesOf(region, [...atlas.catalogue.values()]).map((r) => loadRoute(r.id)));
   const places = new Map<string, Place>();
   for (const f of files) for (const p of f.places) places.set(p.id, p);
   return { routes: files.map(({ places: _, ...r }) => deriveRoute(r)), places };
@@ -132,6 +133,20 @@ export async function loadWindow(atlas: Atlas, bbox: BBox): Promise<TerrainWindo
     trails: { offsets: Uint32Array.from(offsets), cls: Uint8Array.from(cls), hard: Uint8Array.from(hard), xy: Uint16Array.from(xy) },
     places: loaded.flatMap(([, t]) => t.places.filter((p) => p.e >= minE && p.e <= maxE && p.n >= minN && p.n <= maxN)),
   };
+}
+
+/** What a region's facts say, measured in a window: its network by trail class, and its altitude range. */
+export function windowFacts(win: TerrainWindow): Pick<RegionSummary, 'trailKm' | 'hardKm' | 'alt'> {
+  const { offsets, cls, hard, xy } = win.trails;
+  const trailKm: [number, number, number] = [0, 0, 0];
+  let hardKm = 0;
+  for (let l = 0; l < cls.length; l++) {
+    let m = 0;
+    for (let v = offsets[l] + 1; v < offsets[l + 1]; v++) m += Math.hypot(xy[2 * v] - xy[2 * v - 2], xy[2 * v + 1] - xy[2 * v - 1]);
+    trailKm[cls[l]] += m / 1000;
+    if (hard[l]) hardKm += m / 1000;
+  }
+  return { trailKm: trailKm.map(Math.round) as [number, number, number], hardKm: Math.round(hardKm), alt: [win.grid.minAlt, win.grid.maxAlt] };
 }
 
 /** Starts fetching a window's tiles, so switching to it later is quick. */

@@ -61,19 +61,42 @@ const fold = (s: string) => s.normalize('NFD').replace(/[̀-ͯ]/g, '').toLowerCa
 
 /**
  * Resolves a free-text place name ("Wildhaus, Gamplüt", "Säntis") to a swissNAMES3D place.
- * Exact matches beat matches on a comma-separated part ("Schwägalp" ~ "Schwägalp, Passhöhe"),
- * which beat prefix matches; ties go to the place nearest `near`, then to the highest priority.
+ * Exact matches (quality 3) beat matches on a comma-separated part ("Schwägalp" ~ "Schwägalp,
+ * Passhöhe", 2), which beat prefix matches (1); ties go to the place nearest `near`, then to the
+ * highest priority. Matches below `minQuality` don't count.
  */
-export function resolvePlace(places: Place[], query: string, near: [number, number], kind?: Place['kind']): Place | undefined {
+export function resolvePlace(places: Place[], query: string, near: [number, number], kind?: Place['kind'], minQuality = 1): Place | undefined {
   const q = fold(query), qParts = query.split(',').map(fold);
   let best: Place | undefined, bestQ = 0, bestS = Infinity;
   for (const p of places) {
     if (kind && p.kind !== kind) continue;
     const name = fold(p.name), parts = p.name.split(',').map(fold);
     const quality = name === q ? 3 : parts.includes(q) || qParts.includes(name) ? 2 : name.startsWith(q + ' ') ? 1 : 0;
-    if (!quality) continue;
+    if (quality < minQuality) continue;
     const score = Math.hypot(p.e - near[0], p.n - near[1]) / 1000 - p.prio / 10;
     if (quality > bestQ || (quality === bestQ && score < bestS)) { best = p; bestQ = quality; bestS = score; }
   }
   return best;
+}
+
+/** Abbreviations in SchweizMobil's route ends, spelled out as swissNAMES3D writes them. */
+const ABBREVIATIONS: [RegExp, string][] = [
+  [/\bCap\./g, 'Capanna'], [/\bCab\./g, 'Cabane'], [/\bM\./g, 'Monte'], [/\bS\./g, 'San'], [/\bStn\b/g, 'Station'], [/\bi\. ?E\./g, 'im Engadin'],
+];
+
+/**
+ * Resolves a route end as SchweizMobil names it, for orienting the route: "Lugano (Comano)" is
+ * Comano near Lugano, "Cap. Pairolo" the Capanna Pairolo, "Urner Boden" Urnerboden. Tries the
+ * name, then with abbreviations spelled out, the place in brackets, the one before them, and the
+ * name without spaces. Those must match a whole name (or one of its comma parts): a prefix match
+ * of a generic word, the "Station" in "Glaris (Station)", would find any station.
+ */
+export function resolveRouteEnd(places: Place[], name: string, near: [number, number]): Place | undefined {
+  const spelled = ABBREVIATIONS.reduce((s, [re, full]) => s.replace(re, full), name);
+  const bracket = /^(.*?)\s*\((.*)\)\s*$/.exec(spelled);
+  for (const [q, min] of [[name, 1], ...[spelled, ...(bracket ? [bracket[2], bracket[1]] : []), spelled.replace(/\s+/g, '')].map((v) => [v, 2])] as [string, number][]) {
+    const p = resolvePlace(places, q, near, undefined, min);
+    if (p) return p;
+  }
+  return undefined;
 }

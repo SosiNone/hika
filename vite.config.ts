@@ -59,6 +59,8 @@ export default defineConfig(({ command }) => ({
     __DATA_URL__: JSON.stringify(process.env.DATA_URL ?? (command === 'serve' && existsSync(join(LOCAL_ATLAS, 'manifest.json')) ? '/data/v3/' : PUBLISHED_ATLAS)),
   },
   plugins: [localAtlas(), notices()],
+  // An atlas build writes tens of thousands of files into these; watching them stalls the dev server.
+  server: { watch: { ignored: ['**/.cache/**', '**/.atlas/**'] } },
   build: { target: 'es2022', assetsInlineLimit: 0 },
   worker: { format: 'es' },
   test: { include: ['test/**/*.test.ts'] },

@@ -68,6 +68,8 @@ export interface SwissMapOptions {
   detail?: (r: RegionSummary) => string;
   /** When set, the regions a filter keeps: the others are drawn faint, unnamed and are not targets. */
   match?: Set<string> | null;
+  /** An LV95 point to pin, such as the middle of a route found in the region browser. */
+  mark?: [number, number] | null;
 }
 
 /**
@@ -295,6 +297,13 @@ export class SwissMap {
       ctx.beginPath(); ctx.arc(cur.cx, cur.cy, 4 + pulse * 14, 0, Math.PI * 2); ctx.stroke();
     }
     this.label(ctx, w, h, targets, o);
+    if (o.mark) {
+      const [e, n] = o.mark, [sx, sy] = P(e - this.cE, this.cN - n, this.alt(e, n));
+      ctx.beginPath();
+      ctx.arc(sx, sy, 4, 0, Math.PI * 2);
+      stroke(C.bg, 4);
+      stroke(C.accent, 1.5);
+    }
     return targets;
   }
 

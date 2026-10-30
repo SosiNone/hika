@@ -9,6 +9,7 @@ import { decodeGrid, decodeRoute, decodeTrails } from '../src/data/codec';
 import { CELL, routeWindow, TILE, TILE_CELLS, TRAIL_BIAS, tileBox, tileKey, tileOf, tilesCovering } from '../src/data/tiles';
 import { ATLAS_FORMAT, SPARK_POINTS, type AtlasManifest, type BBox, type Catalogue, type Locator, type Place, type RegionConfig, type RegionIndex } from '../src/data/types';
 import { insideRings, type XY } from '../src/geo/track';
+import { nearbyRegion, routesOf } from '../src/regions';
 import { emptyCells } from './lib/coverage';
 import { formatIndex } from './lib/regions';
 import { routeProblems } from './lib/route';
@@ -107,6 +108,8 @@ check(!strays.length && files.length === ids.length, `routes/: ${files.length} f
 /** What every window costs on top of its tiles and routes: the atlas-wide files. */
 const fixed = ['manifest.json', 'catalogue.json', 'regions.json', 'locator.json', locator.file].reduce((s, f) => s + wire(f), 0);
 const regionIds = new Set(readdirSync('regions').filter((f) => f.endsWith('.json')).map((f) => f.replace(/\.json$/, '')));
+/** The heaviest neighbourhood page, reported after the routes. */
+let heaviest = { id: '', bytes: 0 };
 for (const entry of catalogue.routes) {
   const problems: string[] = [];
   try {
@@ -121,16 +124,24 @@ for (const entry of catalogue.routes) {
     // The terrain under every sample in Switzerland is in the atlas. A tile left out has no data at
     // all, which is right abroad: the Walserweg Gottardo (62.01) ends in Italy.
     if (r.e.some((e, i) => !heights.has(tileKey(...tileOf(e, r.n[i]))) && insideRings(rings, e, r.n[i]))) problems.push('runs over a tile the atlas lacks');
-    // Opened on its own (a link to the route), its window fits the budget too.
-    const own = windowBytes(routeWindow(entry.bbox)) + fixed + wire(`routes/${entry.id}.bin`);
-    if (own >= BUDGET) problems.push(`its window costs ${(own / 1024 / 1024).toFixed(1)} MB gzipped`);
+    // A route no region lists opens on its neighbourhood: its window and every route that crosses
+    // it, which fit the budget too. A region's routes are weighed with the region, below.
+    if (!entry.regions.length) {
+      const near = nearbyRegion(entry, catalogue.routes);
+      const own = windowBytes(near.bbox) + fixed + routesOf(near, catalogue.routes).reduce((s, r) => s + wire(`routes/${r.id}.bin`), 0);
+      if (own >= BUDGET) problems.push(`its neighbourhood costs ${(own / 1024 / 1024).toFixed(1)} MB gzipped`);
+      if (own > heaviest.bytes) heaviest = { id: entry.id, bytes: own };
+    }
   } catch (err) {
     problems.push((err as Error).message);
   }
   if (entry.spark.length !== SPARK_POINTS) problems.push(`${entry.spark.length} spark points`);
-  if (!entry.regions.length || entry.regions.some((id) => !regionIds.has(id))) problems.push(`regions ${entry.regions.join(', ') || '(none)'}`);
+  // Most routes are on no region's list; those that are name real regions.
+  if (entry.regions.some((id) => !regionIds.has(id))) problems.push(`unknown regions in ${entry.regions.join(', ')}`);
   check(!problems.length, `${(entry.number ?? entry.id).padEnd(32)} ${entry.stats.km.toFixed(1).padStart(5)} km ↑${entry.stats.up} ↓${entry.stats.down} ${entry.stats.time} min${problems.length ? `: ${problems.join('; ')}` : ''}`);
 }
+
+if (heaviest.id) console.log(`     heaviest neighbourhood: ${heaviest.id}, ${(heaviest.bytes / 1024 / 1024).toFixed(1)} MB gzipped (budget ${BUDGET / 1024 / 1024} MB)`);
 
 console.log('\nregions');
 const index = read<RegionIndex>('regions.json');

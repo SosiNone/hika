@@ -119,7 +119,7 @@ export interface CatalogueEntry extends Pick<Route, 'id' | 'number' | 'name' | '
   bbox: BBox;
   /** Altitudes (m) at SPARK_POINTS evenly spaced samples, for sparklines. */
   spark: number[];
-  /** Regions whose route list includes it (their `minInside` rules). */
+  /** Regions whose route list includes it (their `minInside` rules); none for most routes. */
   regions: string[];
 }
 

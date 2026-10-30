@@ -1,59 +1,66 @@
+import { DatabaseSync } from 'node:sqlite';
 import type { BBox, RouteCategory } from '../../src/data/types';
 import { clipToBox, polylineLength, type XY } from '../../src/geo/track';
-import { fetchJson } from './http';
+import { downloadFile } from './download';
+import { parseGpkgLines } from './gpkg';
+import { latestItem } from './stac';
 
-const API = 'https://api3.geo.admin.ch/rest/services/api/MapServer';
-const LAYER = 'ch.astra.wanderland';
+const COLLECTION = 'ch.astra.wanderland';
 
 export interface OfficialRoute {
+  /** "<route>.<stage>", as SchweizMobil and the geo.admin.ch API number them ("1.01", "951.00"). */
   id: string;
   number: string;
   name: string;
   from: string;
   to: string;
   category: RouteCategory;
-  /** Full chained route geometry (may extend beyond the region). */
+  /** Chained route geometry. */
   line: XY[];
   /** Metres of the chain that could not be joined (gaps between parts). */
   gaps: number;
+  /** Metres of route left out beyond a gap too wide to walk across (`MAX_GAP`). */
+  dropped: number;
+  /** SchweizMobil's own length of the stage (km, rounded), to check the chained line against. */
+  distance: number;
 }
 
-interface Feature { id: string | number; attributes?: Record<string, unknown>; properties?: Record<string, unknown>; geometry?: { type: string; coordinates: unknown } }
+/**
+ * The Wanderland Schweiz GeoPackage, from the FSDI download service, which the fair-use terms send
+ * bulk use to (one file, instead of an API request per route). It keeps its name across releases,
+ * so it is cached per data date.
+ */
+async function wanderlandGpkg(): Promise<string> {
+  const item = await latestItem(COLLECTION);
+  const asset = Object.values(item.assets).find((a) => a.href.endsWith('.gpkg'));
+  if (!asset) throw new Error(`${COLLECTION}: no GeoPackage among ${Object.keys(item.assets).join(', ')}`);
+  return downloadFile(asset.href, `wanderland/${item.properties.datetime.slice(0, 10)}`);
+}
 
-/** The most results `identify` returns per request. */
-const PAGE = 200;
-
-/** SchweizMobil "Wanderland" routes (national, regional, local) touching `bbox`, page by page. */
-export async function listRoutes(bbox: BBox): Promise<{ id: string; label: string }[]> {
-  const env = bbox.join(','), found = new Map<string, string>();
-  for (let offset = 0; ; offset += PAGE) {
-    const url = `${API}/identify?geometryType=esriGeometryEnvelope&geometry=${env}&imageDisplay=1000,1000,96&mapExtent=${env}` +
-      `&tolerance=0&layers=all:${LAYER}&returnGeometry=false&sr=2056&limit=${PAGE}${offset ? `&offset=${offset}` : ''}`;
-    const res = await fetchJson<{ results: Feature[] }>(url);
-    for (const f of res.results) found.set(String(f.id), String((f.attributes ?? f.properties)!.label));
-    if (res.results.length < PAGE) break;
+/**
+ * Every SchweizMobil hiking route and stage in Wanderland Schweiz (national, regional, local and
+ * barrier-free), sorted by id. A few stages come twice, as two versions of the whole stage (each
+ * with its full length): the first row is kept, as merging them would walk the stage twice.
+ */
+export async function loadWanderland(): Promise<OfficialRoute[]> {
+  const db = new DatabaseSync(await wanderlandGpkg(), { readOnly: true });
+  const names = new Map((db.prepare('SELECT NrR, NameR FROM Route').all() as { NrR: string; NameR: string }[]).map((r) => [r.NrR, r.NameR]));
+  const rows = db.prepare('SELECT NrR, NrEtappe, NameS, NameZ, DistanzE, geom FROM Etappe ORDER BY NrR, NrEtappe, fid').all() as {
+    NrR: string; NrEtappe: number; NameS: string; NameZ: string; DistanzE: number; geom: Uint8Array;
+  }[];
+  db.close();
+  const stages = new Map<string, (typeof rows)[number]>();
+  for (const r of rows) {
+    const id = `${r.NrR}.${String(r.NrEtappe).padStart(2, '0')}`;
+    if (!stages.has(id)) stages.set(id, r);
   }
-  return [...found].map(([id, label]) => ({ id, label }));
-}
-
-export async function fetchRoute(id: string): Promise<OfficialRoute> {
-  const url = `${API}/find?layer=${LAYER}&searchText=${encodeURIComponent(id)}&searchField=id&returnGeometry=true&geometryFormat=geojson&sr=2056&contains=false`;
-  const res = await fetchJson<{ results: Feature[] }>(url);
-  const f = res.results.find((r) => String(r.id) === id);
-  if (!f?.geometry) throw new Error(`route ${id} not found`);
-  const props = (f.attributes ?? f.properties)!;
-  const title = String(props.chmobil_title ?? props.label);
-  const m = /^(.*?)\s*\((.*)\)\s*$/.exec(title);
-  const [from, to] = m ? splitEnds(m[2]) : [title, title];
-  const parts = (f.geometry.type === 'LineString' ? [f.geometry.coordinates] : f.geometry.coordinates) as XY[][];
-  const { line, gaps } = chain(parts.map((p) => p.map(([e, n]) => [e, n] as XY)));
-  return { id, number: id.replace(/\.00$/, ''), name: m ? m[1] : title, from, to, category: category(Number(props.chmobil_route_number)), line, gaps };
-}
-
-/** "Wildhaus, Gamplüt - Säntis" -> ["Wildhaus, Gamplüt", "Säntis"]; hyphens inside names stay. */
-function splitEnds(s: string): [string, string] {
-  const i = s.indexOf(' - ');
-  return i < 0 ? [s, s] : [s.slice(0, i).trim(), s.slice(i + 3).trim()];
+  return [...stages].sort(([a], [b]) => a.localeCompare(b)).map(([id, s]) => {
+    const { line, gaps, dropped } = chain(parseGpkgLines(s.geom).map((part) => part.map(([e, n]) => [e, n] as XY)));
+    return {
+      id, number: id.replace(/\.00$/, ''), name: names.get(s.NrR) ?? s.NrR, from: s.NameS, to: s.NameZ, category: category(Number(s.NrR)),
+      line, gaps, dropped, distance: s.DistanzE,
+    };
+  });
 }
 
 /** SchweizMobil numbering: 1–7 national, 2-digit regional, 3-digit local. */
@@ -62,12 +69,20 @@ function category(n: number): RouteCategory {
 }
 
 /**
- * Joins unordered, arbitrarily oriented line parts into one polyline: start at a part whose
- * end has no neighbour, then repeatedly append the part with the nearest endpoint.
+ * The widest step (m) a route walks: a gap between two parts, or one straight segment. Beyond it
+ * lies a stretch the stage covers otherwise, drawn as a straight line or not at all: ViaGottardo
+ * 7.07 (Luzern–Altdorf) crosses the lake by boat.
  */
-export function chain(parts: XY[][]): { line: XY[]; gaps: number } {
+export const MAX_GAP = 1000;
+
+/**
+ * Joins unordered, arbitrarily oriented line parts into one polyline: start at a part whose end
+ * has no neighbour, then repeatedly append the part with the nearest endpoint. A step wider than
+ * MAX_GAP splits the chain, and the longest piece is the line; `dropped` is the length of the rest.
+ */
+export function chain(parts: XY[][]): { line: XY[]; gaps: number; dropped: number } {
   const left = parts.filter((p) => p.length > 1).map((p) => [...p]);
-  if (!left.length) return { line: [], gaps: 0 };
+  if (!left.length) return { line: [], gaps: 0, dropped: 0 };
   const d = (a: XY, b: XY) => Math.hypot(a[0] - b[0], a[1] - b[1]);
   const nearestOther = (pt: XY, self: number) =>
     Math.min(...left.map((p, i) => (i === self ? Infinity : Math.min(d(pt, p[0]), d(pt, p[p.length - 1])))));
@@ -95,7 +110,13 @@ export function chain(parts: XY[][]): { line: XY[]; gaps: number } {
     if (bd > 1) gaps += bd;
     line = line.concat(bd < 0.5 ? next.slice(1) : next);
   }
-  return { line, gaps };
+  const pieces: XY[][] = [[line[0]]];
+  for (let i = 1; i < line.length; i++) {
+    if (d(line[i - 1], line[i]) > MAX_GAP) pieces.push([]);
+    pieces[pieces.length - 1].push(line[i]);
+  }
+  const lengths = pieces.map(polylineLength), longest = lengths.indexOf(Math.max(...lengths));
+  return { line: pieces[longest], gaps, dropped: lengths.reduce((s, l) => s + l, 0) - lengths[longest] };
 }
 
 /** The longest piece of `line` inside `bbox`, with flags for whether it was cut at either end. */
