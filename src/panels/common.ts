@@ -1,12 +1,13 @@
-import type { Region, RouteView } from '../data/load';
+import type { Atlas, Region, RouteView } from '../data/load';
 import type { RegionSummary } from '../data/types';
 import type { TerrainView } from '../gl/terrain';
 import type { Playlist } from '../playlist';
 import type { Store } from '../state';
 
 export interface Ctx {
+  atlas: Atlas;
   region: Region;
-  /** Every region the app offers (public/data/regions.json), the current one included. */
+  /** Every region the app offers (the atlas's regions.json), the current one included. */
   regions: RegionSummary[];
   /** Opens another region; the page reloads on its `?region=` URL. */
   goToRegion(id: string): void;

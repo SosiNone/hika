@@ -4,7 +4,6 @@
   "subtitle": "Creux du Van · Chasseron · Val-de-Travers",
   "cantons": ["NE", "VD"],
   "bbox": [2528000, 1184000, 2552000, 1203000],
-  "cell": 20,
   "minInside": 0.3,
   "minInsideKm": 2,
   "defaultRoute": "sm-286.00",

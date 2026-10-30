@@ -1,7 +1,4 @@
-/**
- * Turns a route line into samples, heights, trail classes, stats and waypoints. Shared by
- * build-region (bundle format 2) and build-atlas (format 3), so both compute the same numbers.
- */
+/** Turns a route line into samples, heights, trail classes, stats and waypoints (build-atlas). */
 import { OFF_NETWORK, type Place, type Route, type RouteStats, type Waypoint } from '../../src/data/types';
 import { cumulativeMinutes, MAX_SLOPE, smoothAltitudes } from '../../src/geo/hikingTime';
 import { resample, routeClimb, type XY } from '../../src/geo/track';
@@ -11,7 +8,7 @@ import type { SegmentIndex, TrailLine } from './trails';
 /** Metres between route samples. */
 export const STEP = 10;
 
-export type RouteMeta = Pick<Route, 'id' | 'number' | 'name' | 'from' | 'to' | 'source' | 'category' | 'clipped'>;
+export type RouteMeta = Pick<Route, 'id' | 'number' | 'name' | 'from' | 'to' | 'source' | 'category'>;
 
 export interface RouteContext {
   /** Places a waypoint may name. A route that starts or ends away from any adds a place of its own here. */
@@ -77,7 +74,7 @@ export async function finishRoute(meta: RouteMeta, line: XY[], ctx: RouteContext
  * Places a hiker passes: summits, passes, inns, stops, viewpoints and lakes near the route,
  * thinned so that within 250 m along the route only the most important one is kept.
  */
-function waypointsAlong(pts: XY[], alt: number[], minutes: Float64Array, viaIds: string[], meta: Pick<Route, 'id' | 'from' | 'to' | 'clipped'>, places: Place[]): Waypoint[] {
+function waypointsAlong(pts: XY[], alt: number[], minutes: Float64Array, viaIds: string[], meta: Pick<Route, 'id' | 'from' | 'to'>, places: Place[]): Waypoint[] {
   const reach: Partial<Record<Place['kind'], number>> = { summit: 60, pass: 60, inn: 80, stop: 80, lift: 80, view: 60, lake: 350, water: 60, cave: 40, village: 120 };
   const hits: { p: Place; i: number }[] = [];
   for (const p of places) {
@@ -95,18 +92,17 @@ function waypointsAlong(pts: XY[], alt: number[], minutes: Float64Array, viaIds:
   const kept: { p: Place; i: number }[] = [];
   for (const h of hits) if (forced.has(h.p.id) || !kept.some((k) => Math.abs(k.i - h.i) * STEP < 250)) kept.push(h);
   kept.sort((a, b) => a.i - b.i);
-  // Every route gets a departure and an arrival: the nearest named place, or a marker at the region edge.
+  // Every route gets a departure and an arrival: the nearest named place, or one named after the route's end.
   for (const end of [0, 1] as const) {
     const i = end ? pts.length - 1 : 0;
     const have = end ? kept[kept.length - 1] : kept[0];
     if (have && Math.abs(have.i - i) * STEP <= 300) continue;
     const [e, n] = pts[i];
-    const near = meta.clipped[end] ? undefined : places
+    const near = places
       .map((p) => ({ p, d: Math.hypot(p.e - e, p.n - n) }))
       .filter((x) => x.d < 600)
       .sort((a, b) => a.d - b.d)[0]?.p;
-    const towards = end ? meta.to : meta.from;
-    const p = near ?? { id: `${meta.id}-${end ? 'end' : 'start'}`, name: meta.clipped[end] ? `Region edge → ${towards}` : towards, kind: 'village' as const, e, n, alt: Math.round(alt[i]), prio: 0 };
+    const p = near ?? { id: `${meta.id}-${end ? 'end' : 'start'}`, name: end ? meta.to : meta.from, kind: 'village' as const, e, n, alt: Math.round(alt[i]), prio: 0 };
     if (!near) places.push(p);
     if (end) kept.push({ p, i }); else kept.unshift({ p, i });
   }

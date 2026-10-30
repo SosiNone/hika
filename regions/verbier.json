@@ -4,7 +4,6 @@
   "subtitle": "Val de Bagnes · Mont Fort · Nendaz",
   "cantons": ["VS"],
   "bbox": [2571000, 1099000, 2595000, 1118000],
-  "cell": 20,
   "minInside": 0.3,
   "minInsideKm": 2,
   "defaultRoute": "sm-58.02",

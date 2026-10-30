@@ -4,7 +4,6 @@
   "subtitle": "Matterhorn · Gornergrat · Saas-Fee",
   "cantons": ["VS"],
   "bbox": [2614000, 1089000, 2641000, 1108000],
-  "cell": 20,
   "minInside": 0.3,
   "minInsideKm": 2,
   "defaultRoute": "c-gornergrat-riffelberg",

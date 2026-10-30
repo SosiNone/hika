@@ -4,7 +4,6 @@
   "subtitle": "Laax · Caumasee · Vorab",
   "cantons": ["GR", "GL"],
   "bbox": [2727000, 1174000, 2751000, 1193000],
-  "cell": 20,
   "minInside": 0.3,
   "minInsideKm": 2,
   "defaultRoute": "sm-657.00",

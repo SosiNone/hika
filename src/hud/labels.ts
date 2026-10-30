@@ -1,4 +1,4 @@
-import { nextWaypoint, type Region, type RouteView } from '../data/load';
+import { nextWaypoint, type Region, type RouteView, type TerrainWindow } from '../data/load';
 import type { Place, PlaceKind } from '../data/types';
 import { project } from '../gl/glkit';
 import type { RenderInfo, TerrainView } from '../gl/terrain';
@@ -40,7 +40,9 @@ const tone = (state: WaypointState) =>
  */
 export class LabelLayer {
   private ctx: CanvasRenderingContext2D;
-  private candidates: Place[];
+  /** The places worth a label in the view's window, best first; picked again when the window changes. */
+  private candidates: Place[] = [];
+  private candidatesOf: TerrainWindow | null = null;
   /** Under `prefers-reduced-motion` the markers hold still. */
   private still = matchMedia('(prefers-reduced-motion: reduce)').matches;
   /** Filtered screen angle of the hiker's heading arrow, see `smoothHeading`. */
@@ -48,8 +50,16 @@ export class LabelLayer {
 
   constructor(private canvas: HTMLCanvasElement, private region: Region, private view: TerrainView) {
     this.ctx = canvas.getContext('2d')!;
-    const keep: Partial<Record<PlaceKind, number>> = { summit: 60, pass: 60, lake: 50, inn: 99, stop: 45, lift: 99, view: 55 };
-    this.candidates = region.bundle.places.filter((p) => p.prio >= (keep[p.kind] ?? 999)).sort((a, b) => b.prio - a.prio);
+  }
+
+  private labelled(): Place[] {
+    const win = this.view.win;
+    if (this.candidatesOf !== win) {
+      const keep: Partial<Record<PlaceKind, number>> = { summit: 60, pass: 60, lake: 50, inn: 99, stop: 45, lift: 99, view: 55 };
+      this.candidates = win.places.filter((p) => p.prio >= (keep[p.kind] ?? 999)).sort((a, b) => b.prio - a.prio);
+      this.candidatesOf = win;
+    }
+    return this.candidates;
   }
 
   /** `t` is the frame time in seconds; it only drives the marker animation. */
@@ -93,7 +103,7 @@ export class LabelLayer {
         if (!this.waypoint(s.x, s.y, 34, id, p.name.toUpperCase(), sub, state, end, info.markers, taken, W)) this.waypoint(s.x, s.y, 16, id, '', '', state, end, info.markers, taken, W, true);
       });
     }
-    for (const p of this.candidates) {
+    for (const p of this.labelled()) {
       const s = at(p.e, p.n, p.alt || this.view.heightAt(p.e, p.n));
       if (s.w <= 0 || s.x < 0 || s.y < 0 || s.x > W || s.y > H) continue;
       const sub = p.kind === 'summit' || p.kind === 'pass' ? `${p.alt} M` : '';
@@ -109,7 +119,7 @@ export class LabelLayer {
     };
     if (route && top && callout) {
       const i = hikerIndex!;
-      const ground = at(route.e[i], route.n[i], this.region.bundle.grid.minAlt);
+      const ground = at(route.e[i], route.n[i], this.view.win.grid.minAlt);
       this.hiker(top, ground, this.smoothHeading(screenHeading(route, i), route, t), route, i, a, info.markers, callout);
     }
     // Last, so the hover readout stays on top of the hiker's callout.

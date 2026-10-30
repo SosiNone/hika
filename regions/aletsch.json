@@ -4,7 +4,6 @@
   "subtitle": "Riederalp · Bettmeralp · Eggishorn",
   "cantons": ["VS"],
   "bbox": [2639000, 1130000, 2663000, 1149000],
-  "cell": 20,
   "minInside": 0.3,
   "minInsideKm": 2,
   "defaultRoute": "sm-39.01",

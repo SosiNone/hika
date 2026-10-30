@@ -38,7 +38,7 @@ describe('trails', () => {
   });
   it('refuses the old format', () => {
     const old = encodeTrails(trails);
-    old.set([72, 75, 84, 82]); // 'HKTR', bundle format 1
+    old.set([72, 75, 84, 82]); // 'HKTR', the format before HKT2
     expect(() => decodeTrails(buffer(old))).toThrow(/HKT2/);
   });
 });

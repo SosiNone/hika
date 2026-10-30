@@ -1,18 +1,20 @@
 /**
- * Sanity checks for the atlas (format 3): `npm run check:atlas` checks public/data/v3/,
- * `npm run check:atlas -- <dir>` another one. Exits non-zero when a check fails, so it can guard
- * CI or a rebuild.
+ * Sanity checks for the atlas (format 3): `npm run check:atlas` checks .atlas/v3/,
+ * `npm run check:atlas -- <dir>` another one (a hika-data checkout). It reads the region configs in
+ * regions/. Exits non-zero when a check fails, so it can guard CI or a rebuild.
  */
 import { existsSync, readdirSync, readFileSync, statSync } from 'node:fs';
 import { gzipSync } from 'node:zlib';
 import { decodeGrid, decodeRoute, decodeTrails } from '../src/data/codec';
 import { CELL, routeWindow, TILE, TILE_CELLS, TRAIL_BIAS, tileBox, tileKey, tileOf, tilesCovering } from '../src/data/tiles';
-import { ATLAS_FORMAT, SPARK_POINTS, type AtlasManifest, type BBox, type Catalogue, type Locator, type Place, type RegionConfig } from '../src/data/types';
+import { ATLAS_FORMAT, SPARK_POINTS, type AtlasManifest, type BBox, type Catalogue, type Locator, type Place, type RegionConfig, type RegionIndex } from '../src/data/types';
 import { insideRings, type XY } from '../src/geo/track';
 import { emptyCells } from './lib/coverage';
+import { formatIndex } from './lib/regions';
 import { routeProblems } from './lib/route';
+import { overlaps } from './lib/scout';
 
-const DIR = process.argv[2] ?? 'public/data/v3';
+const DIR = process.argv[2] ?? '.atlas/v3';
 /**
  * The most one window may cost over the wire (gzipped, as GitHub Pages serves it): its tiles, plus
  * the catalogue, the locator and the routes the region lists. A region bundle with its imagery
@@ -90,7 +92,7 @@ for (const key of manifest.tiles) {
   }
 }
 check(!bad.length, `tiles decode, lines and places sit in their tiles (${trailLines} trail lines, ${placeCount} places)${bad.length ? `: ${bad.slice(0, 5).join('; ')}` : ''}`);
-// Allow 1 % for the 400 m simplification of the border, as for a bundle.
+// Allow 1 % for the 400 m simplification of the border.
 check(emptyInside / cells < 0.01, `${emptyInside} empty cells inside Switzerland (${((emptyInside / cells) * 100).toFixed(2)} %)`);
 check(!holes.length, `no 1 km block missing inside Switzerland${holes.length ? `: ${holes.slice(0, 5).join(', ')}` : ''}`);
 
@@ -102,6 +104,8 @@ check(new Set(ids).size === ids.length && [...ids].sort().join() === ids.join(),
 const files = existsSync(`${DIR}/routes`) ? readdirSync(`${DIR}/routes`) : [];
 const strays = files.filter((f) => !ids.includes(f.replace(/\.bin$/, '')));
 check(!strays.length && files.length === ids.length, `routes/: ${files.length} files${strays.length ? `, not in the catalogue: ${strays.slice(0, 5).join(', ')}` : ''}`);
+/** What every window costs on top of its tiles and routes: the atlas-wide files. */
+const fixed = ['manifest.json', 'catalogue.json', 'regions.json', 'locator.json', locator.file].reduce((s, f) => s + wire(f), 0);
 const regionIds = new Set(readdirSync('regions').filter((f) => f.endsWith('.json')).map((f) => f.replace(/\.json$/, '')));
 for (const entry of catalogue.routes) {
   const problems: string[] = [];
@@ -118,7 +122,7 @@ for (const entry of catalogue.routes) {
     // all, which is right abroad: the Walserweg Gottardo (62.01) ends in Italy.
     if (r.e.some((e, i) => !heights.has(tileKey(...tileOf(e, r.n[i]))) && insideRings(rings, e, r.n[i]))) problems.push('runs over a tile the atlas lacks');
     // Opened on its own (a link to the route), its window fits the budget too.
-    const own = windowBytes(routeWindow(entry.bbox)) + wire('catalogue.json') + wire('locator.json') + wire(locator.file) + wire(`routes/${entry.id}.bin`);
+    const own = windowBytes(routeWindow(entry.bbox)) + fixed + wire(`routes/${entry.id}.bin`);
     if (own >= BUDGET) problems.push(`its window costs ${(own / 1024 / 1024).toFixed(1)} MB gzipped`);
   } catch (err) {
     problems.push((err as Error).message);
@@ -129,17 +133,30 @@ for (const entry of catalogue.routes) {
 }
 
 console.log('\nregions');
+const index = read<RegionIndex>('regions.json');
+check(index.version === 3 && readFileSync(`${DIR}/regions.json`, 'utf8') === formatIndex(index), `regions.json: version ${index.version}, one region per line`);
+const titles = index.regions.map((r) => r.title);
+check(titles.join() === [...titles].sort((a, b) => a.localeCompare(b, 'de')).join(), 'regions are sorted by title');
 const byId = new Map(catalogue.routes.map((r) => [r.id, r]));
-for (const id of [...regionIds].sort()) {
-  const cfg = JSON.parse(readFileSync(`regions/${id}.json`, 'utf8')) as RegionConfig;
+const listing = new Set(catalogue.routes.flatMap((r) => r.regions));
+check([...listing].every((id) => index.regions.some((r) => r.id === id)), `every region a route names is in regions.json (${index.regions.length})`);
+for (const summary of index.regions) {
+  const { id } = summary;
+  const problems: string[] = [];
+  const cfg = regionIds.has(id) ? (JSON.parse(readFileSync(`regions/${id}.json`, 'utf8')) as RegionConfig) : null;
+  if (!cfg) problems.push(`no regions/${id}.json`);
+  else if ((['title', 'subtitle', 'cantons', 'bbox'] as const).some((k) => JSON.stringify(cfg[k]) !== JSON.stringify(summary[k]))) problems.push('differs from its config');
   const routes = catalogue.routes.filter((r) => r.regions.includes(id));
-  if (!routes.length) { console.log(`     ${id}: not in this atlas`); continue; }
-  const fixed = wire('catalogue.json') + wire('locator.json') + wire(locator.file) + routes.reduce((s, r) => s + wire(`routes/${r.id}.bin`), 0);
+  if (routes.length !== summary.routes || routes.filter((r) => r.source === 'curated').length !== summary.classics) problems.push(`lists ${routes.length} routes, says ${summary.routes}`);
+  if (byId.get(summary.defaultRoute)?.regions.includes(id) !== true) problems.push(`default route ${summary.defaultRoute} is not on its list`);
+  if (!(summary.alt[0] > 185 && summary.alt[1] < 4700 && summary.alt[0] < summary.alt[1])) problems.push(`altitudes ${summary.alt.join('–')} m`);
+  check(!problems.length, `${id}: ${routes.length} routes, default ${summary.defaultRoute}${problems.length ? `: ${problems.join('; ')}` : ''}`);
   // The heaviest window the region opens: any of its routes, joined with its box where that fits.
-  const worst = Math.max(...routes.map((r) => windowBytes(routeWindow(r.bbox, cfg.bbox))));
-  const def = cfg.defaultRoute ?? routes.find((r) => r.source === 'curated')?.id;
-  check(!!def && byId.get(def)?.regions.includes(id) === true, `${id}: ${routes.length} routes, default ${def ?? '(none)'}`);
-  check(fixed + worst < BUDGET, `${id}: heaviest window ${((fixed + worst) / 1024 / 1024).toFixed(1)} MB gzipped (budget ${BUDGET / 1024 / 1024} MB)`);
+  const routeFiles = routes.reduce((s, r) => s + wire(`routes/${r.id}.bin`), 0);
+  const worst = Math.max(...routes.map((r) => windowBytes(routeWindow(r.bbox, summary.bbox))));
+  check(fixed + routeFiles + worst < BUDGET, `${id}: heaviest window ${((fixed + routeFiles + worst) / 1024 / 1024).toFixed(1)} MB gzipped (budget ${BUDGET / 1024 / 1024} MB)`);
 }
+const clashes = index.regions.flatMap((a, i) => index.regions.slice(i + 1).filter((b) => overlaps(a.bbox, b.bbox)).map((b) => `${a.id} / ${b.id}`));
+check(!clashes.length, clashes.length ? `overlapping regions: ${clashes.join(', ')}` : 'no two regions overlap');
 
 if (failed) { console.error(`${failed} check(s) failed`); process.exit(1); }

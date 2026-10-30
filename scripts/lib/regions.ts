@@ -1,50 +1,39 @@
 /**
- * public/data/regions.json, the list of regions the app offers. It is derived from the built
- * bundles (plus `defaultRoute` from their configs), so build-region rewrites it after every build
- * and check-region fails when it is out of date.
+ * v3/regions.json, the regions the app offers: curated entry points into the atlas, each with the
+ * facts the region browser shows. build-atlas writes it and check-atlas checks it.
  */
-import { existsSync, readdirSync, readFileSync, writeFileSync } from 'node:fs';
-import type { RegionBundle, RegionConfig, RegionIndex, RegionSummary } from '../../src/data/types';
+import type { CatalogueEntry, RegionConfig, RegionIndex, RegionSummary } from '../../src/data/types';
 
-export const DATA_DIR = 'public/data';
-export const INDEX_FILE = `${DATA_DIR}/regions.json`;
+/** What a region's box holds, measured by build-atlas. */
+export interface RegionFacts {
+  /** Signposted network clipped to the box, km per class. */
+  trailKm: [number, number, number];
+  hardKm: number;
+  /** Lowest and highest terrain in the box (m). */
+  alt: [number, number];
+}
 
-/** The index entry of one region; throws when its default route is not in the bundle. */
-export function summariseRegion(bundle: RegionBundle, cfg: Pick<RegionConfig, 'defaultRoute'>): RegionSummary {
-  const defaultRoute = cfg.defaultRoute ?? bundle.routes.find((r) => r.source === 'curated')?.id ?? bundle.routes[0]?.id;
-  if (!bundle.routes.some((r) => r.id === defaultRoute)) throw new Error(`${bundle.id}: default route ${defaultRoute ?? '(none)'} is not in the bundle`);
-  const { id, title, subtitle, cantons, bbox, trails, grid } = bundle;
+/** The index entry of one region; throws when its default route is not on its list. */
+export function summariseRegion(cfg: RegionConfig, routes: CatalogueEntry[], facts: RegionFacts): RegionSummary {
+  const listed = routes.filter((r) => r.regions.includes(cfg.id));
+  const defaultRoute = cfg.defaultRoute ?? listed.find((r) => r.source === 'curated')?.id ?? listed[0]?.id;
+  if (!listed.some((r) => r.id === defaultRoute)) throw new Error(`${cfg.id}: default route ${defaultRoute ?? '(none)'} is not on its list`);
+  const { id, title, subtitle, cantons, bbox } = cfg;
   return {
-    id, title, subtitle, cantons, bbox, defaultRoute: defaultRoute!, routes: bundle.routes.length,
-    classics: bundle.routes.filter((r) => r.source === 'curated').length,
-    trailKm: trails.km.map((km) => Math.round(km)) as [number, number, number],
-    alt: [Math.round(grid.minAlt), Math.round(grid.maxAlt)],
+    id, title, subtitle, cantons, bbox, defaultRoute: defaultRoute!, routes: listed.length,
+    classics: listed.filter((r) => r.source === 'curated').length,
+    trailKm: facts.trailKm.map((km) => Math.round(km)) as [number, number, number],
+    hardKm: Math.round(facts.hardKm),
+    alt: [Math.round(facts.alt[0]), Math.round(facts.alt[1])],
   };
 }
 
-/** Ids of the regions that have a bundle (public/data/<id>/region.json). */
-export function builtRegions(): string[] {
-  return readdirSync(DATA_DIR, { withFileTypes: true })
-    .filter((d) => d.isDirectory() && existsSync(`${DATA_DIR}/${d.name}/region.json`))
-    .map((d) => d.name)
-    .sort();
-}
-
-/** The index as the bundles on disk describe it, sorted by title. */
-export function buildRegionIndex(): RegionIndex {
-  const read = <T>(file: string) => JSON.parse(readFileSync(file, 'utf8')) as T;
-  const regions = builtRegions().map((id) => summariseRegion(read<RegionBundle>(`${DATA_DIR}/${id}/region.json`), read<RegionConfig>(`regions/${id}.json`)));
-  regions.sort((a, b) => a.title.localeCompare(b.title, 'de'));
-  return { version: 2, regions };
+/** The index, sorted by title. */
+export function regionIndex(regions: RegionSummary[]): RegionIndex {
+  return { version: 3, regions: [...regions].sort((a, b) => a.title.localeCompare(b.title, 'de')) };
 }
 
 /** Index file contents: one region per line, so a new region is a one-line diff. */
 export function formatIndex(index: RegionIndex): string {
   return `{\n  "version": ${index.version},\n  "regions": [\n${index.regions.map((r) => `    ${JSON.stringify(r)}`).join(',\n')}\n  ]\n}\n`;
-}
-
-export function writeRegionIndex(): RegionIndex {
-  const index = buildRegionIndex();
-  writeFileSync(INDEX_FILE, formatIndex(index));
-  return index;
 }

@@ -33,8 +33,8 @@ export function mountLocator(el: HTMLElement, c: Ctx, sway: Sway) {
   open.hidden = true;
   body.appendChild(open);
 
-  const current = c.region.bundle.id, bb = c.region.bundle.bbox;
-  const map = new SwissMap(c.region.bundle.locator, c.region.swiss, c.regions, current);
+  const current = c.region.summary.id, bb = c.region.summary.bbox;
+  const map = new SwissMap(c.atlas.locator, c.atlas.swiss, c.regions, current);
   const still = matchMedia('(prefers-reduced-motion: reduce)').matches;
   const [lon, lat] = lv95ToWgs84((bb[0] + bb[2]) / 2, (bb[1] + bb[3]) / 2);
   const coords = `${lat.toFixed(2)}N ${lon.toFixed(2)}E`;
@@ -53,14 +53,14 @@ export function mountLocator(el: HTMLElement, c: Ctx, sway: Sway) {
     if (id === hover) return;
     hover = id;
     clearTimeout(dwell);
-    if (id) dwell = window.setTimeout(() => prefetchRegion(id), 200);
+    if (id) dwell = window.setTimeout(() => prefetchRegion(c.atlas, id), 200);
   };
   const select = (r: RegionSummary | null) => {
     selected = r;
     open.hidden = !r;
     if (!r) return;
     open.textContent = `OPEN ${r.title.toUpperCase()} ›`;
-    prefetchRegion(r.id);
+    prefetchRegion(c.atlas, r.id);
   };
   open.onclick = () => { if (selected) c.goToRegion(selected.id); };
   ch.canvas.addEventListener('pointerdown', (e) => { pointerType = e.pointerType; });

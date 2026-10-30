@@ -14,75 +14,64 @@ HIKA: a sci-fi HUD for exploring Swiss hiking routes, built only on swisstopo / 
 
 ## Architecture
 
-There are two halves joined by a static data bundle:
+There are three parts, joined by a static data store, the **atlas**:
 
-- **`scripts/`: build-time pipeline (Node, run with tsx).** `build-region.ts` orchestrates `scripts/lib/*`, writes `public/data/<id>/` and refreshes the region index `public/data/regions.json`.
-- **`src/`: the browser app.** It only reads that bundle and never calls geo.admin.ch at runtime.
+- **`scripts/`: the build-time pipeline (Node, run with tsx).** `build-atlas.ts` orchestrates `scripts/lib/*` and writes the atlas from swisstopo / geo.admin.ch open data. It writes to `.atlas/v3/` (gitignored), or to a checkout of the data repo (`task atlas ATLAS=../hika-data/v3`). `check-atlas.ts` validates it.
+- **The data repo, [SosiNone/hika-data](https://github.com/SosiNone/hika-data).** It holds the built atlas and nothing else, and GitHub Pages serves it at `https://sosinone.github.io/hika-data/v3/`, the same origin as the app. Data refreshes and new regions ship from there, without an app release.
+- **`src/`: the browser app.** It only reads the atlas and never calls geo.admin.ch at runtime. Builds read the published atlas. `task dev` serves `.atlas/v3/` under `/data/v3/` when one is built, else it also reads the published atlas. `DATA_URL` overrides both (`vite.config.ts`).
 
-`src/data/types.ts` (`RegionBundle`, `Route`, `Place`, `RegionConfig`) is the contract between them. The pipeline imports from `src/geo/*` and `src/data/types.ts`; keep those modules free of DOM code.
+`src/data/types.ts` (`AtlasManifest`, `Route`, `CatalogueEntry`, `RegionSummary`, `RegionConfig`) is the contract between them, with `src/data/codec.ts` (byte layouts) and `src/data/tiles.ts` (the tile grid, windows, stitching). The pipeline imports from `src/geo/*` and `src/data/*` except `load.ts`; keep those modules free of DOM code.
 
-`docs/data-coverage.md` tracks which data is in the bundle, which of it the app shows, and what the sources offer beyond that. Update it when you add a source, a bundle field or a panel.
+`docs/data-coverage.md` tracks which data is in the atlas, which of it the app shows, and what the sources offer beyond that. Update it when you add a source, an atlas field or a panel.
 
-### Bundle format (`public/data/<id>/`)
-- `region.json` `version` is the bundle format (`BUNDLE_VERSION` in `src/data/types.ts`, now 2). The app refuses any other version and says to rebuild.
-- **Height grid** (`grid.file`, `terrain.bin`): Uint16 **decimetres**, row-major, row 0 = **north** edge, values at cell centres, `0` = no data. swissALTI3D ends at the national border, so a region that reaches abroad (Zermatt, Aletsch) has `0` cells there. They are skipped, never drawn as 0 m: the point shader and the contour worker drop any cell with a `0` corner, and `TerrainView.heightAt` interpolates over the corners that have data.
-- `terrain.bin` and `trails.bin` are delta-encoded by `src/data/codec.ts`, the one module the pipeline encodes with and the app decodes with:
-  - The terrain stores gradient-predictor residuals; the trails store per-line vertex deltas (magic `HKT2`).
-  - Both store 16-bit values modulo 2^16, with the low-byte plane before the high-byte plane.
+### Atlas format (`v3/`)
+- Everything is in absolute LV95 (EPSG:2056) metres. `manifest.json` `format` is the atlas format (`ATLAS_FORMAT` in `src/data/types.ts`, now 3). The app refuses any other format. A new format goes in a new `v4/` next to `v3/` in hika-data, until the app release that reads it is live.
+- **Tiles** (`src/data/tiles.ts`) are 5 km squares keyed by their south-west corner in km (`2735_1225`). `manifest.json` lists the tiles that exist (tiles with no data at all, abroad, are left out), and each has three files:
+  - `terrain/<key>.bin`: 250 × 250 cells of 20 m, Uint16 **decimetres**, row-major, row 0 = **north** edge, values at cell centres, `0` = no data. swissALTI3D ends at the national border (and leaves out Lake Constance), so windows that reach abroad have `0` cells there. They are skipped, never drawn as 0 m: the point shader and the contour worker drop any cell with a `0` corner, and `TerrainView.heightAt` interpolates over the corners that have data.
+  - `trails/<key>.bin`: each swissTLM3D line stored whole, unclipped, in the tile that holds the centre of its extent, so no line is cut at a tile edge. Vertices are whole metres from the tile's SW corner plus `TRAIL_BIAS`.
+  - `places/<key>.json`: the swissNAMES3D places in the tile, one per line.
+- `routes/<id>.bin` (`encodeRoute`, magic `HKR3`): one whole route, never clipped, with the places its waypoints name. Route ids are `sm-<SchweizMobil id>` (e.g. `sm-951.00`) or `c-<curated id>`, unique across the atlas (`check:atlas`). The app reads and writes `#route=<id>` in the URL, plus `&reverse=1` when the hike is walked to → from.
+- `catalogue.json`: every route's meta, stats, bbox, a 24-point altitude sparkline and the regions that list it, one per line. The app loads it at boot.
+- `regions.json` (`RegionIndex` version 3): the regions (see Regions), one per line, with the facts the region browser shows. `scripts/lib/regions.ts` derives it from `regions/<id>.json`, the catalogue and the tiles.
+- `locator.json` and `switzerland.u16`, the coarse national relief (raw Uint16 decimetres), stored once.
+- `src/data/codec.ts` is the one module the pipeline encodes with and the app decodes with:
+  - Terrain stores gradient-predictor residuals, trails per-line vertex deltas (`HKT2`), routes per-sample deltas.
+  - All store 16-bit values modulo 2^16, with the low-byte plane before the high-byte plane.
   - They are deliberately **not compressed** in the file. Git's zlib and the GitHub Pages gzip roughly halve them, and a small upstream change stays a small change that git can delta.
-- `switzerland.u16`: the coarse national relief, raw Uint16 decimetres, the same file in every bundle (git stores it once).
-- Rebuilds are reproducible. `build-region` rewrites only files whose bytes changed and keeps `generated` when nothing did, so rebuilding unchanged data leaves git clean. Don't add anything that varies per run (timestamps, random order) to a bundle.
-- `region.json`: places and routes. Place `e/n` and route `e/n` arrays are **metres relative to the bbox SW corner**; absolute LV95 (EPSG:2056) only appears in `bbox` and `locator`.
-- Route ids are `sm-<SchweizMobil id>` (e.g. `sm-951.00`) or `c-<curated id>`. The app reads and writes `#route=<id>` in the URL, plus `&reverse=1` when the hike is walked to → from. Ids are only unique within a region: neighbouring regions can share a clipped SchweizMobil route.
-- `public/data/regions.json` (`RegionIndex`) lists every built region with its title, cantons, bbox and `defaultRoute`. `scripts/lib/regions.ts` derives it from the bundles plus `defaultRoute` from `regions/<id>.json`; `build-region` rewrites it, `npm run index:regions` rewrites it on its own, and `check:region` fails when it is stale.
+- Rebuilds are reproducible. `build-atlas` rewrites only files whose bytes changed, removes tile and route files no longer in the atlas, and keeps `generated` when nothing changed, so rebuilding unchanged data leaves the data repo clean. Don't add anything that varies per run (timestamps, random order).
+
+### Windows
+- The app shows one **window** of the atlas at a time: `loadWindow` (`src/data/load.ts`) fetches the tiles that cover it, stitches them (`stitchGrid`) and clips the trail lines to it. Decoded tiles are kept for the page, and neighbouring windows share most of theirs.
+- `routeWindow` is a route's extent plus 2 km (`WINDOW_MARGIN`), on whole km. When the route is opened from a region, it is joined with the region's box, as long as that needs no more than `WINDOW_MAX_TILES` (6 × 6). Regions don't sit on the tile grid, so a cap on area would let a 27 × 27 km window take 7 × 7 tiles.
+- One window can't hold a region's routes: whole routes reach far beyond the boxes (that would be 29–49 km, Lucerne 49 × 46 km). So when the selected route leaves the window (`covers`), `main.ts` loads its window and `TerrainView.load` swaps it in place. A later choice of route overrides a window still loading. Hovering a route, and the finish of one that will move on, prefetch the next window.
+- `check:atlas` requires every window, a route's own and the one joined with each region that lists it, to cost under 3 MB gzipped, including the atlas-wide files and the region's routes (a region bundle with its imagery cost 2.3–2.5 MB).
 
 ### Pipeline facts that were learned the hard way
 - swissALTI3D 2 m COGs (found via STAC) have a single 4 m internal overview. `terrain.ts` reads that overview and box-averages it, so `cell` must be a multiple of 4 that divides 1000.
 - Trail class (Wanderweg / Bergwanderweg / Alpinwanderweg) and surface exist only in the swissTLM3D Wanderwege **GeoPackage**. The REST layer only flags Alpinwanderweg. The GeoPackage is read with `node:sqlite` plus the hand-written WKB parser in `gpkg.ts` (no GDAL, no sql.js).
 - The geo.admin.ch profile service (`profile.ts`): POST the GeoJSON geometry as the raw body with `sr`/`nb_points` in the query string. It is limited to 5000 points, keeps input vertices and may add extra points, so results are matched back by coordinates.
 - The `identify` service returns at most 200 results per request, so `listRoutes` pages with `offset`. Switzerland has 976 SchweizMobil routes and stages: 193 national, 404 regional and 379 local.
-- SchweizMobil routes (`ch.astra.wanderland`) come back as unordered MultiLineStrings. `chain()` joins them, then the route is oriented by geocoding the "from/to" in the title, then clipped to the bbox.
-- Curated hikes in `regions/<id>.json` name their via-points. These resolve through swissNAMES3D (`resolvePlace`, with an optional `kind`) and are routed with Dijkstra on `TrailGraph`, using Swiss hiking time as the edge weight.
-- Every route gets DEP/ARR waypoints. Where a route is clipped, the pipeline adds a synthetic "Region edge → …" place.
-- `finishRoute` (`scripts/lib/route.ts`) samples, heights, classifies and times a route for both `build-region` and `build-atlas`, so a route that a bundle has whole gets the same numbers in the atlas.
-
-### Atlas (format 3, being introduced)
-The atlas replaces region bundles so HIKA can cover all of Switzerland: one national, tiled store instead of a box per region, with every route whole. It is being introduced in phases:
-1. Now: `build-atlas` writes it into `public/data/v3/` (gitignored), next to the bundles, which the app still reads.
-2. The app reads it, and the bundles go.
-3. It moves to its own `hika-data` repo, served by GitHub Pages on the same origin.
-
-- **Layout.** Everything is in absolute LV95, unlike a bundle. Tiles (`src/data/tiles.ts`) are 5 km squares keyed by their south-west corner in km (`2735_1225`). `manifest.json` lists the tiles that exist, and each of them has three files:
-  - `terrain/<key>.bin`: 250 × 250 cells at 20 m, `encodeGrid`, row 0 north.
-  - `trails/<key>.bin`: `HKT2`. A line is stored whole, unclipped, in the tile that holds the centre of its extent; vertices are metres from the tile's SW corner plus `TRAIL_BIAS`.
-  - `places/<key>.json`.
-
-  Beside the tiles:
-  - `routes/<id>.bin` (`encodeRoute`, `HKR3`): one whole route, with the places its waypoints name.
-  - `catalogue.json`: every route's meta, stats, bbox, a 24-point sparkline and the regions that list it.
-  - `locator.json` and `switzerland.u16`, stored once.
-- **Windows.** The app will stitch (`stitchGrid`) the tiles of one window at a time. `routeWindow` is a route's extent plus 2 km, joined with the region it was opened from while that needs no more than `WINDOW_MAX_TILES` (6 × 6). A region page can't hold all its routes in one window: that would be 29–49 km wide, Lucerne 49 × 46 km. So the app has to switch windows in-page when the selected route leaves the current one.
-- **Footprint.** `build-atlas` covers every region box plus the windows of every route a region lists. That is 799 tiles (19,975 km², about half of Switzerland; 783 have data) and 127 MB, because whole routes reach far beyond the boxes, so the whole country comes to about 260 MB. `--region <id>` builds one region's footprint and `--dry-run` only measures it.
-  - Routes are oriented from/to near their own midpoint.
-  - A route any region excludes (`excludeRoutes`) is left out entirely.
-  - `minInside`/`minInsideKm` now only decide which regions list a route.
-  - Curated hikes are routed on the trails within 5 km of their region.
-- **Checks.** `check:atlas` checks:
-  - that tiles decode and every line and place sits in its tile;
+- SchweizMobil routes (`ch.astra.wanderland`) come back as unordered MultiLineStrings. `chain()` joins them, then the route is oriented by geocoding the "from/to" in the title, near the route's own midpoint. Routes are kept whole; a route any region excludes (`excludeRoutes`, e.g. 974.00 in Liechtenstein, where there is no terrain) is left out of the atlas.
+- Curated hikes in `regions/<id>.json` name their via-points. These resolve through swissNAMES3D (`resolvePlace`, with an optional `kind`) and are routed with Dijkstra on `TrailGraph`, using Swiss hiking time as the edge weight, over the trails within 5 km of the region.
+- Every route gets DEP/ARR waypoints: the nearest named place, else a place named after the route's end.
+- `finishRoute` (`scripts/lib/route.ts`) samples, heights, classifies and times every route.
+- **Fair use.** The geo.admin.ch REST services (api3, and the STAC API on data.geo.admin.ch) allow 40 requests a minute under the FSDI terms, so `fetchCached` (`scripts/lib/http.ts`) spaces requests that miss the cache 1.5 s apart. File downloads (the swissALTI3D COGs, the GeoPackages) are the download service those terms send bulk use to. A first national build therefore takes hours, and later builds hit the cache. Don't remove the pacing.
+- **Footprint.** `build-atlas` covers every region box plus the windows of every route a region lists. For the 17 regions that is 799 tiles (19,975 km², about half of Switzerland, 783 with data) and 127 MB, because whole routes reach far beyond the boxes. The whole country should come to about 260 MB. `--region <id>` builds one region's footprint (the atlas in the output directory then holds just that), and `--dry-run` only measures it.
+- `check:atlas` checks:
+  - that tiles decode, and every line and place sits in its tile;
   - coverage: no 1 km block missing well inside the border, and under 1 % empty cells inside Switzerland;
-  - every route, with the same `routeProblems` as `check:region`;
+  - every route (`routeProblems`): lengths, altitudes, times, climb drift, waypoints, and terrain under every sample inside Switzerland;
   - that the catalogue matches the route files;
-  - that every window, of a route on its own and joined with each region that lists it, costs under 3 MB gzipped (a bundle with its imagery cost 2.3–2.5 MB).
-
-  `compare:atlas` (temporary, removed with the bundles) requires terrain stitched over each region's box to be byte-identical to its `terrain.bin`, and routes the bundle has whole to keep their stats.
+  - `regions.json` against `regions/` and the catalogue, and that no two regions overlap;
+  - the window budget.
 
 ### Swiss hiking time (`src/geo/hikingTime.ts`)
 `PACE` is a table digitised from the official Schweizer Wanderwege isochrone chart (4.2 km/h on the flat, fastest at about −5 %). It is not a rule of thumb; don't replace it with one. Slope comes from altitudes smoothed over about 60 m, and signpost display rounds to 5 min.
 
-Route `stats` are computed in the pipeline (`finishRoute`). The per-sample cumulative series (`km`, `minutes`, `up`, `down`) are re-derived on load (`deriveRoute` in `src/data/load.ts`). `reverseRoute` builds the to → from view from the same samples and helpers (time = `timeBack`); `main.ts` caches it, so panels can cache on the route object rather than its id. Both sides must use the same helpers (`routeClimb` in `src/geo/track.ts`, `cumulativeMinutes`), so the route list and the preview panels show the same numbers. `check:region` fails if the stored climb totals drift from `routeClimb`.
+Route `stats` are computed in the pipeline (`finishRoute`). The per-sample cumulative series (`km`, `minutes`, `up`, `down`) are re-derived on load (`deriveRoute` in `src/data/load.ts`). `reverseRoute` builds the to → from view from the same samples and helpers (time = `timeBack`); `main.ts` caches it, so panels can cache on the route object rather than its id. Both sides must use the same helpers (`routeClimb` in `src/geo/track.ts`, `cumulativeMinutes`), so the route list and the preview panels show the same numbers. `check:atlas` fails if the stored climb totals drift from `routeClimb`.
 
 ### Rendering (`src/gl/`)
-- World space: x = east, y = up, z = **south**, origin at the bbox centre. `TerrainView.world(e, n, alt)` converts bundle coordinates; grid cell `i` sits at `(i + 0.5) * cell`.
+- World space: x = east, y = up, z = **south**, origin at the centre of the window shown. `TerrainView.world(e, n, alt)`, `ground` and `heightAt` take LV95, like every route and place in the app; the window's trails are stored in metres from its corner. Grid cell `i` sits at `(i + 0.5) * cell`. `TerrainView.load(window)` swaps the window in place: it moves the camera with the origin (`OrbitCamera.shift`), so it stays over the same ground, and makes the new window's overview the home (double-click).
 - Vertical exaggeration is applied **in the vertex shaders** (`uExag`, `uBase`), so CPU-side geometry (trails, contours, ribbons) stores raw altitudes and never needs rebuilding.
 - The point cloud has no vertex buffer and one colour mode: the owner dropped the SWISSIMAGE mode in 0.13, because orthophotos would add about 95 MB to national data for a mode few used. Points come from `gl_VertexID`, which samples an `R16UI` height texture, with jitter, depth-of-field point size and distance fade. Stride 2 applies beyond 16 km camera distance.
 - The scene has no depth test: points and contours are additive, network and ribbons are blended over them (hologram look). The one exception is inside a route ribbon, where the depth buffer only decides which of its overlapping segments owns a pixel (see below). Contours are computed in `contours.worker.ts`.
@@ -113,8 +102,9 @@ Route `stats` are computed in the pipeline (`finishRoute`). The per-sample cumul
   - Hover-only behaviour stays mouse-only (the route list's and the map's hover ribbon check `pointerType`). The elevation profile takes pointer events, so a finger dragged along it scrubs the hiker while vertical swipes still scroll.
 
 ### Regions
-- The app boots from `regions.json`: `pickRegion` (src/regions.ts) takes `?region=<id>`, else `DEFAULT_REGION` (`alpstein`, so links from before regions existed still open the right hike), else the first region. The route comes from `#route=`, else the region's `defaultRoute`.
-- One region is loaded at a time. Switching (`ctx.goToRegion`) is a page load of the `?region=` URL (`regionHref` keeps `?scheme=` and drops the hash), so nothing has to be torn down and the back button returns to the previous region. The region button is the brand subtitle in the top bar (`mountRegionPicker`, a button once there are two regions).
+- Regions are curated entry points into the atlas: a box, a title, the SchweizMobil routes it lists (by `minInside`/`minInsideKm`), curated hikes and a default route. They carry no data of their own, so the same route can be on several regions' lists.
+- The app boots from the atlas (`loadAtlas`): `pickRegion` (src/regions.ts) takes `?region=<id>`, else `DEFAULT_REGION` (`alpstein`, so links from before regions existed still open the right hike), else the first region. The route comes from `#route=`, else the region's `defaultRoute`. A `#route=` that another region lists opens that region and corrects `?region=`.
+- One region is shown at a time, with all its route files loaded (`loadRoutes`). Switching (`ctx.goToRegion`) is a page load of the `?region=` URL (`regionHref` keeps `?scheme=` and drops the hash), so the back button returns to the previous region. The region button is the brand subtitle in the top bar (`mountRegionPicker`, a button once there are two regions).
 - The region browser (`src/ui/regionBrowser.ts`) is a native `<dialog>`, opened by the region button, the G key and the expand button on the locator (G). It holds a large map and a list of the regions filtered by `filterRegions` (title, subtitle, canton code or name, ignoring accents). The map and the list share one active region, and ↑ / ↓ / Enter work in the filter. A click opens a region. On touch, a tap on the map first picks the region and a tap on its list entry opens it. The filter is only autofocused on a fine pointer, so a phone keyboard doesn't cover the list. On phones the dialog is full screen.
   - It is the locator tile (G) grown, so it has the same title ("Switzerland") and the same map at the same angle. However it is opened, it grows out of the tile, and every way of closing it (✕, Escape, the backdrop, the current region) shrinks it back via `shut()`. This is a view transition (`morph`): the tile and the dialog take turns holding the view-transition name `region-browser`, so the browser animates one box between them while their pictures cross-fade, and their map canvases hold `region-browser-map`, so the map moves on its own from the tile's body to the browser's map pane (styled in `hud.css`). Only one element may hold a name at a time, or the transition aborts. The browser draws the map at the tile's sway angle, and the tile holds that angle (`Sway.held`) while the browser is open, so the map neither turns while it grows nor when it shrinks back. It doesn't straighten: turning the browser's large relief would redraw it every frame, too slow for the transition at 2× pixel density. With the tile scrolled off screen (phones), the browser zooms in and out on its own, as one picture. Without the View Transitions API, or under `prefers-reduced-motion`, it opens and closes at once.
 - The locator (G) and the browser draw the same map, `SwissMap` (`src/hud/switzerland.ts`), with one projection (`TILT`) and one `Sway` (created in `main.ts`):
@@ -123,20 +113,37 @@ Route `stats` are computed in the pipeline (`finishRoute`). The per-sample cumul
   - Boxes have a background casing, like the trail network. Hit tests take the nearest box centre (`hitRegion`), because neighbouring regions touch.
   - The current region has a wedge showing the 3D camera's footprint (`cameraCone`, using `OrbitCamera.hfov`).
   - The locator sways, but not under the pointer, while a region is picked, or under `prefers-reduced-motion`. On touch its first tap names a region and shows an OPEN button, because opening is a page load.
-- Lingering on a region (200 ms) in either map or the list calls `prefetchRegion`. It fetches `region.json` and adds `<link rel="prefetch">` for the bundle's files, skipped under Save-Data.
-- `regions.json` (`RegionIndex` version 2) also carries each region's facts for the browser: `classics`, `trailKm` and `alt`.
-- Regions are 24 × 19 km boxes, which keeps a bundle under its 6 MB budget at 20 m cells. Zermatt is 27 km wide, to take in Saas-Fee: with the Matterhorn pinning its west edge, it would otherwise have too few SchweizMobil routes. Regions don't overlap, and `check:region` fails if two do. They were chosen with `scripts/scout-regions.ts` (`task regions:scout`):
+- Lingering on a region (200 ms) in either map or the list calls `prefetchRegion`. It adds `<link rel="prefetch">` for the tiles of the window the region opens with and for its route files, skipped under Save-Data.
+- `regions.json` carries each region's facts for the browser: `classics`, `trailKm`, `hardKm` and `alt`.
+- Regions are 24 × 19 km boxes, which keeps a window joined with one within the budget. Zermatt is 27 km wide, to take in Saas-Fee: with the Matterhorn pinning its west edge, it would otherwise have too few SchweizMobil routes. Regions don't overlap, and `check:atlas` fails if two do. They were chosen with `scripts/scout-regions.ts` (`task regions:scout`):
   - It scores boxes on a 1 km grid built from the cached national data (trail km per class from the Wanderwege R-tree, swissNAMES3D huts, summits, lakes, lifts, rail stops), with the weights in `scripts/lib/scout.ts`.
   - With no arguments, it ranks the best boxes that overlap no `regions/*.json`. `--at E,N[,E,N …]` places the best box near an anchor while keeping the listed points inside. `--places <id>` lists the places in a box, for writing curated hikes.
   - Pure ranking favours Graubünden, which signposts most of its network as Bergwanderweg, so the 17 regions were anchored on well-known hiking areas and placed by `--at`.
 - To add a region:
   1. Scout a box.
-  2. Write `regions/<id>.json` (bbox, `cell`, `defaultRoute`, curated hikes).
-  3. Run `task region REGION=<id>`.
-  4. Commit `public/data/<id>/` with the updated `regions.json`.
+  2. Write `regions/<id>.json` (bbox, `defaultRoute`, curated hikes) and commit it here.
+  3. Run `task atlas ATLAS=../hika-data/v3` in a checkout next to hika-data.
+  4. Commit the changed atlas in hika-data. Its Pages deploy publishes it; the app needs no release.
 
-  A box may reach abroad: `check:region` only fails when over 1 % of the cells *inside* Switzerland are empty (`emptyCells` in `scripts/lib/coverage.ts`). Curated hikes should add something SchweizMobil doesn't already have, so check the build log's route list first.
+  A box may reach abroad: `check:atlas` only fails on missing data *inside* Switzerland. Curated hikes should add something SchweizMobil doesn't already have, so check the build log's route list first.
+
+## Licences and attribution
+
+The code is MIT (`LICENSE`). The data keeps its owners' terms, which every place that shows or ships it must follow:
+- **swisstopo** (swissALTI3D, swissTLM3D, swissNAMES3D, swissBOUNDARIES3D) is free geodata (OGD): any use, including commercial, with "©swisstopo" credited on every representation and distribution.
+- **Wanderland Schweiz** (`ch.astra.wanderland`, licensor FEDRO, with SchweizMobil and the cantons) is opendata.swiss "open use, must provide the source": credit the author and title, with a link to the dataset.
+- The **FSDI** terms (geo.admin.ch) add the fair-use limit (see the pipeline facts), and ask that processed data be published under our own name: hika-data's README does that.
+
+Where they are credited:
+- `scripts/lib/sources.ts` lists the sources with their dataset links and terms; it goes into the atlas's `manifest.json`.
+- The app's footer credits ©swisstopo and Wanderland Schweiz © FEDRO, with links.
+- `NOTICE.md` has the data credits and third-party notices. The build emits `NOTICE.txt` beside the site, with `LICENSE`, `NOTICE.md` and the IBM Plex Mono licence (the SIL OFL asks that the font's licence travel with it). The footer's LICENCES link opens it.
+- hika-data's README and LICENSE repeat the credits for anyone who reuses the files.
+
+When you add a source, add it to `sources.ts`, `NOTICE.md`, hika-data's README and, if the app shows it, the footer.
 
 ## Deploy
 
-`.github/workflows/pages.yml` deploys on release tags (`v*`, plus manual `workflow_dispatch`), not on pushes to `main`. It fails unless the tag equals `v` + the `package.json` version, runs the same checks as CI, builds with `BASE=/<repo>/` and publishes `dist/` to GitHub Pages. Release from `main` with `task release BUMP=<patch|minor|major>` (`npm version` + `git push --follow-tags`); the `create-release` skill in `.claude/skills/` walks through the whole flow. `.github/workflows/ci.yml` runs `typecheck`, `test`, `check:region` (every region) and `build` on pull requests and on every branch push (tags don't trigger it).
+`.github/workflows/pages.yml` deploys on release tags (`v*`, plus manual `workflow_dispatch`), not on pushes to `main`. It fails unless the tag equals `v` + the `package.json` version, runs the same checks as CI, builds with `BASE=/<repo>/` and publishes `dist/` to GitHub Pages. Release from `main` with `task release BUMP=<patch|minor|major>` (`npm version` + `git push --follow-tags`); the `create-release` skill in `.claude/skills/` walks through the whole flow. `.github/workflows/ci.yml` runs `typecheck`, `test` and `build` on pull requests and on every branch push (tags don't trigger it).
+
+The atlas deploys separately from hika-data: a push to its `main` publishes it with its own Pages workflow, after `check:atlas` (run from a checkout of this repo). An app release that reads a new atlas format must wait until that format is published.

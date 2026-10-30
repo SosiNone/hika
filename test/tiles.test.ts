@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { routeWindow, stitchGrid, TILE, TILE_CELLS, tileKey, tileOf, tilesCovering } from '../src/data/tiles';
+import { covers, routeWindow, stitchGrid, TILE, TILE_CELLS, tileKey, tileOf, tilesCovering } from '../src/data/tiles';
 import type { BBox } from '../src/data/types';
 
 describe('tile grid', () => {
@@ -27,6 +27,12 @@ describe('tile grid', () => {
     const route: BBox = [2716000, 1210000, 2736000, 1230000];
     expect(routeWindow(route, [2736000, 1227000, 2758000, 1246000])).toEqual([2714000, 1208000, 2738000, 1232000]);
   });
+});
+
+describe('covers', () => {
+  const route: BBox = [2740500, 1230200, 2745100, 1233900];
+  it('holds a route whose own window fits', () => expect(covers([2736000, 1227000, 2758000, 1246000], route)).toBe(true));
+  it('does not hold one that comes within the margin of an edge', () => expect(covers([2739000, 1227000, 2758000, 1246000], route)).toBe(false));
 });
 
 describe('stitching', () => {

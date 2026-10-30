@@ -1,9 +1,9 @@
 import { describe, expect, it } from 'vitest';
-import type { RegionBundle, RegionSummary } from '../src/data/types';
+import type { CatalogueEntry, RegionConfig, RegionSummary } from '../src/data/types';
 import { DEFAULT_REGION, filterRegions, pickRegion, regionHref } from '../src/regions';
-import { formatIndex, summariseRegion } from '../scripts/lib/regions';
+import { formatIndex, regionIndex, summariseRegion } from '../scripts/lib/regions';
 
-const summary = (id: string): RegionSummary => ({ id, title: id, subtitle: '', cantons: [], bbox: [0, 0, 1, 1], defaultRoute: 'c-x', routes: 1, classics: 1, trailKm: [1, 0, 0], alt: [400, 900] });
+const summary = (id: string): RegionSummary => ({ id, title: id, subtitle: '', cantons: [], bbox: [0, 0, 1, 1], defaultRoute: 'c-x', routes: 1, classics: 1, trailKm: [1, 0, 0], hardKm: 0, alt: [400, 900] });
 
 describe('pickRegion', () => {
   const regions = [summary('jungfrau'), summary(DEFAULT_REGION)];
@@ -46,26 +46,26 @@ describe('filterRegions', () => {
 });
 
 describe('summariseRegion', () => {
-  const route = (id: string, source: 'schweizmobil' | 'curated') => ({ id, source }) as RegionBundle['routes'][number];
-  const bundle = {
-    id: 'r', title: 'R', subtitle: 'S', cantons: ['BE'], bbox: [0, 0, 1000, 1000], routes: [route('sm-1.01', 'schweizmobil'), route('c-a', 'curated')],
-    trails: { km: [512.4, 300.6, 9.49] }, grid: { minAlt: 567.4, maxAlt: 3970.6 },
-  } as unknown as RegionBundle;
+  const route = (id: string, source: 'schweizmobil' | 'curated', regions: string[]) => ({ id, source, regions }) as CatalogueEntry;
+  // The catalogue holds every route; the region lists those that name it.
+  const routes = [route('sm-1.01', 'schweizmobil', ['r']), route('c-a', 'curated', ['r']), route('sm-2.01', 'schweizmobil', ['other'])];
+  const cfg = (defaultRoute?: string) => ({ id: 'r', title: 'R', subtitle: 'S', cantons: ['BE'], bbox: [0, 0, 1000, 1000], defaultRoute }) as RegionConfig;
+  const facts = { trailKm: [512.4, 300.6, 9.49] as [number, number, number], hardKm: 40.6, alt: [567.4, 3970.6] as [number, number] };
 
-  it('uses the configured default route', () => expect(summariseRegion(bundle, { defaultRoute: 'sm-1.01' }).defaultRoute).toBe('sm-1.01'));
-  it('defaults to the first curated hike', () => expect(summariseRegion(bundle, {}).defaultRoute).toBe('c-a'));
-  it('rejects a default route the bundle lacks', () => expect(() => summariseRegion(bundle, { defaultRoute: 'c-gone' })).toThrow(/c-gone/));
-  it('counts routes', () => expect(summariseRegion(bundle, {}).routes).toBe(2));
+  it('uses the configured default route', () => expect(summariseRegion(cfg('sm-1.01'), routes, facts).defaultRoute).toBe('sm-1.01'));
+  it('defaults to the first curated hike', () => expect(summariseRegion(cfg(), routes, facts).defaultRoute).toBe('c-a'));
+  it('rejects a default route the region does not list', () => expect(() => summariseRegion(cfg('sm-2.01'), routes, facts)).toThrow(/sm-2.01/));
+  it('counts the routes it lists', () => expect(summariseRegion(cfg(), routes, facts).routes).toBe(2));
   it('sums up the region', () => {
-    const { classics, trailKm, alt } = summariseRegion(bundle, {});
-    expect({ classics, trailKm, alt }).toEqual({ classics: 1, trailKm: [512, 301, 9], alt: [567, 3971] });
+    const { classics, trailKm, hardKm, alt } = summariseRegion(cfg(), routes, facts);
+    expect({ classics, trailKm, hardKm, alt }).toEqual({ classics: 1, trailKm: [512, 301, 9], hardKm: 41, alt: [567, 3971] });
   });
 });
 
 describe('formatIndex', () => {
   it('writes valid JSON with one region per line', () => {
-    const text = formatIndex({ version: 2, regions: [summary('a'), summary('b')] });
-    expect(JSON.parse(text)).toEqual({ version: 2, regions: [summary('a'), summary('b')] });
+    const text = formatIndex(regionIndex([summary('b'), summary('a')]));
+    expect(JSON.parse(text)).toEqual({ version: 3, regions: [summary('a'), summary('b')] });
     expect(text.split('\n').filter((l) => l.includes('"id"'))).toHaveLength(2);
   });
 });

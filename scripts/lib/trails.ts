@@ -1,9 +1,9 @@
 import { DatabaseSync } from 'node:sqlite';
 import type { Trails } from '../../src/data/codec';
 import type { BBox, TrailClass } from '../../src/data/types';
-import { segmentDistance2 } from '../../src/geo/track';
+import { clipToBox, segmentDistance2 } from '../../src/geo/track';
 import { downloadAsset } from './download';
-import { clipToBox, parseGpkgLines, type XYZ } from './gpkg';
+import { parseGpkgLines, type XYZ } from './gpkg';
 import { latestItem } from './stac';
 
 export interface TrailLine { id: number; cls: TrailClass; hard: boolean; pts: XYZ[] }
@@ -68,8 +68,8 @@ export async function trailSketch(): Promise<{ cls: TrailClass; e: number; n: nu
 }
 
 /**
- * The network as the bundle stores it (encoded by `encodeTrails` in src/data/codec.ts): whole
- * metres from the bbox SW corner, plus `bias` (an atlas tile's TRAIL_BIAS).
+ * The network as an atlas tile stores it (encoded by `encodeTrails` in src/data/codec.ts): whole
+ * metres from the box's SW corner, plus `bias` (TRAIL_BIAS).
  */
 export function trailsData(lines: TrailLine[], bbox: BBox, bias = 0): Trails {
   const offsets = new Uint32Array(lines.length + 1), xy = new Uint16Array(lines.reduce((s, l) => s + l.pts.length, 0) * 2);

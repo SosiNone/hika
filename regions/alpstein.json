@@ -4,7 +4,6 @@
   "subtitle": "Säntis · Seealpsee · Hoher Kasten",
   "cantons": ["AI", "AR", "SG"],
   "bbox": [2736000, 1227000, 2758000, 1246000],
-  "cell": 20,
   "minInside": 0.3,
   "minInsideKm": 2,
   "defaultRoute": "c-saentis-lisengrat",

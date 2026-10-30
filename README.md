@@ -34,7 +34,7 @@ walks it at official Swiss signpost pace while the instruments follow along.
 - **Real hiking times** from a pace table digitised from the official Schweizer Wanderwege chart.
 - **Shareable links** for every route, e.g. the
   [Eiger Trail](https://sosinone.github.io/hika/?region=jungfrau#route=sm-353.00).
-- **Dark and light schemes,** and no backend: the app reads a static data bundle.
+- **Dark and light schemes,** and no backend: the app reads a static data store, the atlas.
 - **Works on phones and tablets,** with touch gestures on the map and the route player right
   under it.
 
@@ -84,23 +84,19 @@ cd hika
 task dev
 ```
 
-The region bundles are committed under `public/data/`, so the app runs without rebuilding data.
+The app reads its data, the atlas (see [AGENTS.md](AGENTS.md)), from the published
+[hika-data](https://github.com/SosiNone/hika-data) site, so it runs without building any data.
 `task` lists every command.
 
-To rebuild a region from swisstopo data (about 300 MB of downloads on the first run, cached in
-`.cache/`):
+To build the atlas yourself from swisstopo data into `.atlas/v3/`, which `task dev` then serves
+(several GB of downloads on the first run, cached in `.cache/`, at the pace geo.admin.ch's
+fair-use terms allow):
 
 ```bash
-task region REGION=alpstein
+task atlas
 ```
 
-HIKA is moving from region bundles to a national, tiled data store (the atlas, see
-[AGENTS.md](AGENTS.md)) so it can cover every hiking route in Switzerland. The app doesn't read it
-yet. `task atlas` builds it for every region and its routes into `public/data/v3/` (gitignored),
-and `task atlas:compare` checks it against the bundles.
-
-`task check` runs the type-checker, the tests and the region checks, which is what CI runs before
-it builds. Releases are deployed to GitHub Pages from a version tag with
+`task check` runs the type-checker and the tests, which is what CI runs before it builds. Releases are deployed to GitHub Pages from a version tag with
 `task release BUMP=patch`.
 
 [AGENTS.md](AGENTS.md) covers the architecture, and [docs/data-coverage.md](docs/data-coverage.md)
@@ -115,6 +111,7 @@ re-implementation and copies none of its code or assets. The paperlab greys are 
 
 ## Licence
 
-The code is released under the [MIT licence](LICENSE). The data in `public/data/` and the
-screenshots in `docs/` are not covered by it: geodata © swisstopo (opendata.swiss "BY"), routes
-© SchweizMobil / ASTRA. See [NOTICE.md](NOTICE.md).
+The code is released under the [MIT licence](LICENSE). The data (in
+[hika-data](https://github.com/SosiNone/hika-data)) and the screenshots in `docs/` are not covered
+by it: geodata ©swisstopo, hiking routes from Wanderland Schweiz (FEDRO, SchweizMobil and the
+cantons). See [NOTICE.md](NOTICE.md); the site ships it, with the font's licence, as `NOTICE.txt`.

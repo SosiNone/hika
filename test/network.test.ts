@@ -2,7 +2,7 @@ import { describe, expect, it } from 'vitest';
 import type { XY } from '../src/geo/track';
 import { TrailNetwork } from '../src/geo/network';
 
-/** Packs lines into the bundle's layout (`Trails.offsets` / `xy`). */
+/** Packs lines into a window's layout (`Trails.offsets` / `xy`). */
 function trails(lines: XY[][]) {
   const offsets = new Uint32Array(lines.length + 1);
   lines.forEach((l, i) => { offsets[i + 1] = offsets[i] + l.length; });

@@ -1,4 +1,3 @@
-import type { XY } from '../../src/geo/track';
 
 export type XYZ = [number, number, number];
 
@@ -49,30 +48,4 @@ function readWkb(view: DataView, offset: number): { lines: XYZ[][]; end: number 
     return { lines, end: p };
   }
   throw new Error(`unsupported WKB type ${type}`);
-}
-
-/** Splits a polyline into the pieces inside an axis-aligned box (Liang–Barsky per segment). */
-export function clipToBox<T extends XY | XYZ>(line: T[], [minX, minY, maxX, maxY]: [number, number, number, number]): T[][] {
-  const pieces: T[][] = [];
-  let cur: T[] = [];
-  const lerp = (a: T, b: T, t: number) => a.map((v, i) => v + (b[i] - v) * t) as T;
-  for (let i = 1; i < line.length; i++) {
-    const a = line[i - 1], b = line[i];
-    const dx = b[0] - a[0], dy = b[1] - a[1];
-    let t0 = 0, t1 = 1, ok = true;
-    for (const [p, q] of [[-dx, a[0] - minX], [dx, maxX - a[0]], [-dy, a[1] - minY], [dy, maxY - a[1]]]) {
-      if (p === 0) { if (q < 0) { ok = false; break; } continue; }
-      const r = q / p;
-      if (p < 0) { if (r > t1) { ok = false; break; } if (r > t0) t0 = r; }
-      else { if (r < t0) { ok = false; break; } if (r < t1) t1 = r; }
-    }
-    if (!ok) { if (cur.length > 1) pieces.push(cur); cur = []; continue; }
-    const start = t0 > 0 ? lerp(a, b, t0) : a;
-    const end = t1 < 1 ? lerp(a, b, t1) : b;
-    if (cur.length === 0 || t0 > 0) { if (cur.length > 1) pieces.push(cur); cur = [start]; }
-    cur.push(end);
-    if (t1 < 1) { pieces.push(cur); cur = []; }
-  }
-  if (cur.length > 1) pieces.push(cur);
-  return pieces;
 }

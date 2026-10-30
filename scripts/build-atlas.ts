@@ -1,8 +1,9 @@
 /**
  * Builds the atlas (format 3, see AGENTS.md) from swisstopo open data: `npm run build:atlas`.
  * It covers the footprint of regions/*.json: their boxes, and every route they list, whole, with
- * the terrain window around it. Writes public/data/v3/ (or `--out <dir>`) and removes tile and
- * route files that are no longer in it. `--dry-run` only reports the footprint. `--region <id>`
+ * the terrain window around it, and the regions themselves. Writes .atlas/v3/ (or `--out <dir>`,
+ * such as a checkout of the hika-data repo) and removes tile and route files that are no longer
+ * in it. `--dry-run` only reports the footprint. `--region <id>`
  * (repeatable) builds the footprint of those regions only, for trying out a change: the atlas in
  * the output directory then holds just that, so pair it with `--out`.
  * Downloads are cached in .cache/. Rebuilding from unchanged data leaves every file as it was.
@@ -10,13 +11,14 @@
 import { existsSync, mkdirSync, readdirSync, readFileSync, rmSync, writeFileSync } from 'node:fs';
 import { dirname } from 'node:path';
 import { encodeGrid, encodeRoute, encodeTrails } from '../src/data/codec';
-import { CELL, routeWindow, TILE, TILE_CELLS, TRAIL_BIAS, tileBox, tileKey, tileOf, tilesCovering } from '../src/data/tiles';
-import { ATLAS_FORMAT, SPARK_POINTS, type AtlasManifest, type AtlasRoute, type BBox, type Catalogue, type CatalogueEntry, type Place, type RegionConfig } from '../src/data/types';
+import { CELL, routeWindow, stitchGrid, TILE, TILE_CELLS, TRAIL_BIAS, tileBox, tileKey, tileOf, tilesCovering } from '../src/data/tiles';
+import { ATLAS_FORMAT, SPARK_POINTS, type AtlasManifest, type AtlasRoute, type BBox, type Catalogue, type CatalogueEntry, type Place, type RegionConfig, type RegionSummary } from '../src/data/types';
 import { polylineLength, type XY } from '../src/geo/track';
 import { TrailGraph } from './lib/graph';
 import { mapLimit } from './lib/http';
 import { buildLocator } from './lib/locator';
 import { inBox, loadPlaces, resolvePlace } from './lib/names';
+import { formatIndex, regionIndex, summariseRegion } from './lib/regions';
 import { finishRoute, round1, STEP, type RouteMeta } from './lib/route';
 import { SOURCES } from './lib/sources';
 import { buildTerrain, encodeU16, sampleTiles } from './lib/terrain';
@@ -25,7 +27,7 @@ import { clipRoute, fetchRoute, listRoutes } from './lib/wanderland';
 
 const args = process.argv.slice(2);
 const outAt = args.indexOf('--out');
-const OUT = outAt >= 0 ? args[outAt + 1] : 'public/data/v3';
+const OUT = outAt >= 0 ? args[outAt + 1] : '.atlas/v3';
 const dryRun = args.includes('--dry-run');
 /** Curated hikes are routed on the trails this far around their region. */
 const CURATED_PAD = 5000;
@@ -80,11 +82,11 @@ for (const cfg of configs) {
         const d = (q: Place, pt: XY) => Math.hypot(q.e - pt[0], q.n - pt[1]);
         if (d(from, line[0]) + d(to, line[line.length - 1]) > d(from, line[line.length - 1]) + d(to, line[0])) line = [...line].reverse();
       }
-      p = { meta: { id, number: r.number, name: r.name, from: r.from, to: r.to, source: 'schweizmobil', category: r.category, clipped: [false, false] }, line, regions: [], via: [] };
+      p = { meta: { id, number: r.number, name: r.name, from: r.from, to: r.to, source: 'schweizmobil', category: r.category }, line, regions: [], via: [] };
       planned.set(id, p);
       if (r.gaps > 50) log(`  ${rid} ${r.name}: ${r.gaps.toFixed(0)} m chain gaps`);
     }
-    // The same rule that drops a route from a bundle keeps it off the region's list.
+    // A route mostly outside the box stays off the region's list.
     const { piece, insideShare } = clipRoute(p.line, cfg.bbox);
     if (insideShare >= cfg.minInside && polylineLength(piece) / 1000 >= cfg.minInsideKm) p.regions.push(cfg.id);
   }
@@ -116,7 +118,7 @@ for (const cfg of configs) {
     }
     const [first, last] = [stops[0].place, stops[stops.length - 1].place];
     planned.set(id, {
-      meta: { id, number: null, name: hike.name, from: first.name, to: last.name, source: 'curated', category: 'classic', clipped: [false, false] },
+      meta: { id, number: null, name: hike.name, from: first.name, to: last.name, source: 'curated', category: 'classic' },
       line, regions: [cfg.id], via: stops.map((s) => s.place.id),
     });
   }
@@ -182,7 +184,7 @@ for (const id of [...planned.keys()].sort()) {
   const segments = new SegmentIndex(await loadTrails(pad(bb, 50)));
   const s = await finishRoute(p.meta, p.line, { places, segments, heightAt: (e, n) => sampleTiles(heights, e, n) }, p.via);
   const named = new Set(s.waypoints.map((w) => w.place));
-  const { clipped: _, ...meta } = p.meta;
+  const meta = p.meta;
   const route: AtlasRoute = {
     ...meta,
     step: STEP,
@@ -207,6 +209,23 @@ for (const id of [...planned.keys()].sort()) {
 }
 const catalogue: Catalogue = { format: ATLAS_FORMAT, routes: entries };
 write('catalogue.json', `{"format":${catalogue.format},"routes":${lines(catalogue.routes, '[', ']').trimEnd()}}\n`);
+
+log('regions');
+const summaries: RegionSummary[] = [];
+for (const cfg of configs) {
+  // The network and terrain in the box itself, as the region browser lists them.
+  const trailKm: [number, number, number] = [0, 0, 0];
+  let hardKm = 0;
+  for (const t of await loadTrails(cfg.bbox)) {
+    const km = polylineLength(t.pts.map(([e, n]) => [e, n])) / 1000;
+    trailKm[t.cls] += km;
+    if (t.hard) hardKm += km;
+  }
+  let minAlt = Infinity, maxAlt = -Infinity;
+  for (const v of stitchGrid(cfg.bbox, (key) => heights.get(key)).heights) if (v) { minAlt = Math.min(minAlt, v / 10); maxAlt = Math.max(maxAlt, v / 10); }
+  summaries.push(summariseRegion(cfg, entries, { trailKm, hardKm, alt: [minAlt, maxAlt] }));
+}
+write('regions.json', formatIndex(regionIndex(summaries)));
 
 log('Switzerland locator');
 const { locator, heights: relief } = await buildLocator(2000);

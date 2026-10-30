@@ -1,8 +1,8 @@
 node_modules/
 dist/
 .cache/
-# The atlas (format 3) is not committed until the app reads it.
-public/data/v3/
+# A local build of the atlas; the published one lives in the hika-data repo.
+.atlas/
 *.log
 .DS_Store
 .task/

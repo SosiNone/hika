@@ -4,7 +4,6 @@
   "subtitle": "St. Moritz · Pontresina · Bernina",
   "cantons": ["GR"],
   "bbox": [2776000, 1139000, 2800000, 1158000],
-  "cell": 20,
   "minInside": 0.3,
   "minInsideKm": 2,
   "defaultRoute": "sm-53.03",

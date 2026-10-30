@@ -1,6 +1,6 @@
 /**
- * Terrain coverage of a bundle or an atlas tile. swissALTI3D ends at the national border, so a
- * box that reaches abroad has empty (0) cells there; inside Switzerland every cell should have data.
+ * Terrain coverage of an atlas tile. swissALTI3D ends at the national border, so a tile that
+ * reaches abroad has empty (0) cells there; inside Switzerland every cell should have data.
  */
 import type { BBox } from '../../src/data/types';
 import { insideRings, type XY } from '../../src/geo/track';

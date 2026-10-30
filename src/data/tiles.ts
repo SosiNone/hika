@@ -55,6 +55,12 @@ export function routeWindow(route: BBox, region?: BBox): BBox {
   return tilesCovering(joined).length <= WINDOW_MAX_TILES ? joined : own;
 }
 
+/** Whether a window shows a route whole: the route's own window (`routeWindow` without a region) fits in it. */
+export function covers(window: BBox, route: BBox): boolean {
+  const own = routeWindow(route);
+  return window[0] <= own[0] && window[1] <= own[1] && window[2] >= own[2] && window[3] >= own[3];
+}
+
 /**
  * One terrain grid over `bbox` (on the CELL grid; row 0 = north edge) from the tiles that cover
  * it. `tile` returns a decoded tile, or undefined for a tile the atlas doesn't have, whose cells

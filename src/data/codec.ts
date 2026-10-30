@@ -1,7 +1,6 @@
 /**
- * Byte layouts of terrain.bin and trails.bin (bundle format 2), which the atlas (format 3) also
- * uses per tile, and of the atlas route files. Shared by the pipeline (encode) and the app
- * (decode) so the two cannot drift apart.
+ * Byte layouts of the atlas files (format 3): terrain and trail tiles and route files. Shared by
+ * the pipeline (encode) and the app (decode) so the two cannot drift apart.
  *
  * All of them store 16-bit values as residuals from a predictor, modulo 2^16, with all low bytes before
  * all high bytes. The residuals are small and the high-byte plane is nearly constant, so git's
@@ -16,7 +15,7 @@ export interface Trails {
   offsets: Uint32Array;
   cls: Uint8Array;
   hard: Uint8Array;
-  /** Uint16 metre pairs (e, n) relative to the bbox south-west corner. */
+  /** Uint16 metre pairs (e, n): from a tile's south-west corner plus TRAIL_BIAS, or from a window's corner. */
   xy: Uint16Array;
 }
 

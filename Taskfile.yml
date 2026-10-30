@@ -3,7 +3,8 @@
 version: '3'
 
 vars:
-  REGION: alpstein
+  # Where the atlas is built and checked: a local build, or a hika-data checkout (ATLAS=../hika-data/v3).
+  ATLAS: .atlas/v3
 
 tasks:
   default:
@@ -53,11 +54,10 @@ tasks:
       - npm run typecheck
 
   check:
-    desc: Type-check, run the tests and validate every region bundle (what CI runs before building)
+    desc: Type-check and run the tests (what CI runs before building)
     cmds:
       - task: typecheck
       - task: test
-      - task: regions:check
 
   release:
     desc: 'Bump the version, tag and push to deploy to GitHub Pages, e.g. `task release BUMP=minor` (default patch)'
@@ -72,53 +72,23 @@ tasks:
       - npm version {{.BUMP}} -m "Release v%s"
       - git push --follow-tags
 
-  region:build:
-    desc: 'Rebuild a region bundle from swisstopo data and refresh the region index (REGION={{.REGION}})'
-    deps: [install]
-    cmds:
-      - npm run build:region -- {{.REGION}}
-
-  region:check:
-    desc: 'Validate a region bundle (REGION={{.REGION}})'
-    deps: [install]
-    cmds:
-      - npm run check:region -- {{.REGION}}
-
-  region:
-    desc: 'Rebuild and validate a region bundle, e.g. `task region REGION=jungfrau`'
-    cmds:
-      - task: region:build
-      - task: region:check
-
   atlas:build:
-    desc: 'Build the atlas (format 3) for every region and its routes into public/data/v3/, or one region''s with `task atlas:build -- --region alpstein --out .cache/atlas`'
+    desc: 'Build the atlas for every region and its routes into ATLAS ({{.ATLAS}}), which `task dev` serves. `task atlas:build -- --region alpstein` builds one region (and replaces the rest)'
     deps: [install]
     cmds:
-      - npm run build:atlas -- {{.CLI_ARGS}}
+      - npm run build:atlas -- --out {{.ATLAS}} {{.CLI_ARGS}}
 
   atlas:check:
-    desc: Validate the atlas in public/data/v3/ (tiles, routes, catalogue and window budgets)
+    desc: 'Validate the atlas in ATLAS ({{.ATLAS}}): tiles, routes, catalogue, regions and window budgets'
     deps: [install]
     cmds:
-      - npm run check:atlas -- {{.CLI_ARGS}}
-
-  atlas:compare:
-    desc: Compare the atlas with the region bundles it replaces (temporary, until the app reads the atlas)
-    deps: [install]
-    cmds:
-      - npm run compare:atlas -- {{.CLI_ARGS}}
+      - npm run check:atlas -- {{.ATLAS}}
 
   atlas:
-    desc: Build and validate the atlas
+    desc: 'Build and validate the atlas, e.g. into a hika-data checkout with `task atlas ATLAS=../hika-data/v3`'
     cmds:
       - task: atlas:build
       - task: atlas:check
-
-  regions:check:
-    desc: Validate every region bundle in public/data/ and the region index
-    deps: [install]
-    cmds:
-      - npm run check:region
 
   regions:scout:
     desc: 'Rank good region boxes from the cached national data, e.g. `task regions:scout -- --places zermatt` (see scripts/scout-regions.ts)'
@@ -126,19 +96,13 @@ tasks:
     cmds:
       - npm run scout:regions -- {{.CLI_ARGS}}
 
-  regions:index:
-    desc: Rewrite public/data/regions.json from the built bundles (after deleting one or changing a defaultRoute)
-    deps: [install]
-    cmds:
-      - npm run index:regions
-
   clean:
     desc: Remove build output
     cmds:
       - node -e "require('fs').rmSync('dist',{recursive:true,force:true})"
 
   clean:cache:
-    desc: Remove the download cache in .cache/ (the next region build re-downloads ~300 MB)
+    desc: Remove the download cache in .cache/ (the next atlas build downloads it all again, at the geo.admin.ch fair-use pace)
     prompt: This deletes .cache/ and forces a full re-download. Continue?
     cmds:
       - node -e "require('fs').rmSync('.cache',{recursive:true,force:true})"

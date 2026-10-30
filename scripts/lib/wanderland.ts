@@ -1,6 +1,5 @@
 import type { BBox, RouteCategory } from '../../src/data/types';
-import { polylineLength, type XY } from '../../src/geo/track';
-import { clipToBox } from './gpkg';
+import { clipToBox, polylineLength, type XY } from '../../src/geo/track';
 import { fetchJson } from './http';
 
 const API = 'https://api3.geo.admin.ch/rest/services/api/MapServer';
