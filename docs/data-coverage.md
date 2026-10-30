@@ -3,40 +3,40 @@
 What data HIKA has, and how much of it the app shows. Use it to plan features: a ✗ or ◐ row in
 section 1 needs only app work, section 2 needs a pipeline change, and section 3 needs a new source.
 
-Counts are from v0.2.0 and the `alpstein` bundle. v0.8.0 has 17 regions, whose bundles all have
-the same fields. When you add a bundle field, a panel or a source, update the matching row.
+Counts are from v0.2.0 and the Alpstein region. Since v0.14 the data is the atlas (AGENTS.md): national
+tiles, whole routes and a catalogue, which the app reads one window at a time. When you add an atlas
+field, a panel or a source, update the matching row.
 
-**Legend:** ✅ shown · ◐ partly shown · ✗ in the bundle but not shown
+**Legend:** ✅ shown · ◐ partly shown · ✗ in the atlas but not shown
 
-## 1. In the bundle
+## 1. In the atlas
 
 ### Terrain and imagery
 
-| Data | Source | Bundle | Shown | Where | Unused / ideas |
+| Data | Source | Atlas | Shown | Where | Unused / ideas |
 |---|---|---|---|---|---|
-| Height grid, 20 m (1100 × 950) | swissALTI3D | `terrain.bin` | ✅ | Point cloud, contours (worker), trail draping, slope aspect rose (I) | No height or slope readout under the cursor; no slope shading of the cloud |
+| Height grid, 20 m (5 km tiles, stitched into windows) | swissALTI3D | `terrain/<key>.bin` | ✅ | Point cloud, contours (worker), trail draping, slope aspect rose (I) | No height or slope readout under the cursor; no slope shading of the cloud |
 | No-data cells beyond the border (`0`) | swissALTI3D (Switzerland only) | `terrain.bin` | ◐ | Left empty: no points or contours (Zermatt, Aletsch) | The Italian side of the Matterhorn is blank; a coarse foreign DEM could fill it |
 | Grid min / max altitude | swissALTI3D | `grid.minAlt`, `grid.maxAlt` | ◐ | Exaggeration base, hiker drop line | Not shown as numbers |
-| Orthophoto, 2048 px wide (about 10.7 m/px) | SWISSIMAGE | `ortho.jpg` | ◐ | Point colour in SWISSIMAGE mode only | Never a draped texture or a 2D map |
 | National relief, 2 km | Profile service (DTM2) | `switzerland.u16` | ✅ | Locator (G) and region browser, which drape the borders and region boxes on it | — |
 | National border, canton borders | swissBOUNDARIES3D | `locator.border`, `locator.cantons` | ✅ | Locator (G), region browser | Canton borders are not drawn on the 3D terrain (the region spans AI, AR and SG) |
 | Lakes | Derived in the app from the flat cells of `switzerland.u16` (`lakeCells`) | — | ✅ | Locator (G), region browser | At 2 km cells only the larger lakes show (two or more flat cells); no lake names |
 
 ### Trail network
 
-| Data | Source | Bundle | Shown | Where | Unused / ideas |
+| Data | Source | Atlas | Shown | Where | Unused / ideas |
 |---|---|---|---|---|---|
-| Geometry of every signposted trail (6159 lines) | swissTLM3D Wanderwege | `trails.bin` | ✅ | 3D network with casing; in TRAILS AUTO only the trails within walking reach of the selected route | Not clickable: clicking selects routes only |
+| Geometry of every signposted trail (6159 lines in Alpstein) | swissTLM3D Wanderwege | `trails/<key>.bin` | ✅ | 3D network with casing; in TRAILS AUTO only the trails within walking reach of the selected route | Not clickable: clicking selects routes only |
 | Class per line (Wanderweg / Berg / Alpin) | swissTLM3D Wanderwege | `trails.bin` | ✅ | Network colour | — |
 | Hard surface per line | swissTLM3D Wanderwege | `trails.bin` | ✗ | Decoded on load, never drawn | Dashed or dimmed asphalt on the map |
 | Network km per class, hard km | derived | `trails.km`, `trails.hardKm` | ✅ | Trail class (C): network total and ghost markers | — |
 
 ### Places (swissNAMES3D)
 
-The bundle holds 1105 places. `LabelLayer` labels only some of them on the map; any place can also
+The Alpstein box holds 1105 places (`places/<key>.json`). `LabelLayer` labels only some of them on the map; any place can also
 appear as a route waypoint (panel B, profile ticks, trail log, footer ticker).
 
-| Kind | In bundle | Map label | Waypoint | Unused / ideas |
+| Kind | In Alpstein | Map label | Waypoint | Unused / ideas |
 |---|---|---|---|---|
 | summit | 101 | ◐ prio ≥ 60 (Gipfel and above) | ✅ | Haupthügel, Hügel and Felskopf are never labelled |
 | pass | 24 | ◐ prio ≥ 60 (not Strassenpass) | ✅ | |
@@ -52,7 +52,7 @@ appear as a route waypoint (panel B, profile ticks, trail log, footer ticker).
 
 ### Routes
 
-| Data | Bundle field | Shown | Where | Unused / ideas |
+| Data | Field (`routes/<id>.bin`) | Shown | Where | Unused / ideas |
 |---|---|---|---|---|
 | Geometry, sampled every 10 m | `e`, `n` | ✅ | Selected and hover ribbons, click and hover picking on the map, LV95 coordinate column | No export (GPX) |
 | Altitude per sample (DTM2) | `alt` | ✅ | Profile (E), sparklines, hiker | — |
@@ -60,7 +60,6 @@ appear as a route waypoint (panel B, profile ticks, trail log, footer ticker).
 | Surface per sample | `surf` | ✗ | — | Mark asphalt stretches on the profile or ribbon; log "on asphalt for 2 km" |
 | Number, name, from, to, category | `number` … `category` | ✅ | Route list (D), tickers, stage title | — |
 | Source (SchweizMobil / curated) | `source` | ◐ | Implied by the "classic" group | — |
-| Clipped at either end | `clipped` | ◐ | ✂ in the route list, "Region edge →" waypoints | Not marked on the map or the profile |
 | Distance, climb, descent, time | `stats.km/up/down/time` | ✅ | Everywhere | — |
 | Time in reverse | `stats.timeBack` | ✅ | ⇄ REV in the route player (A) walks the route to → from (`reverseRoute`, `&reverse=1` in the URL); top ticker "BACK" | — |
 | Min / max altitude | `stats.minAlt/maxAlt` | ✅ | Terrain analysis (I), chart scales | — |
@@ -71,15 +70,16 @@ appear as a route waypoint (panel B, profile ticks, trail log, footer ticker).
 
 ### Region metadata
 
-| Data | Bundle field | Shown | Where | Unused / ideas |
+| Data | Field (`regions.json`, `manifest.json`) | Shown | Where | Unused / ideas |
 |---|---|---|---|---|
 | Title, cantons | `title`, `cantons` | ✅ | Region button (brand line), region browser, stage head, locator, classics group in the route list | — |
 | Subtitle | `subtitle` | ✅ | Region browser list; locator meta while a region is hovered; tooltip on the region button | — |
 | Bounding box | `bbox` | ✅ | Locator box, LV95 and WGS84 readouts, sunrise / sunset | — |
-| Region index: every built region's title, cantons, bbox, default route and route count | `public/data/regions.json` (not in the bundle) | ✅ | Region browser (map and list); the other regions' boxes in the locator (G), which open them | — |
-| Region facts: curated hike count, trail km per class, altitude range | `regions.json` `classics`, `trailKm`, `alt` (from the bundles) | ✅ | Region browser list | — |
-| Source list | `sources` | ✗ | — | The footer hard-codes "© swisstopo · SchweizMobil · geo.admin.ch"; an about panel could list and link them |
-| Build time | `generated` | ✗ | — | Data freshness ("trails as of …") |
+| Region index: every region's title, cantons, bbox, default route and route count | `regions.json` | ✅ | Region browser (map and list); the other regions' boxes in the locator (G), which open them | — |
+| Region facts: curated hike count, trail km per class, hard km, altitude range | `regions.json` `classics`, `trailKm`, `hardKm`, `alt` | ✅ | Region browser list; trail class (C) | — |
+| Route catalogue: every route's meta, stats, bbox, sparkline and regions | `catalogue.json` | ◐ | Which routes a region lists; route windows | A national route search |
+| Source list, with dataset links and terms | `manifest.json` `sources` | ◐ | The footer credits and links ©swisstopo and Wanderland Schweiz © FEDRO, with LICENCES (`NOTICE.txt`) | An about panel could list all of them |
+| Build time | `manifest.json` `generated` | ✗ | — | Data freshness ("trails as of …") |
 
 ### Derived in the app (not stored)
 
@@ -92,14 +92,13 @@ appear as a route waypoint (panel B, profile ticks, trail log, footer ticker).
 
 ## 2. Downloaded by the pipeline but dropped
 
-Adding any of these means a pipeline change plus a bundle format change (`types.ts` and
-`BUNDLE_VERSION`, and for `terrain.bin` or `trails.bin` the encoder and decoder in
+Adding any of these means a pipeline change plus an atlas format change (`types.ts` and
+`ATLAS_FORMAT`, and for the tiles or route files the encoder and decoder in
 `src/data/codec.ts`).
 
 | Dataset | Kept | Dropped | Feature ideas |
 |---|---|---|---|
 | swissALTI3D | 4 m overview, box-averaged to a 20 m grid | The 2 m full resolution | Finer grid for small regions or a detail tile around the selected route |
-| SWISSIMAGE WMTS | One mosaic at zoom 20, scaled to 2048 px | Finer zoom levels | Sharper imagery near the route |
 | swissTLM3D Wanderwege: `objektart` | — | Path width / type: 2 m Weg 1904, 1 m Weg 1640, 3 m Strasse 1368, Markierte Spur 192, … (Alpstein line counts) | Show "marked track" vs road; filter out road stretches |
 | swissTLM3D Wanderwege: `kunstbaute` | — | Brücke 341, Treppe 27, Furt 20, Tunnel 3, Galerie 1, … | Bridges, stairs and fords as route events in the trail log |
 | swissTLM3D Wanderwege: `verkehrsbeschraenkung` | — | **Gesicherte Kletterpartie 7** (secured climbing sections), general restrictions 50 | Flag secured sections on routes: very relevant for Lisengrat-style hikes |
@@ -109,14 +108,14 @@ Adding any of these means a pipeline change plus a bundle format change (`types.
 | swissNAMES3D polygons (`_PLY.csv`) | See, Grat | Graben 77, Gebiet 57, Tal 4, Gletscher 2, Campingplatzareal 5, Öffentliches Parkplatzareal 2, … | Valley and area names; parking at trailheads |
 | swissNAMES3D lines (`_LIN.csv`) | Not read | Fliessgewässer 113, Skilift 14, Luftseilbahn 6, Sesselbahn 3, Gondelbahn 2 | Draw cable cars (Ebenalp, Säntis, Hoher Kasten) as lines; streams |
 | swissBOUNDARIES3D | National and canton outlines, simplified to 400 m | `tlm_bezirksgebiet`, `tlm_hoheitsgebiet` (districts, municipalities), full-detail rings, Liechtenstein | Canton and municipality borders on the terrain |
-| SchweizMobil `ch.astra.wanderland` | Title, number, geometry inside the bbox | Geometry outside the bbox; `chmobil_has_segment` | Show where a clipped route continues |
+| SchweizMobil `ch.astra.wanderland` | Title, number, whole geometry | `chmobil_has_segment`; routes no region lists | A national catalogue of all 976 routes and stages |
 | Profile service | `DTM2` | `DTM25`, `COMB` | None: DTM2 is the finest model |
 
 ## 3. Not used yet
 
 Open geo.admin.ch datasets that fit the product. The layer ids were checked against the API, the
 WMTS capabilities or STAC in October 2026. The app never calls geo.admin.ch at runtime, so all of
-them would be baked into the bundle at build time.
+them would be baked into the atlas at build time.
 
 | Dataset | Layer / collection id | Feature ideas | Caveat |
 |---|---|---|---|
@@ -130,6 +129,7 @@ them would be baked into the bundle at build time.
 | swissBUILDINGS3D 3.0 | `ch.swisstopo.swissbuildings3d_3_0` (STAC) | Huts and summit buildings in 3D | |
 | Slopes over 30° | `ch.swisstopo.hangneigung-ueber_30` (WMTS) | Steep-terrain overlay | Can also be computed from `terrain.bin` with no new data |
 | Relief shading | `ch.swisstopo.swissalti3d-reliefschattierung` (WMTS) | Hillshade texture for the light scheme | Can also be computed from `terrain.bin` |
-| National map | `ch.swisstopo.pixelkarte-farbe` (WMTS) | A third colour mode next to MONO and SWISSIMAGE | |
+| National map | `ch.swisstopo.pixelkarte-farbe` (WMTS) | A second colour mode next to MONO | |
+| SWISSIMAGE orthophoto | `ch.swisstopo.swissimage` (WMTS) | Was a point colour mode until 0.12 | Dropped in 0.13: about 95 MB for all of Switzerland, for a mode few used |
 | Snowshoe and ski touring routes | `ch.swisstopo-karto.schneeschuhrouten`, `ch.swisstopo-karto.skitouren` | Winter routes | Outside hiking scope; owner decision |
 | Mountain bike routes | `ch.astra.mountainbikeland` | Shared trail segments | Outside hiking scope; owner decision |

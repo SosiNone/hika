@@ -65,9 +65,10 @@ not been published yet: **release it as is, without bumping**. Bumping would ski
 never shipped. Use the tag-as-is path in step 5.
 
 Otherwise, pick a bump. The project is pre-1.0 (`0.y.z`), so follow the usual 0.x semver convention:
-- **minor** (`0.1.0 → 0.2.0`): new features, new regions, user-visible changes to the HUD,
-  or a change to the bundle format (`trails.bin`, `region.json`, `RegionBundle`).
-- **patch** (`0.1.0 → 0.1.1`): fixes, docs, CI, refactors, data refreshes with no format change.
+- **minor** (`0.1.0 → 0.2.0`): new features, user-visible changes to the HUD, or reading a new
+  atlas format (`ATLAS_FORMAT` in `src/data/types.ts`). New regions and data refreshes ship from the
+  hika-data repo and need no app release.
+- **patch** (`0.1.0 → 0.1.1`): fixes, docs, CI, refactors.
 - **major**: only when the user decides the project is 1.0 or later.
 
 Use the bump the user named if they named one; otherwise decide yourself. Note the version and a
@@ -75,8 +76,8 @@ short grouped summary of the commits (features / fixes / other) for the final re
 
 ## 4. Run the checks
 
-`task release` runs `task check` itself (type-check, tests and every region bundle, as the deploy
-workflow does), but run it first so a failure shows up before anything is committed or tagged:
+`task release` runs `task check` itself (type-check and tests, as the deploy workflow does), but
+run it first so a failure shows up before anything is committed or tagged:
 
 ```bash
 task check

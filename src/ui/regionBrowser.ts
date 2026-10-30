@@ -1,4 +1,4 @@
-import { prefetchRegion, type Region } from '../data/load';
+import { prefetchRegion, type Atlas, type Region } from '../data/load';
 import type { RegionSummary } from '../data/types';
 import type { TerrainView } from '../gl/terrain';
 import { cameraCone, hitRegion, regionDetail, SwissMap, type Sway, type Target } from '../hud/switzerland';
@@ -27,8 +27,8 @@ function onScreen(el: Element): boolean {
  * back. With the tile scrolled off screen it zooms in and out on its own. Without view transitions,
  * or under prefers-reduced-motion, it opens and closes at once.
  */
-export function mountRegionBrowser(region: Region, regions: RegionSummary[], view: TerrainView, go: (id: string) => void, tile: HTMLElement, sway: Sway) {
-  const current = region.bundle.id;
+export function mountRegionBrowser(atlas: Atlas, region: Region, view: TerrainView, go: (id: string) => void, tile: HTMLElement, sway: Sway) {
+  const current = region.summary.id, regions = atlas.regions;
   const dialog = document.createElement('dialog');
   dialog.className = 'region-browser';
   dialog.setAttribute('aria-labelledby', 'rb-title rb-meta');
@@ -49,7 +49,7 @@ export function mountRegionBrowser(region: Region, regions: RegionSummary[], vie
   items.get(current)?.classList.add('current');
   items.get(current)?.querySelector('.rb-line')!.insertAdjacentHTML('beforeend', '<em>CURRENT</em>');
   const ch = chart(q('.rb-map'));
-  const map = new SwissMap(region.bundle.locator, region.swiss, regions, current);
+  const map = new SwissMap(atlas.locator, atlas.swiss, regions, current);
   const still = matchMedia('(prefers-reduced-motion: reduce)').matches;
 
   let matches = regions, matchIds: Set<string> | null = null, active: string | null = current, picked: string | null = null;
@@ -103,7 +103,7 @@ export function mountRegionBrowser(region: Region, regions: RegionSummary[], vie
     el.setAttribute('aria-selected', 'true');
     filter.setAttribute('aria-activedescendant', el.id);
     if (scroll) el.scrollIntoView({ block: 'nearest' });
-    if (id !== current) dwell = window.setTimeout(() => prefetchRegion(id), 200);
+    if (id !== current) dwell = window.setTimeout(() => prefetchRegion(atlas, id), 200);
   };
   const applyFilter = () => {
     matches = filterRegions(regions, filter.value);
@@ -158,7 +158,7 @@ export function mountRegionBrowser(region: Region, regions: RegionSummary[], vie
     else {
       picked = r.id;
       setActive(r.id, true);
-      if (r.id !== current) prefetchRegion(r.id);
+      if (r.id !== current) prefetchRegion(atlas, r.id);
     }
   });
 

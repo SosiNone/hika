@@ -5,10 +5,19 @@ below keep their own terms.
 
 ## Data
 
-- swissALTI3D, SWISSIMAGE, swissTLM3D Wanderwege, swissNAMES3D, swissBOUNDARIES3D:
-  © Federal Office of Topography swisstopo. Open government data, free use with source attribution.
-- Wanderland Schweiz route network: © SchweizMobil / Federal Roads Office ASTRA, via map.geo.admin.ch.
-- Height profiles: geo.admin.ch profile service (swissALTI3D DTM2).
+HIKA's data, the atlas, is built from the open data below and published, processed, in the
+[hika-data](https://github.com/SosiNone/hika-data) repository. It keeps its owners' terms, not the
+MIT licence. HIKA is not affiliated with or endorsed by any of them, and the processed data come
+with no warranty: check signposts, conditions and closures before you hike.
+
+- swissALTI3D, swissTLM3D Wanderwege, swissNAMES3D, swissBOUNDARIES3D: ©swisstopo (Federal Office
+  of Topography swisstopo). Free geodata (OGD), any use with the source credited:
+  https://www.swisstopo.admin.ch/en/terms-of-use-free-geodata-and-geoservices
+- Wanderland Schweiz (the SchweizMobil hiking routes): Federal Roads Office FEDRO, SchweizMobil and
+  the cantons, https://data.geo.admin.ch/browser/index.html#/collections/ch.astra.wanderland.
+  Open use, must provide the source: https://opendata.swiss/en/terms-of-use/#terms_by
+- Height profiles: geo.admin.ch profile service (swissALTI3D DTM2), used within the fair-use limits
+  of the FSDI terms: https://www.geo.admin.ch/en/general-terms-of-use-fsdi
 - Hiking-time pace table: digitised from the "Zeitberechnungsdiagramm" © 1986 Schweizer Wanderwege,
   as reproduced in ASTRA Vollzugshilfe Langsamverkehr Nr. 6 "Signalisation Wanderwege" (2008).
 

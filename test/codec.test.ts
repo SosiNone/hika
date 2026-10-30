@@ -1,5 +1,6 @@
 import { describe, expect, it } from 'vitest';
-import { decodeGrid, decodeTrails, encodeGrid, encodeTrails, type Trails } from '../src/data/codec';
+import { decodeGrid, decodeRoute, decodeTrails, encodeGrid, encodeRoute, encodeTrails, type Trails } from '../src/data/codec';
+import type { AtlasRoute } from '../src/data/types';
 
 const buffer = (b: Uint8Array) => b.buffer.slice(b.byteOffset, b.byteOffset + b.byteLength) as ArrayBuffer;
 
@@ -37,7 +38,30 @@ describe('trails', () => {
   });
   it('refuses the old format', () => {
     const old = encodeTrails(trails);
-    old.set([72, 75, 84, 82]); // 'HKTR', bundle format 1
+    old.set([72, 75, 84, 82]); // 'HKTR', the format before HKT2
     expect(() => decodeTrails(buffer(old))).toThrow(/HKT2/);
+  });
+});
+
+describe('atlas route', () => {
+  const route: AtlasRoute = {
+    id: 'sm-951.00', number: '951', name: 'Test', from: 'A', to: 'B', source: 'schweizmobil', category: 'local', step: 10,
+    // Absolute LV95 to 0.1 m, stepping back and forth; altitudes above 3276.7 m and a descent.
+    e: [2736000.1, 2736009.9, 2736001.4, 2735991.5],
+    n: [1227000, 1227005.3, 1227012.8, 1227004.2],
+    alt: [4633.9, 4630.2, 4634.5, 1795.0],
+    cls: [0, 1, 255, 2],
+    surf: [1, 0, 0, 1],
+    stats: { km: 0.03, up: 4, down: 2839, time: 30, timeBack: 90, minAlt: 1795, maxAlt: 4635, classKm: [0.01, 0.01, 0, 0.01], hardKm: 0.01, steepKm: 0 },
+    waypoints: [{ place: 'p1', km: 0, alt: 4634, time: 0 }, { place: 'p2', km: 0.03, alt: 1795, time: 30 }],
+    places: [{ id: 'p1', name: 'Dufourspitze', kind: 'summit', e: 2736000, n: 1227000, alt: 4634, prio: 100 }],
+  };
+
+  it('round-trips samples, meta, waypoints and places', () => {
+    const back = decodeRoute(buffer(encodeRoute(route)));
+    expect(back).toEqual(route);
+  });
+  it('refuses samples too far apart for a 16-bit delta', () => {
+    expect(() => encodeRoute({ ...route, e: [2736000, 2740000, 2740001, 2740002] })).toThrow(/too far apart/);
   });
 });

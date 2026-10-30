@@ -1,6 +1,6 @@
 import { lookAt, multiply, perspective, type Mat4 } from './glkit';
 
-type Pose = { az: number; el: number; dist: number; target: number[] };
+export type Pose = { az: number; el: number; dist: number; target: number[] };
 
 /**
  * Orbit camera around a target: drag to orbit, wheel to zoom, right-drag / shift-drag to pan. On a
@@ -34,7 +34,14 @@ export class OrbitCamera {
   }
 
   snapshot(): Pose { return { az: this.az, el: this.el, dist: this.dist, target: [...this.target] }; }
-  setHome() { this.home = this.snapshot(); }
+  setHome(pose: Pose = this.snapshot()) { this.home = { ...pose, target: [...pose.target] }; }
+  /** Moves the target, any fly-to goal and the home by `d` (world metres), as when the world's origin moves. */
+  shift(d: number[]) {
+    const move = (p: number[]) => p.map((v, i) => v + d[i]);
+    this.target = move(this.target);
+    if (this.goal) this.goal.target = move(this.goal.target);
+    this.home.target = move(this.home.target);
+  }
   reset() { this.flyTo(this.home); }
   flyTo(goal: Partial<Pose>) {
     const { az: _, ...rest } = this.snapshot();

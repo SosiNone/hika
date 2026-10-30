@@ -1,23 +1,26 @@
 /**
- * Byte layouts of terrain.bin and trails.bin (bundle format 2), shared by the pipeline (encode)
- * and the app (decode) so the two cannot drift apart.
+ * Byte layouts of the atlas files (format 3): terrain and trail tiles and route files. Shared by
+ * the pipeline (encode) and the app (decode) so the two cannot drift apart.
  *
- * Both store 16-bit values as residuals from a predictor, modulo 2^16, with all low bytes before
+ * All of them store 16-bit values as residuals from a predictor, modulo 2^16, with all low bytes before
  * all high bytes. The residuals are small and the high-byte plane is nearly constant, so git's
  * zlib and the web server's gzip shrink the files by about half. They are deliberately left
  * uncompressed, so a small data change stays a small change in the file and git can delta it.
  */
+
+import type { AtlasRoute } from './types';
 
 /** Trail network as the app uses it. */
 export interface Trails {
   offsets: Uint32Array;
   cls: Uint8Array;
   hard: Uint8Array;
-  /** Uint16 metre pairs (e, n) relative to the bbox south-west corner. */
+  /** Uint16 metre pairs (e, n): from a tile's south-west corner plus TRAIL_BIAS, or from a window's corner. */
   xy: Uint16Array;
 }
 
 const TRAILS_MAGIC = 'HKT2';
+const ROUTE_MAGIC = 'HKR3';
 
 /** Gradient predictor (left + up − upper-left), falling back to up in the first column and left in the first row. */
 function predict(h: Uint16Array, i: number, cols: number): number {
@@ -80,6 +83,53 @@ export function decodeTrails(buf: ArrayBuffer): Trails {
     xy[2 * v + 1] = (xy[2 * v + 1] + xy[2 * v - 1]) & 0xffff;
   }
   return { offsets, cls, hard, xy };
+}
+
+/**
+ * routes/<id>.bin: 'HKR3', the byte length of a UTF-8 JSON head (Uint32), the head (everything
+ * but the samples, plus the sample count and the first sample's e, n and alt in decimetres), then
+ * per sample: e, n and alt in decimetres as deltas from the sample before (signed 16-bit, so
+ * samples must be under 3.2 km apart), in byte planes, then the class and surface bytes.
+ */
+export function encodeRoute(r: AtlasRoute): Uint8Array {
+  const { e, n, alt, cls, surf, ...head } = r;
+  const count = e.length;
+  if ([n, alt, cls, surf].some((a) => a.length !== count)) throw new Error(`${r.id}: sample arrays differ in length`);
+  const dm = (v: number[]) => v.map((x) => Math.round(x * 10));
+  const [E, N, A] = [dm(e), dm(n), dm(alt)];
+  const json = new TextEncoder().encode(JSON.stringify({ ...head, samples: count, origin: [E[0] ?? 0, N[0] ?? 0, A[0] ?? 0] }));
+  const deltas = (v: number[]) => Uint16Array.from(v, (x, i) => {
+    const d = i ? x - v[i - 1] : 0;
+    if (d < -32768 || d > 32767) throw new Error(`${r.id}: samples ${i - 1} and ${i} are too far apart`);
+    return d & 0xffff;
+  });
+  const out = new Uint8Array(8 + json.length + count * 8), view = new DataView(out.buffer);
+  for (let k = 0; k < 4; k++) out[k] = ROUTE_MAGIC.charCodeAt(k);
+  view.setUint32(4, json.length, true);
+  out.set(json, 8);
+  let p = 8 + json.length;
+  for (const plane of [deltas(E), deltas(N), deltas(A)]) { out.set(toPlanes(plane), p); p += count * 2; }
+  out.set(cls, p);
+  out.set(surf, p + count);
+  return out;
+}
+
+export function decodeRoute(buf: ArrayBuffer): AtlasRoute {
+  const bytes = new Uint8Array(buf), view = new DataView(buf);
+  const magic = String.fromCharCode(...bytes.subarray(0, 4));
+  if (magic !== ROUTE_MAGIC) throw new Error(`route: expected ${ROUTE_MAGIC}, found ${magic}`);
+  const len = view.getUint32(4, true);
+  const { samples: count, origin, ...head } = JSON.parse(new TextDecoder().decode(bytes.subarray(8, 8 + len))) as Omit<AtlasRoute, 'e' | 'n' | 'alt' | 'cls' | 'surf'> & { samples: number; origin: [number, number, number] };
+  let p = 8 + len;
+  const plane = (first: number) => {
+    const d = fromPlanes(bytes.subarray(p, p + count * 2)), out = new Array<number>(count);
+    p += count * 2;
+    // Deltas are signed: shift the sign bit of each 16-bit value up and back.
+    for (let i = 0, v = first; i < count; i++) { v += (d[i] << 16) >> 16; out[i] = v / 10; }
+    return out;
+  };
+  const [e, n, alt] = [plane(origin[0]), plane(origin[1]), plane(origin[2])];
+  return { ...head, e, n, alt, cls: Array.from(bytes.subarray(p, p + count)), surf: Array.from(bytes.subarray(p + count, p + 2 * count)) };
 }
 
 /** All low bytes, then all high bytes. */

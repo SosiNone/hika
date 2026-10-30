@@ -1,4 +1,8 @@
-/** Shape of a generated region bundle (public/data/<region>/region.json + binaries). */
+/**
+ * The data the pipeline writes and the app reads: the atlas (format 3, see AGENTS.md), a national
+ * store of tiles laid out by src/data/tiles.ts, routes, a catalogue and the regions. Everything in
+ * it is in absolute LV95 (EPSG:2056) metres.
+ */
 
 /** LV95 [minE, minN, maxE, maxN] in metres. */
 export type BBox = [number, number, number, number];
@@ -57,11 +61,9 @@ export interface Route {
   to: string;
   source: 'schweizmobil' | 'curated';
   category: RouteCategory;
-  /** Whether the route continues beyond the region at its start / end. */
-  clipped: [boolean, boolean];
   /** Metres between samples. */
   step: number;
-  /** Sample coordinates in metres relative to the bbox south-west corner. */
+  /** Sample coordinates in LV95 metres (to 0.1 m). */
   e: number[];
   n: number[];
   /** swissALTI3D (DTM2) altitude per sample from the geo.admin.ch profile service. */
@@ -74,37 +76,56 @@ export interface Route {
 }
 
 export interface Source {
+  /** Dataset title. */
   name: string;
   owner: string;
+  /** The dataset itself, which its terms ask a credit to link to. */
   url: string;
+  /** Its terms of use. */
+  terms: string;
 }
 
-/** Bundle format the app reads: 2 stores terrain.bin and trails.bin delta-encoded (src/data/codec.ts). */
-export const BUNDLE_VERSION = 2;
+export const ATLAS_FORMAT = 3;
 
-export interface RegionBundle {
-  version: typeof BUNDLE_VERSION;
-  id: string;
-  title: string;
-  subtitle: string;
-  cantons: string[];
-  bbox: BBox;
-  /**
-   * terrain.bin (`encodeGrid`): row-major, row 0 at the north edge, cell centres, decimetres;
-   * 0 = no data.
-   */
-  grid: { file: string; cols: number; rows: number; cell: number; minAlt: number; maxAlt: number };
-  ortho: { file: string; width: number; height: number };
-  trails: { file: string; lines: number; vertices: number; km: [number, number, number]; hardKm: number };
-  places: Place[];
-  routes: Route[];
-  locator: Locator;
+/** v3/manifest.json */
+export interface AtlasManifest {
+  format: typeof ATLAS_FORMAT;
+  /** Tile edge and terrain cell (m). */
+  tile: number;
+  cell: number;
+  /** Keys of the tiles present, sorted; each has a terrain/, trails/ and places/ file. */
+  tiles: string[];
+  /** Route count (catalogue.json lists them). */
+  routes: number;
   sources: Source[];
   generated: string;
 }
 
+/** routes/<id>.bin (`encodeRoute`): one whole route, never clipped. */
+export interface AtlasRoute extends Route {
+  /** The places its waypoints name, so a route can be shown without the place tiles. */
+  places: Place[];
+}
+
+/** v3/catalogue.json: every route, enough to list and search them without the route files. */
+export interface Catalogue {
+  format: typeof ATLAS_FORMAT;
+  /** Sorted by id. */
+  routes: CatalogueEntry[];
+}
+
+export interface CatalogueEntry extends Pick<Route, 'id' | 'number' | 'name' | 'from' | 'to' | 'source' | 'category' | 'stats'> {
+  /** LV95 extent of the samples, whole metres. */
+  bbox: BBox;
+  /** Altitudes (m) at SPARK_POINTS evenly spaced samples, for sparklines. */
+  spark: number[];
+  /** Regions whose route list includes it (their `minInside` rules). */
+  regions: string[];
+}
+
+/** v3/locator.json, with the coarse national relief in v3/switzerland.u16. */
 export interface Locator {
-  /** switzerland.u16: coarse national relief as raw Uint16 decimetres (small, and the same file in every bundle). */
+  /** The relief as raw Uint16 decimetres. */
   file: string;
   bbox: BBox;
   cols: number;
@@ -115,9 +136,9 @@ export interface Locator {
   cantons: number[][];
 }
 
-/** public/data/regions.json: every built region, written by the pipeline (scripts/lib/regions.ts). */
+/** v3/regions.json: the regions, curated entry points into the atlas (scripts/lib/regions.ts). */
 export interface RegionIndex {
-  version: 2;
+  version: 3;
   /** Sorted by title. */
   regions: RegionSummary[];
 }
@@ -128,17 +149,20 @@ export interface RegionSummary {
   subtitle: string;
   cantons: string[];
   bbox: BBox;
-  /** Route id selected when a link names no route (or one the region doesn't have). */
+  /** Route id selected when a link names no route (or one the region doesn't list). */
   defaultRoute: string;
   routes: number;
   /** How many of the routes are curated hikes (classics). */
   classics: number;
   /** Signposted network in the box, km per class (Wanderweg, Bergwanderweg, Alpinwanderweg). */
   trailKm: [number, number, number];
+  /** Of it, km on a hard surface. */
+  hardKm: number;
   /** Lowest and highest terrain in the box (m). */
   alt: [number, number];
 }
 
+/** regions/<id>.json: a region as written by hand; build-atlas reads it. */
 export interface RegionConfig {
   id: string;
   title: string;
@@ -147,12 +171,10 @@ export interface RegionConfig {
   bbox: BBox;
   /** Route id (`sm-…` or `c-…`) to open by default; the first curated hike otherwise. */
   defaultRoute?: string;
-  cell: number;
-  orthoZoom: number;
-  orthoWidth: number;
-  /** Drop official routes with less than this share of their length inside the bbox. */
+  /** List an official route only with at least this share of its length (and these km) inside the bbox. */
   minInside: number;
   minInsideKm: number;
+  /** SchweizMobil ids to leave out of the atlas altogether (e.g. a route abroad). */
   excludeRoutes: string[];
   curated: CuratedHike[];
 }
@@ -163,3 +185,5 @@ export interface CuratedHike {
   /** Waypoint names resolved through swissNAMES3D; `kind` or `near` disambiguate. */
   via: { name: string; kind?: PlaceKind; near?: [number, number] }[];
 }
+
+export const SPARK_POINTS = 24;

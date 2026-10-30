@@ -6,7 +6,7 @@
  *   npm run scout:regions -- --places <id|bbox>  huts, lifts, stops, lakes and summits in a box, for curated hikes
  *
  * --at can repeat, and each box avoids the ones before it. --size 24x19 sets the box in km (the
- * default keeps a bundle under its 6 MB budget at 20 m cells). Scoring is in scripts/lib/scout.ts.
+ * default keeps the windows a region opens within check-atlas's budget). Scoring is in scripts/lib/scout.ts.
  */
 import { readdirSync, readFileSync } from 'node:fs';
 import type { BBox, Place, PlaceKind, RegionConfig } from '../src/data/types';

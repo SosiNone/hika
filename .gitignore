@@ -1,6 +1,8 @@
 node_modules/
 dist/
 .cache/
+# A local build of the atlas; the published one lives in the hika-data repo.
+.atlas/
 *.log
 .DS_Store
 .task/

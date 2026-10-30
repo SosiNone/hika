@@ -1,5 +1,6 @@
 import { existsSync, mkdirSync, readFileSync, writeFileSync } from 'node:fs';
 import { fromUrl } from 'geotiff';
+import { CELL, TILE as ATLAS_TILE, TILE_CELLS, tileKey } from '../../src/data/tiles';
 import type { BBox } from '../../src/data/types';
 import { mapLimit, withSlot } from './http';
 import { stacItems } from './stac';
@@ -14,7 +15,7 @@ export interface Grid { cols: number; rows: number; cell: number; data: Float32A
  * Each 1 km tile is box-averaged from its internal 4 m overview, so only a few HTTP range
  * requests are needed per tile. Cells without data are NaN.
  */
-export async function buildTerrain(bbox: BBox, cell: number): Promise<Grid> {
+export async function buildTerrain(bbox: BBox, cell: number, quiet = false): Promise<Grid> {
   const [minE, minN, maxE, maxN] = bbox;
   if (TILE % cell !== 0 || cell % 4 !== 0) throw new Error(`cell must divide ${TILE} and be a multiple of 4 m`);
   const cols = (maxE - minE) / cell, rows = (maxN - minN) / cell;
@@ -31,7 +32,7 @@ export async function buildTerrain(bbox: BBox, cell: number): Promise<Grid> {
   const tiles = [...newest.entries()]
     .map(([key, v]) => ({ key, e: +key.split('-')[0] * TILE, n: +key.split('-')[1] * TILE, ...v }))
     .filter((t) => t.e < maxE && t.e + TILE > minE && t.n < maxN && t.n + TILE > minN);
-  console.log(`  swissALTI3D: ${tiles.length} tiles`);
+  if (!quiet) console.log(`  swissALTI3D: ${tiles.length} tiles`);
 
   const per = TILE / cell;
   mkdirSync(CACHE, { recursive: true });
@@ -45,7 +46,7 @@ export async function buildTerrain(bbox: BBox, cell: number): Promise<Grid> {
         if (col >= 0 && col < cols) data[row * cols + col] = block[j * per + i];
       }
     }
-  }, 'terrain tiles', 100);
+  }, quiet ? undefined : 'terrain tiles', 100);
   return { cols, rows, cell, data };
 }
 
@@ -81,6 +82,24 @@ export function sampleGrid(g: Grid, bbox: BBox, e: number, n: number): number {
   const top = d[j * c + i] * (1 - fx) + d[j * c + i + 1] * fx;
   const bottom = d[(j + 1) * c + i] * (1 - fx) + d[(j + 1) * c + i + 1] * fx;
   return top * (1 - fy) + bottom * fy;
+}
+
+/**
+ * Bilinear height (m) at an LV95 point from atlas terrain tiles (keyed by `tileKey`, Uint16
+ * decimetres, row 0 north, 0 = no data), over the corners that have data; NaN where none do.
+ */
+export function sampleTiles(tiles: Map<string, Uint16Array>, e: number, n: number): number {
+  // Global cell (a, b) has its centre at ((a + 0.5) · CELL, (b + 0.5) · CELL), b counting north.
+  const x = e / CELL - 0.5, y = n / CELL - 0.5;
+  const i = Math.floor(x), j = Math.floor(y), fx = x - i, fy = y - j;
+  let sum = 0, weight = 0;
+  for (const [a, b, w] of [[i, j, (1 - fx) * (1 - fy)], [i + 1, j, fx * (1 - fy)], [i, j + 1, (1 - fx) * fy], [i + 1, j + 1, fx * fy]]) {
+    const ta = Math.floor(a / TILE_CELLS), tb = Math.floor(b / TILE_CELLS);
+    const h = tiles.get(tileKey(ta * ATLAS_TILE, tb * ATLAS_TILE));
+    const v = h?.[(TILE_CELLS - 1 - (b - tb * TILE_CELLS)) * TILE_CELLS + (a - ta * TILE_CELLS)];
+    if (v) { sum += v * 0.1 * w; weight += w; }
+  }
+  return weight > 0 ? sum / weight : NaN;
 }
 
 /** Encodes heights as Uint16 decimetres (0 = no data); good to 6553 m, enough for the Alps. */

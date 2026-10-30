@@ -10,7 +10,7 @@ const minutes = cumulativeMinutes(alt, STEP);
 const back = cumulativeMinutes([...alt].reverse(), STEP);
 const route: Route = {
   id: 'c-test', number: null, name: 'Test', from: 'Valley', to: 'Ridge', source: 'curated', category: 'classic',
-  clipped: [true, false], step: STEP,
+  step: STEP,
   e: alt.map((_, i) => i * STEP), n: alt.map(() => 0), alt,
   cls: alt.map((_, i) => (i < 100 ? 0 : 1)), surf: alt.map((_, i) => (i < 20 ? 1 : 0)),
   stats: {
@@ -33,7 +33,6 @@ describe('reverseRoute', () => {
     expect(r.cls[0]).toBe(1);
     expect(r.surf[N - 1]).toBe(1);
     expect([r.from, r.to]).toEqual(['Ridge', 'Valley']);
-    expect(r.clipped).toEqual([false, true]);
     expect(r.id).toBe(route.id);
   });
 

@@ -48,7 +48,7 @@ export function mountDisplaySwitch(el: HTMLElement, store: Store) {
 /** Top-bar clock (Swiss local time) with today's sunrise / sunset over the region. */
 export function startClock(region: Region) {
   const date = document.getElementById('clock-date')!, time = document.getElementById('clock-time')!, sun = document.getElementById('clock-sun')!;
-  const bb = region.bundle.bbox;
+  const bb = region.summary.bbox;
   const [lon, lat] = lv95ToWgs84((bb[0] + bb[2]) / 2, (bb[1] + bb[3]) / 2);
   const tz = 'Europe/Zurich';
   const fmtTime = new Intl.DateTimeFormat('de-CH', { timeZone: tz, hour: '2-digit', minute: '2-digit', second: '2-digit' });

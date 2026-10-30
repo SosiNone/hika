@@ -1,6 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import type { XY } from '../src/geo/track';
-import { clipToBox } from '../scripts/lib/gpkg';
+import { clipToBox, type XY } from '../src/geo/track';
 import { TrailGraph } from '../scripts/lib/graph';
 import { chain } from '../scripts/lib/wanderland';
 

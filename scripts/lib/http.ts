@@ -4,6 +4,15 @@ import { join } from 'node:path';
 
 const CACHE_DIR = '.cache/http';
 const MAX_ACTIVE = 6;
+/**
+ * The geo.admin.ch REST services (api3, and the STAC API on data.geo.admin.ch) allow 40 requests a
+ * minute under the FSDI fair-use terms (https://www.geo.admin.ch/en/general-terms-of-use-fsdi), so
+ * requests to them start at least this far apart (ms). Cached answers cost nothing. File downloads,
+ * the swissALTI3D COGs and the GeoPackages, are the download service the terms send bulk use to.
+ */
+const REST_INTERVAL = 60_000 / 40;
+const REST = /^https:\/\/(api3\.geo\.admin\.ch|data\.geo\.admin\.ch\/api)\//;
+let nextRest = 0;
 let active = 0;
 const waiting: (() => void)[] = [];
 
@@ -36,7 +45,16 @@ export async function fetchJson<T>(url: string, init?: RequestInit2): Promise<T>
   return JSON.parse((await fetchCached(url, init)).toString('utf8')) as T;
 }
 
+/** Waits for the next fair-use slot of a REST request; other URLs go at once. */
+async function pace(url: string) {
+  if (!REST.test(url)) return;
+  const now = Date.now(), at = Math.max(now, nextRest);
+  nextRest = at + REST_INTERVAL;
+  if (at > now) await new Promise((r) => setTimeout(r, at - now));
+}
+
 async function fetchRetry(url: string, init: RequestInit2, attempt = 0): Promise<Buffer> {
+  await pace(url);
   try {
     const res = await fetch(url, init);
     if (res.status === 429 || res.status >= 500) throw new Error(`HTTP ${res.status}`);

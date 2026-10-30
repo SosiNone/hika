@@ -13,10 +13,9 @@ export interface Target { region: RegionSummary; rect: Rect; cx: number; cy: num
 
 /** The 3D map camera's footprint in LV95, for `SwissMapOptions.cone`. */
 export function cameraCone(view: TerrainView): SwissMapOptions['cone'] {
-  const cam = view.camera, eye = cam.eye(), [e0, n0] = view.region.bundle.bbox;
-  const [ee, en] = view.ground(eye[0], eye[2]), [te, tn] = view.ground(cam.target[0], cam.target[2]);
+  const cam = view.camera, eye = cam.eye();
   const aspect = view.canvas.clientWidth / Math.max(1, view.canvas.clientHeight);
-  return { eye: [e0 + ee, n0 + en], target: [e0 + te, n0 + tn], half: cam.hfov(aspect) / 2 };
+  return { eye: view.ground(eye[0], eye[2]), target: view.ground(cam.target[0], cam.target[2]), half: cam.hfov(aspect) / 2 };
 }
 
 /** The plate after a region's name on the maps: cantons and route count. */

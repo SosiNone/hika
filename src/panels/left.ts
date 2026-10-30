@@ -153,8 +153,8 @@ const CLASS_VARS = ['var(--wander)', 'var(--berg)', 'var(--alpin)', 'var(--text-
 /** C · Trail class composition of the route compared with the whole regional network. */
 export function mountTrailClass(el: HTMLElement, c: Ctx) {
   const { body, meta } = frame(el, 'C', 'Trail class');
-  const net = c.region.bundle.trails;
-  const netTotal = net.km[0] + net.km[1] + net.km[2];
+  const net = c.region.summary;
+  const netTotal = net.trailKm[0] + net.trailKm[1] + net.trailKm[2];
   meta.textContent = `NETWORK ${num(netTotal)} KM`;
   let built: RouteView | null = null;
   return () => {
@@ -166,7 +166,7 @@ export function mountTrailClass(el: HTMLElement, c: Ctx) {
     const stack = km.map((k, i) => (k > 0 ? `<div style="width:${(k / total) * 100}%;background:${CLASS_VARS[i]}" title="${labels[i]} ${k} km"></div>` : '')).join('');
     const rows = km.map((k, i) => {
       if (i === 3 && k === 0) return '';
-      const ghost = i < 3 ? `<span class="ghost" style="left:${(net.km[i] / netTotal) * 100}%" title="share in the regional network"></span>` : '';
+      const ghost = i < 3 ? `<span class="ghost" style="left:${(net.trailKm[i] / netTotal) * 100}%" title="share in the regional network"></span>` : '';
       return `<div class="bar-row"><span>${labels[i]}</span><span class="track"><span class="fillbar" style="width:${(k / total) * 100}%;background:${CLASS_VARS[i]}"></span>${ghost}</span><span class="val">${k.toFixed(1)} KM</span></div>`;
     }).join('');
     body.innerHTML = `<div class="stack">${stack}</div><div class="bars">${rows}
@@ -181,7 +181,7 @@ const GROUPS = CATEGORY_ORDER.map((cat) => [cat, GROUP_TITLES[cat]] as const);
 
 /** D · Route switcher: every official and curated route in the region. */
 export function mountRoutes(el: HTMLElement, c: Ctx) {
-  const { body } = frame(el, 'D', `Routes · ${c.region.bundle.title}`, `${c.region.routes.length} ROUTES`, true);
+  const { body } = frame(el, 'D', `Routes · ${c.region.summary.title}`, `${c.region.routes.length} ROUTES`, true);
   const list = document.createElement('div');
   list.className = 'routes';
   body.appendChild(list);
@@ -190,13 +190,13 @@ export function mountRoutes(el: HTMLElement, c: Ctx) {
   for (const [cat, title] of GROUPS) {
     const routes = c.region.routes.filter((r) => r.category === cat);
     if (!routes.length) continue;
-    list.insertAdjacentHTML('beforeend', `<div class="route-group">${cat === 'classic' ? `${esc(c.region.bundle.title.toUpperCase())} ` : ''}${title}</div>`);
+    list.insertAdjacentHTML('beforeend', `<div class="route-group">${cat === 'classic' ? `${esc(c.region.summary.title.toUpperCase())} ` : ''}${title}</div>`);
     for (const r of routes) {
       const b = document.createElement('button');
       b.className = 'route-row';
       const climbs = `↑${r.stats.up} ↓${r.stats.down}`;
       b.innerHTML = `<span class="no">${r.number ?? '★'}</span><span class="nm" title="${esc(r.name)} (${esc(r.from)} → ${esc(r.to)})">${esc(r.name)}</span><canvas></canvas>
-        <span class="st"><span>${r.stats.km.toFixed(1)} KM</span><span>${climbs}</span><span>${formatDuration(r.stats.time, true)}</span>${r.clipped.some(Boolean) ? '<span title="continues beyond the region">✂</span>' : ''}</span>`;
+        <span class="st"><span>${r.stats.km.toFixed(1)} KM</span><span>${climbs}</span><span>${formatDuration(r.stats.time, true)}</span></span>`;
       b.onclick = () => c.store.set({ routeId: r.id, reversed: r.id === c.store.state.routeId && c.store.state.reversed, minute: 0, playing: true });
       // Mouse only: a tap would leave the hover set, ghosting this route once another one plays.
       b.onpointerenter = (e) => { if (e.pointerType === 'mouse') c.store.set({ hoverRouteId: r.id }); };

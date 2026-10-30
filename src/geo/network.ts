@@ -1,5 +1,5 @@
 /**
- * Walking distances over the trail network as the bundle stores it (`Trails` in src/data/codec.ts):
+ * Walking distances over the trail network of a window (`Trails` in src/data/codec.ts):
  * lines of integer-metre vertices that join where they share a vertex, as in the pipeline's
  * `TrailGraph`. The app uses it to show only the trails branching off the selected route.
  */

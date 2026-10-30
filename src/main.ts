@@ -1,6 +1,6 @@
 import './styles/hud.css';
-import { indexAtMinute, loadRegion, loadRegionIndex, reverseRoute, type Region, type RouteView } from './data/load';
-import type { RegionSummary } from './data/types';
+import { indexAtMinute, loadAtlas, loadRoutes, loadWindow, prefetchWindow, reverseRoute, type Atlas, type Region, type RouteView } from './data/load';
+import { covers, routeWindow } from './data/tiles';
 import { project } from './gl/glkit';
 import { RoutePicker } from './gl/picker';
 import { TerrainView, type TrailMode } from './gl/terrain';
@@ -25,13 +25,24 @@ showVersion(document.getElementById('version') as HTMLAnchorElement);
 async function boot() {
   const bootEl = document.getElementById('boot')!;
   try {
-    const { regions } = await loadRegionIndex();
-    const summary = pickRegion(regions, location.search);
-    if (!summary) throw new Error('data/regions.json lists no regions');
+    const atlas = await loadAtlas();
+    let summary = pickRegion(atlas.regions, location.search);
+    if (!summary) throw new Error('the atlas lists no regions');
+    const hash = new URLSearchParams(location.hash.slice(1));
+    const linked = atlas.catalogue.get(hash.get('route') ?? '');
+    // A link to a route another region lists opens that region.
+    if (linked && !linked.regions.includes(summary.id)) {
+      summary = atlas.regions.find((r) => r.id === linked.regions[0]) ?? summary;
+      const url = new URL(location.href);
+      url.searchParams.set('region', summary.id);
+      history.replaceState(null, '', url.href);
+    }
     bootEl.textContent = `LOADING ${summary.title.toUpperCase()}…`;
     document.title = `HIKA · ${summary.title}`;
-    const region = await loadRegion(summary.id);
-    start(region, summary, regions);
+    const { routes, places } = await loadRoutes(atlas, summary);
+    const first = routes.find((r) => r.id === linked?.id) ?? routes.find((r) => r.id === summary.defaultRoute) ?? routes[0];
+    const window = await loadWindow(atlas, routeWindow(atlas.catalogue.get(first.id)!.bbox, summary.bbox));
+    start(atlas, { summary, routes, places, window }, first.id, first.id === linked?.id && hash.get('reverse') === '1');
     bootEl.classList.add('done');
     setTimeout(() => bootEl.remove(), 700);
   } catch (err) {
@@ -41,12 +52,10 @@ async function boot() {
   }
 }
 
-function start(region: Region, summary: RegionSummary, regions: RegionSummary[]) {
-  const hash = new URLSearchParams(location.hash.slice(1));
-  const fromHash = hash.get('route');
+function start(atlas: Atlas, region: Region, routeId: string, reversed: boolean) {
   const store = new Store({
-    routeId: region.routes.some((r) => r.id === fromHash) ? fromHash! : region.routes.find((r) => r.id === summary.defaultRoute)?.id ?? region.routes[0].id,
-    reversed: region.routes.some((r) => r.id === fromHash) && hash.get('reverse') === '1',
+    routeId,
+    reversed,
     hoverRouteId: null,
     hoverIndex: null,
     minute: 0,
@@ -54,7 +63,6 @@ function start(region: Region, summary: RegionSummary, regions: RegionSummary[])
     secondsPerHour: 3,
     repeat: false,
     shuffle: false,
-    mode: 'mono',
     display: initialDisplay,
   });
   const byId = new Map(region.routes.map((r) => [r.id, r]));
@@ -80,17 +88,17 @@ function start(region: Region, summary: RegionSummary, regions: RegionSummary[])
   };
 
   const canvas = document.getElementById('terrain') as HTMLCanvasElement;
-  const view = new TerrainView(canvas, region);
+  const view = new TerrainView(canvas, region.window);
   view.palette = palette.gl;
   const labels = new LabelLayer(document.getElementById('terrain-hud') as HTMLCanvasElement, region, view);
-  // A region is a different bundle, so switching is a page load: the back button returns to the last one.
-  const goToRegion = (id: string) => { if (id !== region.bundle.id) location.assign(regionHref(id, location.href)); };
+  // Switching regions is a page load: the back button returns to the last one.
+  const goToRegion = (id: string) => { if (id !== region.summary.id) location.assign(regionHref(id, location.href)); };
   // The locator tile (G) and the region browser it grows into draw one map at one angle.
   const locator = document.getElementById('p-locator')!, sway = new Sway();
-  const browser = mountRegionBrowser(region, regions, view, goToRegion, locator, sway);
+  const browser = mountRegionBrowser(atlas, region, view, goToRegion, locator, sway);
   const openRegions = () => browser.open();
-  const ctx: Ctx = { region, regions, goToRegion, openRegions, store, view, route, hikerIndex: () => indexAtMinute(route(), store.state.minute), waypointIds: () => ids, playlist, skip };
-  mountRegionPicker(document.getElementById('brand-sub')!, regions, summary, openRegions);
+  const ctx: Ctx = { atlas, region, regions: atlas.regions, goToRegion, openRegions, store, view, route, hikerIndex: () => indexAtMinute(route(), store.state.minute), waypointIds: () => ids, playlist, skip };
+  mountRegionPicker(document.getElementById('brand-sub')!, atlas.regions, region.summary, openRegions);
   const overlay = mountStageOverlay(region, store, view);
 
   const panels = [
@@ -106,8 +114,30 @@ function start(region: Region, summary: RegionSummary, regions: RegionSummary[])
     mountLog(document.getElementById('p-log')!, ctx),
   ];
 
+  /** The window a route opens from this region, joined with its box where that fits. */
+  const windowOf = (id: string) => routeWindow(atlas.catalogue.get(id)!.bbox, region.summary.bbox);
+  /**
+   * Keeps the window while it shows the route whole, else loads the route's own and swaps it in
+   * (`TerrainView.load`); a later choice of route overrides a window still loading.
+   */
+  let windowRequest = 0;
+  const showWindowFor = (r: RouteView) => {
+    const request = ++windowRequest;
+    if (covers(region.window.bbox, atlas.catalogue.get(r.id)!.bbox)) return;
+    loadWindow(atlas, windowOf(r.id)).then((win) => {
+      if (request !== windowRequest) return;
+      region.window = win;
+      view.load(win);
+    }, (err: unknown) => console.error('could not load the terrain around', r.id, err));
+  };
+  /** Starts loading a route's window, if it needs another one, so choosing it is quick. */
+  const prefetchFor = (id: string | null) => {
+    if (id && !covers(region.window.bbox, atlas.catalogue.get(id)!.bbox)) prefetchWindow(atlas, windowOf(id));
+  };
+
   const selectRoute = (r: RouteView, fly = true) => {
     ids = waypointIds(r);
+    showWindowFor(r);
     view.setRoute(r);
     renderTickers(region, r, ids);
     if (fly && !(autoAdvance && view.camera.framed)) flyToRoute(view, r);
@@ -124,10 +154,10 @@ function start(region: Region, summary: RegionSummary, regions: RegionSummary[])
     // The selected route is never ghosted, also when it becomes or stops being the hovered one.
     if (s.hoverRouteId !== prev.hoverRouteId || s.routeId !== prev.routeId) {
       const hover = s.hoverRouteId && s.hoverRouteId !== s.routeId ? byId.get(s.hoverRouteId)! : null;
+      prefetchFor(hover?.id ?? null);
       view.setHover(hover);
       canvas.classList.toggle('over-route', hover !== null);
     }
-    if (s.mode !== prev.mode) view.mode = s.mode === 'natural' ? 1 : 0;
     if (s.display !== prev.display) {
       applyDisplay(s.display);
       saveDisplay(s.display);
@@ -147,6 +177,8 @@ function start(region: Region, summary: RegionSummary, regions: RegionSummary[])
     const hash = new URLSearchParams(location.hash.slice(1));
     const id = hash.get('route'), reversed = hash.get('reverse') === '1';
     if (id && byId.has(id) && (id !== store.state.routeId || reversed !== store.state.reversed)) store.set({ routeId: id, reversed, minute: 0, playing: true });
+    // A route another region lists: boot opens its region.
+    else if (id && !byId.has(id) && atlas.catalogue.has(id)) location.reload();
   });
 
   // Space plays / pauses, ← / → change route, G opens the region browser. Focused controls and an
@@ -185,7 +217,10 @@ function start(region: Region, summary: RegionSummary, regions: RegionSummary[])
       // Advance silently (panels poll the state); hold 2.5 s at the finish, then loop the route
       // (repeat) or play the next one.
       if (s.minute < total) store.state.minute = Math.min(total, s.minute + (dt * 60) / s.secondsPerHour);
-      else if (!holdUntil) holdUntil = now + 2500;
+      else if (!holdUntil) {
+        holdUntil = now + 2500;
+        if (!s.repeat) prefetchFor(playlist.step(s.routeId, 1));
+      }
       else if (now > holdUntil) {
         holdUntil = 0;
         if (s.repeat) store.state.minute = 0;
@@ -252,10 +287,9 @@ function mountStageOverlay(region: Region, store: Store, view: TerrainView) {
   // Mouse and keyboard hints, or touch hints on a touch screen (hud.css picks one).
   const hints = (items: string[]) => items.map((h) => `<span>${h}</span>`).join('');
   el.innerHTML = `
-    <div class="stage-head"><span class="slot">01</span><span class="title">${region.bundle.title.toUpperCase()} — HIKING NETWORK</span></div>
+    <div class="stage-head"><span class="slot">01</span><span class="title">${region.summary.title.toUpperCase()} — HIKING NETWORK</span></div>
     <div class="stage-readout" data-k="cam"></div>
-    <div class="stage-toggles"><div class="seg" role="group" aria-label="Colour mode"><button data-mode="mono" aria-pressed="true">MONO</button><button data-mode="natural" aria-pressed="false">SWISSIMAGE</button></div>
-      <button class="btn" data-k="vert">VERT ×1.5</button>
+    <div class="stage-toggles"><button class="btn" data-k="vert">VERT ×1.5</button>
       <button class="btn" data-k="trails"></button></div>
     <div class="stage-route" data-k="route"></div>
     <div class="coords" data-k="coords"></div>
@@ -265,12 +299,6 @@ function mountStageOverlay(region: Region, store: Store, view: TerrainView) {
     <div class="stage-status" data-k="status"></div>`;
   stage.appendChild(el);
   const q = (k: string) => el.querySelector<HTMLElement>(`[data-k="${k}"]`)!;
-  el.querySelectorAll<HTMLButtonElement>('[data-mode]').forEach((b) => {
-    b.onclick = () => {
-      store.set({ mode: b.dataset.mode as 'mono' | 'natural' });
-      el.querySelectorAll('[data-mode]').forEach((o) => o.setAttribute('aria-pressed', String(o === b)));
-    };
-  });
   const exags = [1, 1.5, 2, 3];
   q('vert').onclick = () => {
     view.exaggeration = exags[(exags.indexOf(view.exaggeration) + 1) % exags.length];
@@ -290,20 +318,26 @@ function mountStageOverlay(region: Region, store: Store, view: TerrainView) {
     showTrailMode();
   };
   showTrailMode();
-  const { grid } = region.bundle;
   // Altitude meter: a scale in round 500 m steps, a band over the range the scan sweeps, and a
-  // marker that follows the scan line.
-  const lo = Math.floor(grid.minAlt / 500) * 500, hi = Math.ceil(grid.maxAlt / 500) * 500;
+  // marker that follows the scan line. It is drawn for the window shown, and again when that changes.
+  let meterOf: TerrainView['win'] | null = null, lo = 0, hi = 1, mark: HTMLElement, markValue: HTMLElement;
   const pct = (alt: number) => `${((alt - lo) / (hi - lo)) * 100}%`;
-  const ticks: string[] = [];
-  for (let a = lo; a <= hi; a += 100) {
-    ticks.push(a % 500 ? `<i style="bottom:${pct(a)}"></i>` : `<i class="major" style="bottom:${pct(a)}"></i><span style="bottom:${pct(a)}">${a}</span>`);
-  }
-  q('meter').innerHTML = `<b class="range" style="bottom:${pct(grid.minAlt)};top:calc(100% - ${pct(grid.maxAlt)})"></b>${ticks.join('')}<div class="mark">▸<s></s><em></em></div>`;
-  const mark = q('meter').querySelector<HTMLElement>('.mark')!, markValue = mark.querySelector('em')!;
+  const drawMeter = () => {
+    const { grid } = (meterOf = view.win);
+    lo = Math.floor(grid.minAlt / 500) * 500;
+    hi = Math.ceil(grid.maxAlt / 500) * 500;
+    const ticks: string[] = [];
+    for (let a = lo; a <= hi; a += 100) {
+      ticks.push(a % 500 ? `<i style="bottom:${pct(a)}"></i>` : `<i class="major" style="bottom:${pct(a)}"></i><span style="bottom:${pct(a)}">${a}</span>`);
+    }
+    q('meter').innerHTML = `<b class="range" style="bottom:${pct(grid.minAlt)};top:calc(100% - ${pct(grid.maxAlt)})"></b>${ticks.join('')}<div class="mark">▸<s></s><em></em></div>`;
+    mark = q('meter').querySelector<HTMLElement>('.mark')!;
+    markValue = mark.querySelector('em')!;
+  };
   let lastIdx = -1;
   return (info: { focus: number; scanAlt: number; fps: number; points: number }, r: RouteView, hiker: number) => {
-    const c = view.camera;
+    if (view.win !== meterOf) drawMeter();
+    const { grid } = view.win, c = view.camera;
     const deg = (v: number) => ((((v * 180) / Math.PI) % 360) + 360) % 360;
     q('cam').textContent = `CAM AZ ${deg(c.az).toFixed(1).padStart(5)}°  EL ${deg(c.el).toFixed(1)}°  R ${(c.dist / 1000).toFixed(1)} KM\nFOCUS ${(info.focus / 1000).toFixed(1)} KM  VERT ×${view.exaggeration}  GRID ${grid.cell} M`;
     mark.style.bottom = pct(info.scanAlt);
@@ -312,11 +346,10 @@ function mountStageOverlay(region: Region, store: Store, view: TerrainView) {
     q('status').textContent = `SCAN ALT ${Math.round(info.scanAlt)} M   HIKA T+${Math.floor(r.minutes[hiker] / 60)}:${String(Math.floor(r.minutes[hiker] % 60)).padStart(2, '0')}\nPTS ${info.points.toLocaleString('en').replace(/,/g, ' ')}   ${Math.round(info.fps)} FPS`;
     if (hiker !== lastIdx) {
       lastIdx = hiker;
-      const [e0, n0] = [region.bundle.bbox[0], region.bundle.bbox[1]];
       const rows: string[] = [];
       for (let k = -14; k <= 14; k++) {
         const i = Math.min(r.e.length - 1, Math.max(0, hiker + k * 4));
-        const line = `${Math.round(e0 + r.e[i])} ${Math.round(n0 + r.n[i])} ${String(Math.round(r.alt[i])).padStart(4)} ${r.km[i].toFixed(1).padStart(4)}`;
+        const line = `${Math.round(r.e[i])} ${Math.round(r.n[i])} ${String(Math.round(r.alt[i])).padStart(4)} ${r.km[i].toFixed(1).padStart(4)}`;
         rows.push(k === 0 ? `<div class="now">▸ ${line}</div>` : `<div>${line}</div>`);
       }
       q('coords').innerHTML = rows.join('');

@@ -31,14 +31,20 @@ export function createProgram(gl: WebGL2RenderingContext, vs: string, fs: string
   return { program, u, a };
 }
 
+/** The buffers `createVao` made for each VAO, so `deleteVao` can free them. */
+const vaoBuffers = new WeakMap<WebGLVertexArrayObject, WebGLBuffer[]>();
+
 /** A VAO with one float buffer per attribute: `{ aPos: [data, size] }`, or `[data, size, 1]` for a per-instance attribute. */
 export function createVao(gl: WebGL2RenderingContext, p: Program, attribs: Record<string, [Float32Array, number, number?]>): WebGLVertexArrayObject {
-  const vao = gl.createVertexArray()!;
+  const vao = gl.createVertexArray()!, buffers: WebGLBuffer[] = [];
+  vaoBuffers.set(vao, buffers);
   gl.bindVertexArray(vao);
   for (const [name, [data, size, divisor = 0]] of Object.entries(attribs)) {
     const loc = p.a[name];
     if (loc === undefined || loc < 0) continue;
-    gl.bindBuffer(gl.ARRAY_BUFFER, gl.createBuffer());
+    const buffer = gl.createBuffer()!;
+    buffers.push(buffer);
+    gl.bindBuffer(gl.ARRAY_BUFFER, buffer);
     gl.bufferData(gl.ARRAY_BUFFER, data, gl.STATIC_DRAW);
     gl.enableVertexAttribArray(loc);
     gl.vertexAttribPointer(loc, size, gl.FLOAT, false, 0, 0);
@@ -46,6 +52,12 @@ export function createVao(gl: WebGL2RenderingContext, p: Program, attribs: Recor
   }
   gl.bindVertexArray(null);
   return vao;
+}
+
+/** Frees a VAO from `createVao` with its buffers. */
+export function deleteVao(gl: WebGL2RenderingContext, vao: WebGLVertexArrayObject) {
+  for (const b of vaoBuffers.get(vao) ?? []) gl.deleteBuffer(b);
+  gl.deleteVertexArray(vao);
 }
 
 export type Mat4 = Float32Array;

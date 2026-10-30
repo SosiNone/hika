@@ -1,16 +1,16 @@
-import type { Region, RouteView } from '../data/load';
-import { createProgram, createVao, fitCanvas, type Mat4, type Program } from './glkit';
-import { OrbitCamera } from './camera';
+import type { RouteView, TerrainWindow } from '../data/load';
+import { createProgram, createVao, deleteVao, fitCanvas, type Mat4, type Program } from './glkit';
+import { OrbitCamera, type Pose } from './camera';
 import type { Resolved } from '../theme/tokens';
 import { OFF_NETWORK } from '../data/types';
 import { TrailNetwork } from '../geo/network';
 
 const POINTS_VS = `#version 300 es
 precision highp float; precision highp int; precision highp usampler2D;
-uniform usampler2D uH; uniform sampler2D uOrtho;
+uniform usampler2D uH;
 uniform ivec2 uGrid; uniform int uStride; uniform float uCell; uniform vec2 uSize;
 uniform mat4 uVP; uniform vec3 uEye; uniform float uExag, uBase, uMinAlt, uMaxAlt;
-uniform float uFocus, uAperture, uDpr, uScan, uMode, uGain, uPointSize, uViewH;
+uniform float uFocus, uAperture, uDpr, uScan, uGain, uPointSize, uViewH;
 uniform vec3 uLow, uHigh, uSteep, uScanColor;
 out vec3 vColor; out float vAlpha;
 
@@ -41,11 +41,7 @@ void main() {
   float t = clamp((alt - uMinAlt) / (uMaxAlt - uMinAlt), 0.0, 1.0);
   float lam = clamp(dot(n, normalize(vec3(-0.45, 0.75, -0.5))), 0.0, 1.0);
   float steep = clamp(length(vec2(dx, dz)) * 1.4, 0.0, 1.0);
-  vec3 mono = mix(uLow, uHigh, pow(t, 0.75)) * (0.3 + 0.95 * lam) + uSteep * steep * 0.5;
-  vec3 photo = texture(uOrtho, (g + 0.5) / vec2(uGrid)).rgb;
-  photo = mix(vec3(dot(photo, vec3(0.3, 0.59, 0.11))), photo, 1.7); // SWISSIMAGE is muted; lift saturation
-  vec3 nat = max(photo, 0.0) * (0.55 + 0.8 * lam) * 1.4;
-  vec3 col = mix(mono, nat, uMode);
+  vec3 col = mix(uLow, uHigh, pow(t, 0.75)) * (0.3 + 0.95 * lam) + uSteep * steep * 0.5;
   float scan = exp(-pow((alt - uScan) / 5.0, 2.0));
   vColor = max(col + uScanColor * scan * 1.4, 0.0);
   // Far terrain piles up at grazing angles; fade it so the foreground keeps its relief.
@@ -211,26 +207,28 @@ interface Ribbon { vao: WebGLVertexArrayObject; count: number }
  * The 3D terrain console: a jittered point cloud of swissALTI3D heights, contour lines, the
  * full hiking network and the selected route as a screen-space ribbon. No depth test: every
  * layer is additive or blended on top, as on a hologram table.
+ *
+ * It shows one window of the atlas at a time (`load` swaps it in place). Its methods take LV95
+ * coordinates; world space has its origin at the window's centre (see AGENTS.md).
  */
 export class TerrainView {
   readonly camera = new OrbitCamera(1200, 70000);
   readonly gl: WebGL2RenderingContext;
   exaggeration = 1.5;
-  mode = 0;
   trailMode: TrailMode = 'auto';
   private points: Program;
   private lines: Program;
   private trails: Program;
   private ribbon: Program;
   private heightTex: WebGLTexture;
-  private orthoTex: WebGLTexture;
   private contours: { vao: WebGLVertexArrayObject; count: number } | null = null;
+  private contourWorker: Worker | null = null;
   /**
    * `count` is the number of segments (instances), `first` the line vertex each one starts at,
    * `near` and `prev` the buffers of `aNear` and `aPrev`, and `nearD` what `near` holds.
    */
-  private network: { vao: WebGLVertexArrayObject; count: number; first: Uint32Array; near: WebGLBuffer; prev: WebGLBuffer; nearD: Float32Array };
-  private walk: TrailNetwork;
+  private network!: { vao: WebGLVertexArrayObject; count: number; first: Uint32Array; near: WebGLBuffer; prev: WebGLBuffer; nearD: Float32Array };
+  private walk!: TrailNetwork;
   /** The route `aNear` was computed for, seconds into loading its trails and into fading out those of the route before. */
   private reachRoute: string | null = null;
   private loadT = LOAD;
@@ -241,68 +239,102 @@ export class TerrainView {
   private drawnMode: TrailMode = 'auto';
   /** Under `prefers-reduced-motion` the trails don't load or fade out, they are there at once. */
   private still = matchMedia('(prefers-reduced-motion: reduce)').matches;
+  private selectedRoute: RouteView | null = null;
+  private hoveredRoute: RouteView | null = null;
   private selected: Ribbon | null = null;
   private hovered: Ribbon | null = null;
-  /** Built once per route view: hovering the map swaps the hover ribbon often. */
+  /** Built once per route view and window: hovering the map swaps the hover ribbon often. */
   private ribbons = new Map<RouteView, Ribbon>();
   private emptyVao: WebGLVertexArrayObject;
   private fps = { frames: 0, since: 0, value: 0 };
-  readonly size: [number, number];
-  readonly base: number;
+  /** The window shown. */
+  win!: TerrainWindow;
+  /** Its width and height (m), and its lowest point, where the vertical exaggeration starts. */
+  size: [number, number] = [0, 0];
+  base = 0;
   /** Colours and blending of the current display (src/theme); reassigned on every scheme change. */
   palette!: Resolved['gl'];
 
-  constructor(readonly canvas: HTMLCanvasElement, readonly region: Region) {
+  constructor(readonly canvas: HTMLCanvasElement, win: TerrainWindow) {
     const gl = canvas.getContext('webgl2', { antialias: true, premultipliedAlpha: true, alpha: false });
     if (!gl) throw new Error('WebGL2 is not available in this browser');
     this.gl = gl;
-    const { grid, bbox } = region.bundle;
-    this.size = [bbox[2] - bbox[0], bbox[3] - bbox[1]];
-    this.base = grid.minAlt;
     this.points = createProgram(gl, POINTS_VS, POINTS_FS);
     this.lines = createProgram(gl, CONTOURS_VS, CONTOURS_FS);
     this.trails = createProgram(gl, NETWORK_VS, NETWORK_FS);
     this.ribbon = createProgram(gl, RIBBON_VS, RIBBON_FS);
     this.emptyVao = gl.createVertexArray()!;
-
     this.heightTex = gl.createTexture()!;
     gl.bindTexture(gl.TEXTURE_2D, this.heightTex);
-    gl.pixelStorei(gl.UNPACK_ALIGNMENT, 2);
-    gl.texImage2D(gl.TEXTURE_2D, 0, gl.R16UI, grid.cols, grid.rows, 0, gl.RED_INTEGER, gl.UNSIGNED_SHORT, region.heights);
     for (const p of [gl.TEXTURE_MIN_FILTER, gl.TEXTURE_MAG_FILTER]) gl.texParameteri(gl.TEXTURE_2D, p, gl.NEAREST);
+    this.load(win);
+    Object.assign(this.camera, this.home());
+  }
 
-    this.orthoTex = gl.createTexture()!;
-    gl.bindTexture(gl.TEXTURE_2D, this.orthoTex);
-    gl.texImage2D(gl.TEXTURE_2D, 0, gl.RGBA, gl.RGBA, gl.UNSIGNED_BYTE, region.ortho);
-    gl.generateMipmap(gl.TEXTURE_2D);
-    gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_MIN_FILTER, gl.LINEAR_MIPMAP_LINEAR);
+  /** The overview of the window: all of it, from the south-west, looking at a quarter of its relief. */
+  private home(): Pose {
+    const { grid } = this.win;
+    return { target: [0, (grid.maxAlt - grid.minAlt) * 0.25 * this.exaggeration, 0], az: 2.75, el: 0.6, dist: Math.max(...this.size) * 1.25 };
+  }
 
-    this.walk = new TrailNetwork(region.trails);
+  /**
+   * Shows another window. World space keeps its origin at the window's centre, so the camera (its
+   * target and any fly-to goal) moves with the origin and stays over the same ground. The home
+   * (double-click) becomes the new window's overview.
+   */
+  load(win: TerrainWindow) {
+    const gl = this.gl, { grid, bbox } = win;
+    const size: [number, number] = [bbox[2] - bbox[0], bbox[3] - bbox[1]];
+    if (this.win) {
+      const [w0, s0] = this.win.bbox;
+      this.camera.shift([w0 + this.size[0] / 2 - (bbox[0] + size[0] / 2), (this.base - grid.minAlt) * this.exaggeration, bbox[1] + size[1] / 2 - (s0 + this.size[1] / 2)]);
+    }
+    this.win = win;
+    this.size = size;
+    this.base = grid.minAlt;
+    this.camera.setHome(this.home());
+
+    gl.bindTexture(gl.TEXTURE_2D, this.heightTex);
+    gl.pixelStorei(gl.UNPACK_ALIGNMENT, 2);
+    gl.texImage2D(gl.TEXTURE_2D, 0, gl.R16UI, grid.cols, grid.rows, 0, gl.RED_INTEGER, gl.UNSIGNED_SHORT, win.heights);
+
+    if (this.network) {
+      deleteVao(gl, this.network.vao);
+      gl.deleteBuffer(this.network.near);
+      gl.deleteBuffer(this.network.prev);
+    }
+    this.walk = new TrailNetwork(win.trails);
     this.network = this.buildNetwork();
     this.buildContours();
-
-    this.camera.target = [0, (grid.maxAlt - grid.minAlt) * 0.25 * this.exaggeration, 0];
-    this.camera.az = 2.75;
-    this.camera.el = 0.6;
-    this.camera.dist = Math.max(...this.size) * 1.25;
-    this.camera.setHome();
+    for (const r of this.ribbons.values()) deleteVao(gl, r.vao);
+    this.ribbons.clear();
+    this.reachRoute = null;
+    this.setRoute(this.selectedRoute);
+    this.setHover(this.hoveredRoute);
   }
 
-  /** World position of a point given in metres from the bbox SW corner. */
+  /** World position of an LV95 point. */
   world(e: number, n: number, alt: number): [number, number, number] {
-    return [e - this.size[0] / 2, (alt - this.base) * this.exaggeration, this.size[1] / 2 - n];
+    const [w, s] = this.win.bbox;
+    return [e - w - this.size[0] / 2, (alt - this.base) * this.exaggeration, s + this.size[1] / 2 - n];
   }
 
-  /** The inverse of `world` on the ground: metres from the bbox SW corner of world (x, z). */
+  /** The inverse of `world` on the ground: the LV95 point under world (x, z). */
   ground(x: number, z: number): [number, number] {
-    return [x + this.size[0] / 2, this.size[1] / 2 - z];
+    const [w, s] = this.win.bbox;
+    return [w + x + this.size[0] / 2, s + this.size[1] / 2 - z];
   }
 
-  /** Bilinear terrain height at metres from the bbox SW corner. */
+  /** Bilinear terrain height at an LV95 point, clamped to the window. */
   heightAt(e: number, n: number): number {
-    const { cols, rows, cell } = this.region.bundle.grid;
+    return this.localHeight(e - this.win.bbox[0], n - this.win.bbox[1]);
+  }
+
+  /** `heightAt` in metres from the window's south-west corner, as its trails are stored. */
+  private localHeight(e: number, n: number): number {
+    const { grid: { cols, rows, cell }, heights: h } = this.win;
     const x = Math.min(cols - 1.001, Math.max(0, e / cell - 0.5)), y = Math.min(rows - 1.001, Math.max(0, (this.size[1] - n) / cell - 0.5));
-    const i = Math.floor(x), j = Math.floor(y), fx = x - i, fy = y - j, h = this.region.heights;
+    const i = Math.floor(x), j = Math.floor(y), fx = x - i, fy = y - j;
     // Bilinear over the corners that have data: cells beyond the national border are 0.
     let sum = 0, weight = 0;
     for (const [a, b, w] of [[i, j, (1 - fx) * (1 - fy)], [i + 1, j, fx * (1 - fy)], [i, j + 1, (1 - fx) * fy], [i + 1, j + 1, fx * fy]]) {
@@ -313,11 +345,11 @@ export class TerrainView {
   }
 
   private buildNetwork() {
-    const { offsets, cls, xy } = this.region.trails;
+    const { offsets, cls, xy } = this.win.trails;
     const P = new Float32Array(xy.length * 1.5);
     for (let k = 0; k < xy.length / 2; k++) {
       const e = xy[k * 2], n = xy[k * 2 + 1];
-      P.set([e - this.size[0] / 2, this.heightAt(e, n) + 3, this.size[1] / 2 - n], k * 3);
+      P.set([e - this.size[0] / 2, this.localHeight(e, n) + 3, this.size[1] / 2 - n], k * 3);
     }
     let count = 0;
     for (let l = 0; l < cls.length; l++) count += Math.max(0, offsets[l + 1] - offsets[l] - 1);
@@ -355,10 +387,11 @@ export class TerrainView {
    * it; the distances it held move to `aPrev`, whose trails fade out.
    */
   private updateReach(route: RouteView | null) {
-    const net = this.network, far = NETWORK_REACH[1];
-    const d = route ? this.walk.distanceFrom(route.e, route.n, far) : null;
+    const net = this.network, far = NETWORK_REACH[1], [w, s] = this.win.bbox;
+    // The network is stored in metres from the window's corner.
+    const d = route ? this.walk.distanceFrom(route.e.map((e) => e - w), route.n.map((n) => n - s), far) : null;
     const D = new Float32Array(net.count * 2).fill(far);
-    if (d) for (let s = 0; s < net.count; s++) { D[s * 2] = d[net.first[s]]; D[s * 2 + 1] = d[net.first[s] + 1]; }
+    if (d) for (let k = 0; k < net.count; k++) { D[k * 2] = d[net.first[k]]; D[k * 2 + 1] = d[net.first[k] + 1]; }
     const gl = this.gl;
     gl.bindBuffer(gl.ARRAY_BUFFER, net.prev);
     gl.bufferSubData(gl.ARRAY_BUFFER, 0, net.nearD);
@@ -376,17 +409,22 @@ export class TerrainView {
     return (NETWORK_REACH[1] + LOAD_EDGE) * Math.min(1, this.loadT / LOAD);
   }
 
+  /** Contours of the current window, traced in a worker; those of the window before go at once. */
   private buildContours() {
-    const { grid } = this.region.bundle;
-    const worker = new Worker(new URL('./contours.worker.ts', import.meta.url), { type: 'module' });
+    const { grid, heights } = this.win;
+    this.contourWorker?.terminate();
+    if (this.contours) deleteVao(this.gl, this.contours.vao);
+    this.contours = null;
+    const worker = (this.contourWorker = new Worker(new URL('./contours.worker.ts', import.meta.url), { type: 'module' }));
     worker.onmessage = (ev: MessageEvent<{ pos: Float32Array; weight: Float32Array }>) => {
       // Contour vertices arrive in grid units (column, altitude, row); the shader maps them to world space.
       const p = ev.data.pos;
       const vao = createVao(this.gl, this.lines, { aPos: [p, 3], aWeight: [ev.data.weight, 1] });
       this.contours = { vao, count: p.length / 3 };
       worker.terminate();
+      this.contourWorker = null;
     };
-    worker.postMessage({ heights: this.region.heights, cols: grid.cols, rows: grid.rows, interval: 50, major: 250 });
+    worker.postMessage({ heights, cols: grid.cols, rows: grid.rows, interval: 50, major: 250 });
   }
 
   /**
@@ -398,6 +436,7 @@ export class TerrainView {
   }
 
   setRoute(route: RouteView | null) {
+    this.selectedRoute = route;
     this.selected = route ? this.ribbonOf(route) : null;
     // A reversed route keeps its id and footprint, so its distances stay.
     if ((route?.id ?? null) !== this.reachRoute) {
@@ -405,7 +444,10 @@ export class TerrainView {
       this.updateReach(route);
     }
   }
-  setHover(route: RouteView | null) { this.hovered = route ? this.ribbonOf(route) : null; }
+  setHover(route: RouteView | null) {
+    this.hoveredRoute = route;
+    this.hovered = route ? this.ribbonOf(route) : null;
+  }
 
   private ribbonOf(r: RouteView): Ribbon {
     let ribbon = this.ribbons.get(r);
@@ -416,9 +458,11 @@ export class TerrainView {
   private buildRibbon(r: RouteView): Ribbon {
     const n = r.e.length - 1;
     const A = new Float32Array(n * 3), B = new Float32Array(n * 3), K = new Float32Array(n);
+    // Offsets from the window centre in float64, before Float32 rounds LV95's millions.
+    const ce = this.win.bbox[0] + this.size[0] / 2, cn = this.win.bbox[1] + this.size[1] / 2;
     for (let i = 0; i < n; i++) {
-      A.set([r.e[i] - this.size[0] / 2, r.alt[i] + 6, this.size[1] / 2 - r.n[i]], i * 3);
-      B.set([r.e[i + 1] - this.size[0] / 2, r.alt[i + 1] + 6, this.size[1] / 2 - r.n[i + 1]], i * 3);
+      A.set([r.e[i] - ce, r.alt[i] + 6, cn - r.n[i]], i * 3);
+      B.set([r.e[i + 1] - ce, r.alt[i + 1] + 6, cn - r.n[i + 1]], i * 3);
       K[i] = r.cls[i] === OFF_NETWORK ? 3 : r.cls[i];
     }
     const vao = createVao(this.gl, this.ribbon, { aA: [A, 3, 1], aB: [B, 3, 1], aClass: [K, 1, 1] });
@@ -437,7 +481,7 @@ export class TerrainView {
     gl.clear(gl.COLOR_BUFFER_BIT);
     const vp = this.camera.viewProj(w / h);
     const eye = this.camera.eye();
-    const { grid } = this.region.bundle;
+    const { grid } = this.win;
     const focus = Math.hypot(...eye.map((v, i) => v - this.camera.target[i]));
     const scanAlt = grid.minAlt + (grid.maxAlt - grid.minAlt) * (0.5 - 0.5 * Math.cos(t * 0.35));
     const stride = this.camera.dist > 16000 ? 2 : 1;
@@ -451,7 +495,6 @@ export class TerrainView {
     const P = this.points;
     gl.useProgram(P.program);
     gl.activeTexture(gl.TEXTURE0); gl.bindTexture(gl.TEXTURE_2D, this.heightTex); gl.uniform1i(P.u.uH, 0);
-    gl.activeTexture(gl.TEXTURE1); gl.bindTexture(gl.TEXTURE_2D, this.orthoTex); gl.uniform1i(P.u.uOrtho, 1);
     gl.uniform2i(P.u.uGrid, grid.cols, grid.rows);
     gl.uniform1i(P.u.uStride, stride);
     gl.uniform1f(P.u.uCell, grid.cell);
@@ -467,8 +510,7 @@ export class TerrainView {
     gl.uniform1f(P.u.uViewH, this.canvas.clientHeight);
     gl.uniform1f(P.u.uDpr, dpr);
     gl.uniform1f(P.u.uScan, scanAlt);
-    gl.uniform1f(P.u.uMode, this.mode);
-    gl.uniform1f(P.u.uGain, (stride === 2 ? 0.9 : 0.6) * (this.mode ? 0.9 : pal.gain));
+    gl.uniform1f(P.u.uGain, (stride === 2 ? 0.9 : 0.6) * pal.gain);
     gl.uniform3fv(P.u.uLow, pal.low);
     gl.uniform3fv(P.u.uHigh, pal.high);
     gl.uniform3fv(P.u.uSteep, pal.steep);
@@ -488,7 +530,7 @@ export class TerrainView {
       gl.uniform1f(L.u.uExag, this.exaggeration);
       gl.uniform1f(L.u.uBase, this.base);
       gl.uniform1f(L.u.uScan, scanAlt);
-      gl.uniform1f(L.u.uAlpha, this.mode ? 0.06 : 0.16);
+      gl.uniform1f(L.u.uAlpha, 0.16);
       gl.uniform3fv(L.u.uColor, pal.contour);
       gl.bindVertexArray(this.contours.vao);
       gl.drawArrays(gl.LINES, 0, this.contours.count);
