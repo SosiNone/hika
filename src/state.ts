@@ -18,7 +18,6 @@ export interface AppState {
   repeat: boolean;
   /** Walk the playlist in a random order (see src/playlist.ts). */
   shuffle: boolean;
-  mode: 'mono' | 'natural';
   /** Dark or light scheme (see src/theme). */
   display: Display;
 }

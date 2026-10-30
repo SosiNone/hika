@@ -5,8 +5,6 @@
   "cantons": ["OW", "NW", "UR"],
   "bbox": [2672000, 1179000, 2696000, 1198000],
   "cell": 20,
-  "orthoZoom": 20,
-  "orthoWidth": 2048,
   "minInside": 0.3,
   "minInsideKm": 2,
   "defaultRoute": "sm-1.07",

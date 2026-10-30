@@ -5,8 +5,6 @@
   "cantons": ["LU", "NW", "OW", "SZ"],
   "bbox": [2658000, 1198000, 2682000, 1217000],
   "cell": 20,
-  "orthoZoom": 20,
-  "orthoWidth": 2048,
   "minInside": 0.3,
   "minInsideKm": 2,
   "defaultRoute": "c-rigi-kulm-kaenzeli",

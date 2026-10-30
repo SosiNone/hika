@@ -6,9 +6,9 @@
 import { existsSync, readFileSync, statSync } from 'node:fs';
 import { decodeGrid, decodeTrails } from '../src/data/codec';
 import { BUNDLE_VERSION, type RegionBundle } from '../src/data/types';
-import { routeClimb } from '../src/geo/track';
 import { emptyCells } from './lib/coverage';
 import { buildRegionIndex, builtRegions, DATA_DIR, formatIndex, INDEX_FILE } from './lib/regions';
+import { routeProblems } from './lib/route';
 import { overlaps } from './lib/scout';
 
 let failed = 0;
@@ -60,18 +60,10 @@ function checkRegion(id: string) {
   // Catches a broken SchweizMobil fetch. Some good regions have few official routes (Zermatt has 6).
   check(official.length >= 5, `${official.length} official routes, ${b.routes.length - official.length} curated`);
   for (const r of b.routes) {
-    const n = r.e.length;
-    const lengthsOk = [r.n, r.alt, r.cls, r.surf].every((a) => a.length === n);
-    // Switzerland spans 193 m (Lago Maggiore) to 4634 m (Dufourspitze).
-    const altOk = r.alt.every((a) => a > 185 && a < 4700);
-    const stepKm = ((n - 1) * r.step) / 1000;
-    const timeOk = r.stats.time > stepKm * 9 && r.stats.time < stepKm * 60; // between 6.7 and 1 km/h
-    // The app re-derives climb on load; the stored totals must match what it will show.
-    const { up, down } = routeClimb(r.alt);
-    const climbOk = Math.abs(up[n - 1] - r.stats.up) <= 1 && Math.abs(down[n - 1] - r.stats.down) <= 1;
-    check(lengthsOk && altOk && timeOk && climbOk && r.waypoints.length >= 2, `${(r.number ?? r.id).padEnd(32)} ${r.stats.km.toFixed(1).padStart(5)} km ↑${r.stats.up} ↓${r.stats.down} ${r.stats.time} min, ${r.waypoints.length} waypoints`);
+    const problems = routeProblems(r);
+    check(!problems.length, `${(r.number ?? r.id).padEnd(32)} ${r.stats.km.toFixed(1).padStart(5)} km ↑${r.stats.up} ↓${r.stats.down} ${r.stats.time} min, ${r.waypoints.length} waypoints${problems.length ? `: ${problems.join('; ')}` : ''}`);
   }
 
-  const size = ['region.json', b.grid.file, b.trails.file, b.ortho.file, b.locator.file].reduce((s, f) => s + statSync(`${dir}/${f}`).size, 0);
+  const size = ['region.json', b.grid.file, b.trails.file, b.locator.file].reduce((s, f) => s + statSync(`${dir}/${f}`).size, 0);
   check(size < 6 * 1024 * 1024, `bundle ${(size / 1024 / 1024).toFixed(1)} MB (budget 6 MB)`);
 }

@@ -5,8 +5,6 @@
   "cantons": ["BE", "VS"],
   "bbox": [2599000, 1133000, 2623000, 1152000],
   "cell": 20,
-  "orthoZoom": 20,
-  "orthoWidth": 2048,
   "minInside": 0.3,
   "minInsideKm": 2,
   "defaultRoute": "c-oeschinensee-heuberg",

@@ -21,13 +21,20 @@ export interface OfficialRoute {
 
 interface Feature { id: string | number; attributes?: Record<string, unknown>; properties?: Record<string, unknown>; geometry?: { type: string; coordinates: unknown } }
 
-/** SchweizMobil "Wanderland" routes (national, regional, local) touching `bbox`. */
+/** The most results `identify` returns per request. */
+const PAGE = 200;
+
+/** SchweizMobil "Wanderland" routes (national, regional, local) touching `bbox`, page by page. */
 export async function listRoutes(bbox: BBox): Promise<{ id: string; label: string }[]> {
-  const env = bbox.join(',');
-  const url = `${API}/identify?geometryType=esriGeometryEnvelope&geometry=${env}&imageDisplay=1000,1000,96&mapExtent=${env}` +
-    `&tolerance=0&layers=all:${LAYER}&returnGeometry=false&sr=2056&limit=200`;
-  const res = await fetchJson<{ results: Feature[] }>(url);
-  return res.results.map((f) => ({ id: String(f.id), label: String((f.attributes ?? f.properties)!.label) }));
+  const env = bbox.join(','), found = new Map<string, string>();
+  for (let offset = 0; ; offset += PAGE) {
+    const url = `${API}/identify?geometryType=esriGeometryEnvelope&geometry=${env}&imageDisplay=1000,1000,96&mapExtent=${env}` +
+      `&tolerance=0&layers=all:${LAYER}&returnGeometry=false&sr=2056&limit=${PAGE}${offset ? `&offset=${offset}` : ''}`;
+    const res = await fetchJson<{ results: Feature[] }>(url);
+    for (const f of res.results) found.set(String(f.id), String((f.attributes ?? f.properties)!.label));
+    if (res.results.length < PAGE) break;
+  }
+  return [...found].map(([id, label]) => ({ id, label }));
 }
 
 export async function fetchRoute(id: string): Promise<OfficialRoute> {

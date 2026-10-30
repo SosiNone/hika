@@ -5,8 +5,6 @@
   "cantons": ["VD", "BE"],
   "bbox": [2563000, 1130000, 2587000, 1149000],
   "cell": 20,
-  "orthoZoom": 20,
-  "orthoWidth": 2048,
   "minInside": 0.3,
   "minInsideKm": 2,
   "defaultRoute": "sm-1.19",

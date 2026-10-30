@@ -94,7 +94,6 @@ export interface RegionBundle {
    * 0 = no data.
    */
   grid: { file: string; cols: number; rows: number; cell: number; minAlt: number; maxAlt: number };
-  ortho: { file: string; width: number; height: number };
   trails: { file: string; lines: number; vertices: number; km: [number, number, number]; hardKm: number };
   places: Place[];
   routes: Route[];
@@ -148,11 +147,13 @@ export interface RegionConfig {
   /** Route id (`sm-…` or `c-…`) to open by default; the first curated hike otherwise. */
   defaultRoute?: string;
   cell: number;
-  orthoZoom: number;
-  orthoWidth: number;
-  /** Drop official routes with less than this share of their length inside the bbox. */
+  /**
+   * List official routes only with at least this share of their length (or these km) inside the
+   * bbox: the bundle drops the others, the atlas leaves them out of this region's list.
+   */
   minInside: number;
   minInsideKm: number;
+  /** SchweizMobil ids to leave out of the bundle, and of the atlas altogether (e.g. a route abroad). */
   excludeRoutes: string[];
   curated: CuratedHike[];
 }
@@ -163,3 +164,50 @@ export interface CuratedHike {
   /** Waypoint names resolved through swissNAMES3D; `kind` or `near` disambiguate. */
   via: { name: string; kind?: PlaceKind; near?: [number, number] }[];
 }
+
+/**
+ * Atlas (format 3): the national tiled store that replaces region bundles (AGENTS.md, "Atlas").
+ * Its tiles are laid out by src/data/tiles.ts. Unlike a bundle, everything is in absolute LV95.
+ */
+export const ATLAS_FORMAT = 3;
+
+/** v3/manifest.json */
+export interface AtlasManifest {
+  format: typeof ATLAS_FORMAT;
+  /** Tile edge and terrain cell (m). */
+  tile: number;
+  cell: number;
+  /** Keys of the tiles present, sorted; each has a terrain/, trails/ and places/ file. */
+  tiles: string[];
+  /** Route count (catalogue.json lists them). */
+  routes: number;
+  sources: Source[];
+  generated: string;
+}
+
+/** routes/<id>.bin (`encodeRoute`): one whole route, never clipped. */
+export interface AtlasRoute extends Omit<Route, 'clipped' | 'e' | 'n'> {
+  /** Sample coordinates in LV95 metres (to 0.1 m). */
+  e: number[];
+  n: number[];
+  /** The places its waypoints name, so a route can be shown without the place tiles. */
+  places: Place[];
+}
+
+/** v3/catalogue.json: every route, enough to list and search them without the route files. */
+export interface Catalogue {
+  format: typeof ATLAS_FORMAT;
+  /** Sorted by id. */
+  routes: CatalogueEntry[];
+}
+
+export interface CatalogueEntry extends Pick<Route, 'id' | 'number' | 'name' | 'from' | 'to' | 'source' | 'category' | 'stats'> {
+  /** LV95 extent of the samples, whole metres. */
+  bbox: BBox;
+  /** Altitudes (m) at SPARK_POINTS evenly spaced samples, for sparklines. */
+  spark: number[];
+  /** Regions whose route list includes it (their `minInside` rules). */
+  regions: string[];
+}
+
+export const SPARK_POINTS = 24;

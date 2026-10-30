@@ -21,8 +21,8 @@ walks it at official Swiss signpost pace while the instruments follow along.
 
 ## Features
 
-- **Terrain** from swissALTI3D as a point cloud with contours, an optional SWISSIMAGE overlay and
-  adjustable vertical exaggeration.
+- **Terrain** from swissALTI3D as a point cloud with contours and adjustable vertical
+  exaggeration.
 - **Trails** from swissTLM3D in the official signpost colours, with summits, huts, passes and lakes
   from swissNAMES3D.
 - **Route player:** scrub, change speed, walk the hike in reverse, or let the region's routes play
@@ -93,6 +93,11 @@ To rebuild a region from swisstopo data (about 300 MB of downloads on the first 
 ```bash
 task region REGION=alpstein
 ```
+
+HIKA is moving from region bundles to a national, tiled data store (the atlas, see
+[AGENTS.md](AGENTS.md)) so it can cover every hiking route in Switzerland. The app doesn't read it
+yet. `task atlas` builds it for every region and its routes into `public/data/v3/` (gitignored),
+and `task atlas:compare` checks it against the bundles.
 
 `task check` runs the type-checker, the tests and the region checks, which is what CI runs before
 it builds. Releases are deployed to GitHub Pages from a version tag with

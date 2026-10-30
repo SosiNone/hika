@@ -7,10 +7,10 @@ import { TrailNetwork } from '../geo/network';
 
 const POINTS_VS = `#version 300 es
 precision highp float; precision highp int; precision highp usampler2D;
-uniform usampler2D uH; uniform sampler2D uOrtho;
+uniform usampler2D uH;
 uniform ivec2 uGrid; uniform int uStride; uniform float uCell; uniform vec2 uSize;
 uniform mat4 uVP; uniform vec3 uEye; uniform float uExag, uBase, uMinAlt, uMaxAlt;
-uniform float uFocus, uAperture, uDpr, uScan, uMode, uGain, uPointSize, uViewH;
+uniform float uFocus, uAperture, uDpr, uScan, uGain, uPointSize, uViewH;
 uniform vec3 uLow, uHigh, uSteep, uScanColor;
 out vec3 vColor; out float vAlpha;
 
@@ -41,11 +41,7 @@ void main() {
   float t = clamp((alt - uMinAlt) / (uMaxAlt - uMinAlt), 0.0, 1.0);
   float lam = clamp(dot(n, normalize(vec3(-0.45, 0.75, -0.5))), 0.0, 1.0);
   float steep = clamp(length(vec2(dx, dz)) * 1.4, 0.0, 1.0);
-  vec3 mono = mix(uLow, uHigh, pow(t, 0.75)) * (0.3 + 0.95 * lam) + uSteep * steep * 0.5;
-  vec3 photo = texture(uOrtho, (g + 0.5) / vec2(uGrid)).rgb;
-  photo = mix(vec3(dot(photo, vec3(0.3, 0.59, 0.11))), photo, 1.7); // SWISSIMAGE is muted; lift saturation
-  vec3 nat = max(photo, 0.0) * (0.55 + 0.8 * lam) * 1.4;
-  vec3 col = mix(mono, nat, uMode);
+  vec3 col = mix(uLow, uHigh, pow(t, 0.75)) * (0.3 + 0.95 * lam) + uSteep * steep * 0.5;
   float scan = exp(-pow((alt - uScan) / 5.0, 2.0));
   vColor = max(col + uScanColor * scan * 1.4, 0.0);
   // Far terrain piles up at grazing angles; fade it so the foreground keeps its relief.
@@ -216,14 +212,12 @@ export class TerrainView {
   readonly camera = new OrbitCamera(1200, 70000);
   readonly gl: WebGL2RenderingContext;
   exaggeration = 1.5;
-  mode = 0;
   trailMode: TrailMode = 'auto';
   private points: Program;
   private lines: Program;
   private trails: Program;
   private ribbon: Program;
   private heightTex: WebGLTexture;
-  private orthoTex: WebGLTexture;
   private contours: { vao: WebGLVertexArrayObject; count: number } | null = null;
   /**
    * `count` is the number of segments (instances), `first` the line vertex each one starts at,
@@ -270,12 +264,6 @@ export class TerrainView {
     gl.pixelStorei(gl.UNPACK_ALIGNMENT, 2);
     gl.texImage2D(gl.TEXTURE_2D, 0, gl.R16UI, grid.cols, grid.rows, 0, gl.RED_INTEGER, gl.UNSIGNED_SHORT, region.heights);
     for (const p of [gl.TEXTURE_MIN_FILTER, gl.TEXTURE_MAG_FILTER]) gl.texParameteri(gl.TEXTURE_2D, p, gl.NEAREST);
-
-    this.orthoTex = gl.createTexture()!;
-    gl.bindTexture(gl.TEXTURE_2D, this.orthoTex);
-    gl.texImage2D(gl.TEXTURE_2D, 0, gl.RGBA, gl.RGBA, gl.UNSIGNED_BYTE, region.ortho);
-    gl.generateMipmap(gl.TEXTURE_2D);
-    gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_MIN_FILTER, gl.LINEAR_MIPMAP_LINEAR);
 
     this.walk = new TrailNetwork(region.trails);
     this.network = this.buildNetwork();
@@ -451,7 +439,6 @@ export class TerrainView {
     const P = this.points;
     gl.useProgram(P.program);
     gl.activeTexture(gl.TEXTURE0); gl.bindTexture(gl.TEXTURE_2D, this.heightTex); gl.uniform1i(P.u.uH, 0);
-    gl.activeTexture(gl.TEXTURE1); gl.bindTexture(gl.TEXTURE_2D, this.orthoTex); gl.uniform1i(P.u.uOrtho, 1);
     gl.uniform2i(P.u.uGrid, grid.cols, grid.rows);
     gl.uniform1i(P.u.uStride, stride);
     gl.uniform1f(P.u.uCell, grid.cell);
@@ -467,8 +454,7 @@ export class TerrainView {
     gl.uniform1f(P.u.uViewH, this.canvas.clientHeight);
     gl.uniform1f(P.u.uDpr, dpr);
     gl.uniform1f(P.u.uScan, scanAlt);
-    gl.uniform1f(P.u.uMode, this.mode);
-    gl.uniform1f(P.u.uGain, (stride === 2 ? 0.9 : 0.6) * (this.mode ? 0.9 : pal.gain));
+    gl.uniform1f(P.u.uGain, (stride === 2 ? 0.9 : 0.6) * pal.gain);
     gl.uniform3fv(P.u.uLow, pal.low);
     gl.uniform3fv(P.u.uHigh, pal.high);
     gl.uniform3fv(P.u.uSteep, pal.steep);
@@ -488,7 +474,7 @@ export class TerrainView {
       gl.uniform1f(L.u.uExag, this.exaggeration);
       gl.uniform1f(L.u.uBase, this.base);
       gl.uniform1f(L.u.uScan, scanAlt);
-      gl.uniform1f(L.u.uAlpha, this.mode ? 0.06 : 0.16);
+      gl.uniform1f(L.u.uAlpha, 0.16);
       gl.uniform3fv(L.u.uColor, pal.contour);
       gl.bindVertexArray(this.contours.vao);
       gl.drawArrays(gl.LINES, 0, this.contours.count);

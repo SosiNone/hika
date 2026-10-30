@@ -90,6 +90,30 @@ tasks:
       - task: region:build
       - task: region:check
 
+  atlas:build:
+    desc: 'Build the atlas (format 3) for every region and its routes into public/data/v3/, or one region''s with `task atlas:build -- --region alpstein --out .cache/atlas`'
+    deps: [install]
+    cmds:
+      - npm run build:atlas -- {{.CLI_ARGS}}
+
+  atlas:check:
+    desc: Validate the atlas in public/data/v3/ (tiles, routes, catalogue and window budgets)
+    deps: [install]
+    cmds:
+      - npm run check:atlas -- {{.CLI_ARGS}}
+
+  atlas:compare:
+    desc: Compare the atlas with the region bundles it replaces (temporary, until the app reads the atlas)
+    deps: [install]
+    cmds:
+      - npm run compare:atlas -- {{.CLI_ARGS}}
+
+  atlas:
+    desc: Build and validate the atlas
+    cmds:
+      - task: atlas:build
+      - task: atlas:check
+
   regions:check:
     desc: Validate every region bundle in public/data/ and the region index
     deps: [install]

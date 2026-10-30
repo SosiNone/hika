@@ -5,7 +5,7 @@ below keep their own terms.
 
 ## Data
 
-- swissALTI3D, SWISSIMAGE, swissTLM3D Wanderwege, swissNAMES3D, swissBOUNDARIES3D:
+- swissALTI3D, swissTLM3D Wanderwege, swissNAMES3D, swissBOUNDARIES3D:
   © Federal Office of Topography swisstopo. Open government data, free use with source attribution.
 - Wanderland Schweiz route network: © SchweizMobil / Federal Roads Office ASTRA, via map.geo.admin.ch.
 - Height profiles: geo.admin.ch profile service (swissALTI3D DTM2).

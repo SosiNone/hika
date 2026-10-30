@@ -18,7 +18,6 @@ export interface Region {
   heights: Uint16Array;
   swiss: Uint16Array;
   trails: Trails;
-  ortho: HTMLImageElement;
   places: Map<string, Place>;
   routes: RouteView[];
 }
@@ -33,18 +32,16 @@ export async function loadRegion(id: string): Promise<Region> {
   const bundle = await json<RegionBundle>(`${base}region.json`);
   if (bundle.version !== BUNDLE_VERSION) throw new Error(`${id}: bundle format ${bundle.version}, but this app reads ${BUNDLE_VERSION}; rebuild it with \`task region REGION=${id}\``);
   const { grid } = bundle;
-  const [heights, swiss, trailsBuf, ortho] = await Promise.all([
+  const [heights, swiss, trailsBuf] = await Promise.all([
     binary(`${base}${grid.file}`).then((b) => decodeGrid(new Uint8Array(b), grid.cols, grid.rows)),
     binary(`${base}${bundle.locator.file}`).then((b) => new Uint16Array(b)),
     binary(`${base}${bundle.trails.file}`),
-    image(`${base}${bundle.ortho.file}`),
   ]);
   return {
     bundle,
     heights,
     swiss,
     trails: decodeTrails(trailsBuf),
-    ortho,
     places: new Map(bundle.places.map((p) => [p.id, p])),
     routes: bundle.routes.map(deriveRoute),
   };
@@ -66,7 +63,7 @@ export function prefetchRegion(id: string) {
     .then((res) => (res.ok ? (res.json() as Promise<RegionBundle>) : null))
     .then((bundle) => {
       if (bundle?.version !== BUNDLE_VERSION) return;
-      for (const file of [bundle.grid.file, bundle.trails.file, bundle.locator.file, bundle.ortho.file]) {
+      for (const file of [bundle.grid.file, bundle.trails.file, bundle.locator.file]) {
         const link = document.createElement('link');
         link.rel = 'prefetch';
         link.href = `${base}${file}`;
@@ -86,15 +83,6 @@ async function binary(url: string): Promise<ArrayBuffer> {
   const res = await fetch(url);
   if (!res.ok) throw new Error(`${url}: HTTP ${res.status}`);
   return res.arrayBuffer();
-}
-
-function image(url: string): Promise<HTMLImageElement> {
-  return new Promise((resolve, reject) => {
-    const img = new Image();
-    img.onload = () => resolve(img);
-    img.onerror = () => reject(new Error(`${url}: failed to load`));
-    img.src = url;
-  });
 }
 
 function deriveRoute(r: Route): RouteView {

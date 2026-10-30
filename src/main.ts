@@ -54,7 +54,6 @@ function start(region: Region, summary: RegionSummary, regions: RegionSummary[])
     secondsPerHour: 3,
     repeat: false,
     shuffle: false,
-    mode: 'mono',
     display: initialDisplay,
   });
   const byId = new Map(region.routes.map((r) => [r.id, r]));
@@ -127,7 +126,6 @@ function start(region: Region, summary: RegionSummary, regions: RegionSummary[])
       view.setHover(hover);
       canvas.classList.toggle('over-route', hover !== null);
     }
-    if (s.mode !== prev.mode) view.mode = s.mode === 'natural' ? 1 : 0;
     if (s.display !== prev.display) {
       applyDisplay(s.display);
       saveDisplay(s.display);
@@ -254,8 +252,7 @@ function mountStageOverlay(region: Region, store: Store, view: TerrainView) {
   el.innerHTML = `
     <div class="stage-head"><span class="slot">01</span><span class="title">${region.bundle.title.toUpperCase()} — HIKING NETWORK</span></div>
     <div class="stage-readout" data-k="cam"></div>
-    <div class="stage-toggles"><div class="seg" role="group" aria-label="Colour mode"><button data-mode="mono" aria-pressed="true">MONO</button><button data-mode="natural" aria-pressed="false">SWISSIMAGE</button></div>
-      <button class="btn" data-k="vert">VERT ×1.5</button>
+    <div class="stage-toggles"><button class="btn" data-k="vert">VERT ×1.5</button>
       <button class="btn" data-k="trails"></button></div>
     <div class="stage-route" data-k="route"></div>
     <div class="coords" data-k="coords"></div>
@@ -265,12 +262,6 @@ function mountStageOverlay(region: Region, store: Store, view: TerrainView) {
     <div class="stage-status" data-k="status"></div>`;
   stage.appendChild(el);
   const q = (k: string) => el.querySelector<HTMLElement>(`[data-k="${k}"]`)!;
-  el.querySelectorAll<HTMLButtonElement>('[data-mode]').forEach((b) => {
-    b.onclick = () => {
-      store.set({ mode: b.dataset.mode as 'mono' | 'natural' });
-      el.querySelectorAll('[data-mode]').forEach((o) => o.setAttribute('aria-pressed', String(o === b)));
-    };
-  });
   const exags = [1, 1.5, 2, 3];
   q('vert').onclick = () => {
     view.exaggeration = exags[(exags.indexOf(view.exaggeration) + 1) % exags.length];

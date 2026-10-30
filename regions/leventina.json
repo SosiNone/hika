@@ -5,8 +5,6 @@
   "cantons": ["TI"],
   "bbox": [2692000, 1139000, 2716000, 1158000],
   "cell": 20,
-  "orthoZoom": 20,
-  "orthoWidth": 2048,
   "minInside": 0.3,
   "minInsideKm": 2,
   "defaultRoute": "sm-2.26",

@@ -17,7 +17,6 @@ the same fields. When you add a bundle field, a panel or a source, update the ma
 | Height grid, 20 m (1100 × 950) | swissALTI3D | `terrain.bin` | ✅ | Point cloud, contours (worker), trail draping, slope aspect rose (I) | No height or slope readout under the cursor; no slope shading of the cloud |
 | No-data cells beyond the border (`0`) | swissALTI3D (Switzerland only) | `terrain.bin` | ◐ | Left empty: no points or contours (Zermatt, Aletsch) | The Italian side of the Matterhorn is blank; a coarse foreign DEM could fill it |
 | Grid min / max altitude | swissALTI3D | `grid.minAlt`, `grid.maxAlt` | ◐ | Exaggeration base, hiker drop line | Not shown as numbers |
-| Orthophoto, 2048 px wide (about 10.7 m/px) | SWISSIMAGE | `ortho.jpg` | ◐ | Point colour in SWISSIMAGE mode only | Never a draped texture or a 2D map |
 | National relief, 2 km | Profile service (DTM2) | `switzerland.u16` | ✅ | Locator (G) and region browser, which drape the borders and region boxes on it | — |
 | National border, canton borders | swissBOUNDARIES3D | `locator.border`, `locator.cantons` | ✅ | Locator (G), region browser | Canton borders are not drawn on the 3D terrain (the region spans AI, AR and SG) |
 | Lakes | Derived in the app from the flat cells of `switzerland.u16` (`lakeCells`) | — | ✅ | Locator (G), region browser | At 2 km cells only the larger lakes show (two or more flat cells); no lake names |
@@ -99,7 +98,6 @@ Adding any of these means a pipeline change plus a bundle format change (`types.
 | Dataset | Kept | Dropped | Feature ideas |
 |---|---|---|---|
 | swissALTI3D | 4 m overview, box-averaged to a 20 m grid | The 2 m full resolution | Finer grid for small regions or a detail tile around the selected route |
-| SWISSIMAGE WMTS | One mosaic at zoom 20, scaled to 2048 px | Finer zoom levels | Sharper imagery near the route |
 | swissTLM3D Wanderwege: `objektart` | — | Path width / type: 2 m Weg 1904, 1 m Weg 1640, 3 m Strasse 1368, Markierte Spur 192, … (Alpstein line counts) | Show "marked track" vs road; filter out road stretches |
 | swissTLM3D Wanderwege: `kunstbaute` | — | Brücke 341, Treppe 27, Furt 20, Tunnel 3, Galerie 1, … | Bridges, stairs and fords as route events in the trail log |
 | swissTLM3D Wanderwege: `verkehrsbeschraenkung` | — | **Gesicherte Kletterpartie 7** (secured climbing sections), general restrictions 50 | Flag secured sections on routes: very relevant for Lisengrat-style hikes |
@@ -130,6 +128,7 @@ them would be baked into the bundle at build time.
 | swissBUILDINGS3D 3.0 | `ch.swisstopo.swissbuildings3d_3_0` (STAC) | Huts and summit buildings in 3D | |
 | Slopes over 30° | `ch.swisstopo.hangneigung-ueber_30` (WMTS) | Steep-terrain overlay | Can also be computed from `terrain.bin` with no new data |
 | Relief shading | `ch.swisstopo.swissalti3d-reliefschattierung` (WMTS) | Hillshade texture for the light scheme | Can also be computed from `terrain.bin` |
-| National map | `ch.swisstopo.pixelkarte-farbe` (WMTS) | A third colour mode next to MONO and SWISSIMAGE | |
+| National map | `ch.swisstopo.pixelkarte-farbe` (WMTS) | A second colour mode next to MONO | |
+| SWISSIMAGE orthophoto | `ch.swisstopo.swissimage` (WMTS) | Was a point colour mode until 0.12 | Dropped in 0.13: about 95 MB for all of Switzerland, for a mode few used |
 | Snowshoe and ski touring routes | `ch.swisstopo-karto.schneeschuhrouten`, `ch.swisstopo-karto.skitouren` | Winter routes | Outside hiking scope; owner decision |
 | Mountain bike routes | `ch.astra.mountainbikeland` | Shared trail segments | Outside hiking scope; owner decision |

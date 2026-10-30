@@ -40,9 +40,41 @@ There are two halves joined by a static data bundle:
 - swissALTI3D 2 m COGs (found via STAC) have a single 4 m internal overview. `terrain.ts` reads that overview and box-averages it, so `cell` must be a multiple of 4 that divides 1000.
 - Trail class (Wanderweg / Bergwanderweg / Alpinwanderweg) and surface exist only in the swissTLM3D Wanderwege **GeoPackage**. The REST layer only flags Alpinwanderweg. The GeoPackage is read with `node:sqlite` plus the hand-written WKB parser in `gpkg.ts` (no GDAL, no sql.js).
 - The geo.admin.ch profile service (`profile.ts`): POST the GeoJSON geometry as the raw body with `sr`/`nb_points` in the query string. It is limited to 5000 points, keeps input vertices and may add extra points, so results are matched back by coordinates.
+- The `identify` service returns at most 200 results per request, so `listRoutes` pages with `offset`. Switzerland has 976 SchweizMobil routes and stages: 193 national, 404 regional and 379 local.
 - SchweizMobil routes (`ch.astra.wanderland`) come back as unordered MultiLineStrings. `chain()` joins them, then the route is oriented by geocoding the "from/to" in the title, then clipped to the bbox.
 - Curated hikes in `regions/<id>.json` name their via-points. These resolve through swissNAMES3D (`resolvePlace`, with an optional `kind`) and are routed with Dijkstra on `TrailGraph`, using Swiss hiking time as the edge weight.
 - Every route gets DEP/ARR waypoints. Where a route is clipped, the pipeline adds a synthetic "Region edge → …" place.
+- `finishRoute` (`scripts/lib/route.ts`) samples, heights, classifies and times a route for both `build-region` and `build-atlas`, so a route that a bundle has whole gets the same numbers in the atlas.
+
+### Atlas (format 3, being introduced)
+The atlas replaces region bundles so HIKA can cover all of Switzerland: one national, tiled store instead of a box per region, with every route whole. It is being introduced in phases:
+1. Now: `build-atlas` writes it into `public/data/v3/` (gitignored), next to the bundles, which the app still reads.
+2. The app reads it, and the bundles go.
+3. It moves to its own `hika-data` repo, served by GitHub Pages on the same origin.
+
+- **Layout.** Everything is in absolute LV95, unlike a bundle. Tiles (`src/data/tiles.ts`) are 5 km squares keyed by their south-west corner in km (`2735_1225`). `manifest.json` lists the tiles that exist, and each of them has three files:
+  - `terrain/<key>.bin`: 250 × 250 cells at 20 m, `encodeGrid`, row 0 north.
+  - `trails/<key>.bin`: `HKT2`. A line is stored whole, unclipped, in the tile that holds the centre of its extent; vertices are metres from the tile's SW corner plus `TRAIL_BIAS`.
+  - `places/<key>.json`.
+
+  Beside the tiles:
+  - `routes/<id>.bin` (`encodeRoute`, `HKR3`): one whole route, with the places its waypoints name.
+  - `catalogue.json`: every route's meta, stats, bbox, a 24-point sparkline and the regions that list it.
+  - `locator.json` and `switzerland.u16`, stored once.
+- **Windows.** The app will stitch (`stitchGrid`) the tiles of one window at a time. `routeWindow` is a route's extent plus 2 km, joined with the region it was opened from while that needs no more than `WINDOW_MAX_TILES` (6 × 6). A region page can't hold all its routes in one window: that would be 29–49 km wide, Lucerne 49 × 46 km. So the app has to switch windows in-page when the selected route leaves the current one.
+- **Footprint.** `build-atlas` covers every region box plus the windows of every route a region lists. That is 799 tiles (19,975 km², about half of Switzerland; 783 have data) and 127 MB, because whole routes reach far beyond the boxes, so the whole country comes to about 260 MB. `--region <id>` builds one region's footprint and `--dry-run` only measures it.
+  - Routes are oriented from/to near their own midpoint.
+  - A route any region excludes (`excludeRoutes`) is left out entirely.
+  - `minInside`/`minInsideKm` now only decide which regions list a route.
+  - Curated hikes are routed on the trails within 5 km of their region.
+- **Checks.** `check:atlas` checks:
+  - that tiles decode and every line and place sits in its tile;
+  - coverage: no 1 km block missing well inside the border, and under 1 % empty cells inside Switzerland;
+  - every route, with the same `routeProblems` as `check:region`;
+  - that the catalogue matches the route files;
+  - that every window, of a route on its own and joined with each region that lists it, costs under 3 MB gzipped (a bundle with its imagery cost 2.3–2.5 MB).
+
+  `compare:atlas` (temporary, removed with the bundles) requires terrain stitched over each region's box to be byte-identical to its `terrain.bin`, and routes the bundle has whole to keep their stats.
 
 ### Swiss hiking time (`src/geo/hikingTime.ts`)
 `PACE` is a table digitised from the official Schweizer Wanderwege isochrone chart (4.2 km/h on the flat, fastest at about −5 %). It is not a rule of thumb; don't replace it with one. Slope comes from altitudes smoothed over about 60 m, and signpost display rounds to 5 min.
@@ -52,7 +84,7 @@ Route `stats` are computed in the pipeline (`finishRoute`). The per-sample cumul
 ### Rendering (`src/gl/`)
 - World space: x = east, y = up, z = **south**, origin at the bbox centre. `TerrainView.world(e, n, alt)` converts bundle coordinates; grid cell `i` sits at `(i + 0.5) * cell`.
 - Vertical exaggeration is applied **in the vertex shaders** (`uExag`, `uBase`), so CPU-side geometry (trails, contours, ribbons) stores raw altitudes and never needs rebuilding.
-- The point cloud has no vertex buffer. Points come from `gl_VertexID`, which samples an `R16UI` height texture, with jitter, depth-of-field point size and distance fade. Stride 2 applies beyond 16 km camera distance.
+- The point cloud has no vertex buffer and one colour mode: the owner dropped the SWISSIMAGE mode in 0.13, because orthophotos would add about 95 MB to national data for a mode few used. Points come from `gl_VertexID`, which samples an `R16UI` height texture, with jitter, depth-of-field point size and distance fade. Stride 2 applies beyond 16 km camera distance.
 - The scene has no depth test: points and contours are additive, network and ribbons are blended over them (hologram look). The one exception is inside a route ribbon, where the depth buffer only decides which of its overlapping segments owns a pixel (see below). Contours are computed in `contours.worker.ts`.
 - The trail network is instanced: one screen-space quad per segment, so its width holds at any DPR (`GL_LINES` is always 1 device pixel). Like a printed map, it is drawn twice: first a casing in the background colour that clears the point cloud underneath, then the class colours. The selected route is a screen-space ribbon coloured per segment by trail class (`uByClass`, off-network segments in `gl.hover`) with its own casing, wider than the network, so it reads above it even where it runs on top of a trail of the same class. The owner found an accent outline around it and wider ribbons too heavy. Ribbons are instanced too, but each segment is a capsule (round ends), so segments meet in round joins. They are drawn opaque, and each fragment writes its distance from its segment as depth, so the nearest segment owns every pixel: segments are often shorter than the ribbon is wide, and without that, overlapping antialiased edges would double up. A hovered route is the same, a little thinner. Both ribbons narrow to about half their width as the camera pulls back from 4 to 16 km (`RIBBON_SHRINK`), because full-width ribbons swamp the overview.
 - The owner found the full network overwhelming, so by default only the trails branching off the selected route are drawn. `TerrainView.trailMode` is `'auto'`, `'all'` or `'off'`, and is cycled by the TRAILS button in the stage toolbar. In `'auto'` the network fades with walking distance along the trails from the selected route (fully shown within 300 m, gone by 5 km, `NETWORK_REACH`), at any zoom. `TrailNetwork` (src/geo/network.ts) computes that distance per vertex with a multi-source Dijkstra when the route changes; it feeds the per-instance `aNear` attribute. A newly selected route loads its trails: a front runs out along them to 5 km in 1.8 s (`LOAD`), with a short head in the accent that dims with the reach, while the trails of the route before (`aPrev`) fade out over 0.4 s (`UNLOAD`). The fragment shader takes the walking distance from whichever end of a segment is nearer, so the front sweeps along long segments too. Switching TRAILS to AUTO loads them again. None of it moves under `prefers-reduced-motion`.
@@ -70,7 +102,7 @@ Route `stats` are computed in the pipeline (`finishRoute`). The per-sample cumul
 - Trail-class colours (`TRAILS`) are the official Swiss signpost colours. They are adjusted only for contrast per scheme and never follow the accent. The owner wants the accent to stay clear of them: `test/theme.test.ts` checks contrast for both schemes and requires the accent to keep its distance from every trail colour, also for red-green colour-blind viewers. That rules out reds, oranges, yellows, blues and violets.
 
 ### App state and panels
-- `Store` (src/state.ts) is a tiny observable. `main.ts` reacts to `routeId` / `hoverRouteId` / `mode` changes via `subscribe`.
+- `Store` (src/state.ts) is a tiny observable. `main.ts` reacts to `routeId` / `hoverRouteId` / `display` changes via `subscribe`.
 - The preview position `store.state.minute` is **mutated directly** in the render loop, without notifying, for performance.
 - Panel A (Route player) plays the region's routes as a playlist (`Playlist` in `src/playlist.ts`, in the route list's `CATEGORY_ORDER`). `ctx.skip(±1)` changes route; "previous" first rewinds a route that has played for over 2 s. At the finish the loop holds 2.5 s, then repeats the route (`repeat`) or moves on. `shuffle` walks a random queue that starts at the current route. Space and ← / → are handled on `window` unless a control has focus.
 - Each `mount*` function in `src/panels/` builds its DOM once and returns an update callback. `main.ts` polls all of them about every 50 ms, and they rebuild static parts only when the route id changes.

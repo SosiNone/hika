@@ -5,8 +5,6 @@
   "cantons": ["VS"],
   "bbox": [2571000, 1099000, 2595000, 1118000],
   "cell": 20,
-  "orthoZoom": 20,
-  "orthoWidth": 2048,
   "minInside": 0.3,
   "minInsideKm": 2,
   "defaultRoute": "sm-58.02",

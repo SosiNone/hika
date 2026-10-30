@@ -1,12 +1,12 @@
 /**
- * Terrain coverage of a bundle. swissALTI3D ends at the national border, so a region that reaches
- * abroad has empty (0) cells there; inside Switzerland every cell should have data.
+ * Terrain coverage of a bundle or an atlas tile. swissALTI3D ends at the national border, so a
+ * box that reaches abroad has empty (0) cells there; inside Switzerland every cell should have data.
  */
-import type { RegionBundle } from '../../src/data/types';
+import type { BBox } from '../../src/data/types';
 import { insideRings, type XY } from '../../src/geo/track';
 
 /** Empty cells of a terrain grid, and how many of them lie inside Switzerland. */
-export function emptyCells(heights: Uint16Array, b: Pick<RegionBundle, 'bbox' | 'grid' | 'locator'>): { empty: number; inside: number } {
+export function emptyCells(heights: Uint16Array, b: { bbox: BBox; grid: { cols: number; rows: number; cell: number }; locator: { border: number[][] } }): { empty: number; inside: number } {
   const { cols, rows, cell } = b.grid;
   const rings = b.locator.border.map((flat) => Array.from({ length: flat.length / 2 }, (_, k): XY => [flat[2 * k], flat[2 * k + 1]]));
   let empty = 0, inside = 0;

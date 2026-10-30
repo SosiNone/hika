@@ -5,20 +5,17 @@
  */
 import { existsSync, mkdirSync, readFileSync, rmSync, writeFileSync } from 'node:fs';
 import { encodeGrid, encodeTrails } from '../src/data/codec';
-import { BUNDLE_VERSION, OFF_NETWORK, type Place, type RegionBundle, type RegionConfig, type Route, type Waypoint } from '../src/data/types';
-import { cumulativeMinutes, MAX_SLOPE, smoothAltitudes } from '../src/geo/hikingTime';
-import { polylineLength, resample, routeClimb, type XY } from '../src/geo/track';
+import { BUNDLE_VERSION, type Place, type RegionBundle, type RegionConfig, type Route } from '../src/data/types';
+import { polylineLength, type XY } from '../src/geo/track';
 import { TrailGraph } from './lib/graph';
 import { buildLocator } from './lib/locator';
 import { inBox, loadPlaces, resolvePlace } from './lib/names';
-import { buildOrtho } from './lib/ortho';
-import { profileHeights } from './lib/profile';
 import { INDEX_FILE, writeRegionIndex } from './lib/regions';
+import { SOURCES } from './lib/sources';
+import { finishRoute as sampleRoute, round1, STEP, type RouteContext, type RouteMeta } from './lib/route';
 import { buildTerrain, encodeU16, sampleGrid } from './lib/terrain';
-import { loadTrails, SegmentIndex, trailsData, type TrailLine } from './lib/trails';
+import { loadTrails, SegmentIndex, trailsData } from './lib/trails';
 import { clipRoute, fetchRoute, listRoutes } from './lib/wanderland';
-
-const STEP = 10;
 
 const id = process.argv[2] ?? 'alpstein';
 const cfg = JSON.parse(readFileSync(`regions/${id}.json`, 'utf8')) as RegionConfig;
@@ -36,8 +33,8 @@ const write = (name: string, data: ArrayBufferView | string) => {
   writeFileSync(file, bytes);
   changed = true;
 };
-// Bundle format 1 stored the grid raw.
-rmSync(`${out}/terrain.u16`, { force: true });
+// Bundle format 1 stored the grid raw; SWISSIMAGE (ortho.jpg) was dropped in 0.13.
+for (const old of ['terrain.u16', 'ortho.jpg']) rmSync(`${out}/${old}`, { force: true });
 
 log(`terrain ${cfg.cell} m`);
 const grid = await buildTerrain(cfg.bbox, cfg.cell);
@@ -48,11 +45,6 @@ for (const v of grid.data) {
 }
 write('terrain.bin', encodeGrid(encodeU16(grid.data), grid.cols));
 log(`  ${grid.cols}×${grid.rows}, ${minAlt.toFixed(0)}–${maxAlt.toFixed(0)} m, ${empty} empty cells`);
-
-log('orthophoto');
-const ortho = await buildOrtho(cfg.bbox, cfg.orthoZoom, cfg.orthoWidth);
-write('ortho.jpg', ortho.jpeg);
-log(`  ${ortho.width}×${ortho.height}, ${(ortho.jpeg.length / 1024).toFixed(0)} KB`);
 
 log('hiking trails');
 const trails = await loadTrails(cfg.bbox);
@@ -72,6 +64,8 @@ const allPlaces = await loadPlaces();
 const places = allPlaces.filter((p) => inBox(p, cfg.bbox));
 for (const p of places) if (!(p.alt > 0)) p.alt = Math.round(sampleGrid(grid, cfg.bbox, p.e, p.n));
 log(`  ${places.length} places in region (${allPlaces.length} nationally)`);
+
+const ctx: RouteContext = { places, segments: segIndex, heightAt: (e, n) => sampleGrid(grid, cfg.bbox, e, n) };
 
 log('official routes (SchweizMobil)');
 const routes: Route[] = [];
@@ -134,20 +128,11 @@ const bundle: RegionBundle = {
   cantons: cfg.cantons,
   bbox: cfg.bbox,
   grid: { file: 'terrain.bin', cols: grid.cols, rows: grid.rows, cell: grid.cell, minAlt: Math.round(minAlt), maxAlt: Math.round(maxAlt) },
-  ortho: { file: 'ortho.jpg', width: ortho.width, height: ortho.height },
   trails: { file: 'trails.bin', lines: trails.length, vertices: trails.reduce((s, t) => s + t.pts.length, 0), km: trailKm.map(round1) as [number, number, number], hardKm: round1(hardKm) },
   places: places.map((p) => ({ ...p, e: Math.round(p.e - minE), n: Math.round(p.n - minN) })),
   routes,
   locator: { file: 'switzerland.u16', ...locator },
-  sources: [
-    { name: 'swissALTI3D', owner: 'swisstopo', url: 'https://www.swisstopo.admin.ch/en/height-model-swissalti3d' },
-    { name: 'SWISSIMAGE 10 cm', owner: 'swisstopo', url: 'https://www.swisstopo.admin.ch/en/orthoimage-swissimage-10' },
-    { name: 'swissTLM3D Wanderwege', owner: 'swisstopo', url: 'https://www.swisstopo.admin.ch/en/landscape-model-swisstlm3d' },
-    { name: 'swissNAMES3D', owner: 'swisstopo', url: 'https://www.swisstopo.admin.ch/en/landscape-model-swissnames3d' },
-    { name: 'swissBOUNDARIES3D', owner: 'swisstopo', url: 'https://www.swisstopo.admin.ch/en/landscape-model-swissboundaries3d' },
-    { name: 'Wanderland Schweiz', owner: 'SchweizMobil / ASTRA', url: 'https://www.schweizmobil.ch/en/hiking-in-switzerland' },
-    { name: 'Profile service (DTM2)', owner: 'geo.admin.ch', url: 'https://api3.geo.admin.ch/services/sdiservices.html#profile' },
-  ],
+  sources: SOURCES,
   generated: new Date().toISOString(),
 };
 // Unchanged data keeps its build time, so the rebuild leaves region.json byte-identical too and
@@ -165,32 +150,9 @@ try {
   log(`${INDEX_FILE} not updated: ${(err as Error).message}; run \`npm run index:regions\` once that is fixed`);
 }
 
-function round1(v: number) { return Math.round(v * 10) / 10; }
-
-/** Samples a route every STEP metres and derives heights, trail class, stats and waypoints. */
-async function finishRoute(meta: Omit<Route, 'step' | 'e' | 'n' | 'alt' | 'cls' | 'surf' | 'stats' | 'waypoints'>, line: XY[], viaIds: string[] = []): Promise<Route> {
-  const pts = resample(line, STEP);
-  const alt = (await profileHeights(pts)).map((h, i) => (Number.isNaN(h) ? sampleGrid(grid, cfg.bbox, pts[i][0], pts[i][1]) : h));
-  const cls: number[] = [], surf: number[] = [];
-  for (const [e, n] of pts) {
-    const t: TrailLine | undefined = segIndex.nearest(e, n, 15);
-    cls.push(t ? t.cls : OFF_NETWORK);
-    surf.push(t?.hard ? 1 : 0);
-  }
-  const minutes = cumulativeMinutes(alt, STEP);
-  const back = cumulativeMinutes([...alt].reverse(), STEP);
-  const smooth = smoothAltitudes(alt, 3);
-  const climbed = routeClimb(alt);
-  const up = climbed.up[climbed.up.length - 1], down = climbed.down[climbed.down.length - 1];
-  const classKm: [number, number, number, number] = [0, 0, 0, 0];
-  let hard = 0, steep = 0;
-  for (let i = 1; i < pts.length; i++) {
-    const km = STEP / 1000;
-    classKm[cls[i] === OFF_NETWORK ? 3 : cls[i]] += km;
-    if (surf[i]) hard += km;
-    if (Math.abs(smooth[i] - smooth[i - 1]) / STEP * 100 > MAX_SLOPE) steep += km;
-  }
-  const km = ((pts.length - 1) * STEP) / 1000;
+/** A route as the bundle stores it: samples in metres from the bbox SW corner. */
+async function finishRoute(meta: RouteMeta, line: XY[], viaIds: string[] = []): Promise<Route> {
+  const { pts, alt, cls, surf, stats, waypoints } = await sampleRoute(meta, line, ctx, viaIds);
   return {
     ...meta,
     step: STEP,
@@ -199,53 +161,7 @@ async function finishRoute(meta: Omit<Route, 'step' | 'e' | 'n' | 'alt' | 'cls' 
     alt: alt.map(round1),
     cls,
     surf,
-    stats: {
-      km: round1(km), up: Math.round(up), down: Math.round(down),
-      time: Math.round(minutes[minutes.length - 1]), timeBack: Math.round(back[back.length - 1]),
-      minAlt: Math.round(Math.min(...alt)), maxAlt: Math.round(Math.max(...alt)),
-      classKm: classKm.map(round1) as [number, number, number, number], hardKm: round1(hard), steepKm: round1(steep),
-    },
-    waypoints: waypointsAlong(pts, alt, minutes, viaIds, meta),
+    stats,
+    waypoints,
   };
 }
-
-/**
- * Places a hiker passes: summits, passes, inns, stops, viewpoints and lakes near the route,
- * thinned so that within 250 m along the route only the most important one is kept.
- */
-function waypointsAlong(pts: XY[], alt: number[], minutes: Float64Array, viaIds: string[], meta: Pick<Route, 'id' | 'from' | 'to' | 'clipped'>): Waypoint[] {
-  const reach: Partial<Record<Place['kind'], number>> = { summit: 60, pass: 60, inn: 80, stop: 80, lift: 80, view: 60, lake: 350, water: 60, cave: 40, village: 120 };
-  const hits: { p: Place; i: number }[] = [];
-  for (const p of places) {
-    const max = reach[p.kind];
-    if (max === undefined || (p.kind === 'village' && p.prio < 30)) continue;
-    let bi = -1, bd = max;
-    for (let i = 0; i < pts.length; i++) {
-      const d = Math.hypot(pts[i][0] - p.e, pts[i][1] - p.n);
-      if (d < bd) { bd = d; bi = i; }
-    }
-    if (bi >= 0) hits.push({ p, i: bi });
-  }
-  const forced = new Set(viaIds);
-  hits.sort((a, b) => Number(forced.has(b.p.id)) - Number(forced.has(a.p.id)) || b.p.prio - a.p.prio);
-  const kept: { p: Place; i: number }[] = [];
-  for (const h of hits) if (forced.has(h.p.id) || !kept.some((k) => Math.abs(k.i - h.i) * STEP < 250)) kept.push(h);
-  kept.sort((a, b) => a.i - b.i);
-  // Every route gets a departure and an arrival: the nearest named place, or a marker at the region edge.
-  for (const end of [0, 1] as const) {
-    const i = end ? pts.length - 1 : 0;
-    const have = end ? kept[kept.length - 1] : kept[0];
-    if (have && Math.abs(have.i - i) * STEP <= 300) continue;
-    const [e, n] = pts[i];
-    const near = meta.clipped[end] ? undefined : places
-      .map((p) => ({ p, d: Math.hypot(p.e - e, p.n - n) }))
-      .filter((x) => x.d < 600)
-      .sort((a, b) => a.d - b.d)[0]?.p;
-    const towards = end ? meta.to : meta.from;
-    const p = near ?? { id: `${meta.id}-${end ? 'end' : 'start'}`, name: meta.clipped[end] ? `Region edge → ${towards}` : towards, kind: 'village' as const, e, n, alt: Math.round(alt[i]), prio: 0 };
-    if (!near) places.push(p);
-    if (end) kept.push({ p, i }); else kept.unshift({ p, i });
-  }
-  return kept.map(({ p, i }) => ({ place: p.id, km: round1((i * STEP) / 1000), alt: Math.round(alt[i]), time: Math.round(minutes[i]) }));
-}
-

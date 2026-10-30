@@ -1,6 +1,8 @@
 node_modules/
 dist/
 .cache/
+# The atlas (format 3) is not committed until the app reads it.
+public/data/v3/
 *.log
 .DS_Store
 .task/

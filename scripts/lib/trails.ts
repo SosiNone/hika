@@ -18,13 +18,18 @@ async function wanderwegeGpkg(): Promise<string> {
   return gpkg;
 }
 
-/** swissTLM3D hiking trails (the whole signposted network) clipped to `bbox`. */
-export async function loadTrails(bbox: BBox): Promise<TrailLine[]> {
+/**
+ * swissTLM3D hiking trails (the whole signposted network) in `bbox`, clipped to it. With
+ * `whole`, line parts are not clipped: a part is kept, ordered by id, when the centre of its
+ * extent lies in `bbox` (west and south edges inclusive), so of two boxes that touch, exactly
+ * one has it.
+ */
+export async function loadTrails(bbox: BBox, whole = false): Promise<TrailLine[]> {
   const db = new DatabaseSync(await wanderwegeGpkg(), { readOnly: true });
   const rows = db.prepare(`
     SELECT t.id, t.geom, t.wanderwege, t.belagsart FROM tlm_strassen_strasse t
     JOIN rtree_tlm_strassen_strasse_geom r ON t.id = r.id
-    WHERE r.maxx >= ? AND r.minx <= ? AND r.maxy >= ? AND r.miny <= ?`).all(bbox[0], bbox[2], bbox[1], bbox[3]) as {
+    WHERE r.maxx >= ? AND r.minx <= ? AND r.maxy >= ? AND r.miny <= ?${whole ? ' ORDER BY t.id' : ''}`).all(bbox[0], bbox[2], bbox[1], bbox[3]) as {
     id: number; geom: Uint8Array; wanderwege: string; belagsart: string;
   }[];
   db.close();
@@ -32,8 +37,14 @@ export async function loadTrails(bbox: BBox): Promise<TrailLine[]> {
   for (const row of rows) {
     const cls = CLASS[row.wanderwege];
     if (cls === undefined) continue;
-    for (const part of parseGpkgLines(row.geom)) for (const pts of clipToBox(part, bbox)) {
-      lines.push({ id: row.id, cls, hard: row.belagsart === 'Hart', pts });
+    for (const part of parseGpkgLines(row.geom)) {
+      if (whole) {
+        const es = part.map((p) => p[0]), ns = part.map((p) => p[1]);
+        const ce = (Math.min(...es) + Math.max(...es)) / 2, cn = (Math.min(...ns) + Math.max(...ns)) / 2;
+        if (part.length > 1 && ce >= bbox[0] && ce < bbox[2] && cn >= bbox[1] && cn < bbox[3]) lines.push({ id: row.id, cls, hard: row.belagsart === 'Hart', pts: part });
+        continue;
+      }
+      for (const pts of clipToBox(part, bbox)) lines.push({ id: row.id, cls, hard: row.belagsart === 'Hart', pts });
     }
   }
   return lines;
@@ -56,13 +67,20 @@ export async function trailSketch(): Promise<{ cls: TrailClass; e: number; n: nu
   });
 }
 
-/** The network as the bundle stores it (encoded by `encodeTrails` in src/data/codec.ts): whole metres from the bbox SW corner. */
-export function trailsData(lines: TrailLine[], bbox: BBox): Trails {
+/**
+ * The network as the bundle stores it (encoded by `encodeTrails` in src/data/codec.ts): whole
+ * metres from the bbox SW corner, plus `bias` (an atlas tile's TRAIL_BIAS).
+ */
+export function trailsData(lines: TrailLine[], bbox: BBox, bias = 0): Trails {
   const offsets = new Uint32Array(lines.length + 1), xy = new Uint16Array(lines.reduce((s, l) => s + l.pts.length, 0) * 2);
   let v = 0;
+  const at = (x: number) => {
+    if (x < 0 || x > 65535) throw new Error(`trail vertex ${x - bias} m off the box corner does not fit in 16 bits`);
+    return x;
+  };
   lines.forEach((l, i) => {
     offsets[i] = v;
-    for (const [e, n] of l.pts) { xy[2 * v] = Math.round(e - bbox[0]); xy[2 * v + 1] = Math.round(n - bbox[1]); v++; }
+    for (const [e, n] of l.pts) { xy[2 * v] = at(Math.round(e - bbox[0]) + bias); xy[2 * v + 1] = at(Math.round(n - bbox[1]) + bias); v++; }
   });
   offsets[lines.length] = v;
   return { offsets, cls: Uint8Array.from(lines, (l) => l.cls), hard: Uint8Array.from(lines, (l) => (l.hard ? 1 : 0)), xy };
