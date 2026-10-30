@@ -20,7 +20,7 @@ export function showVersion(el: HTMLAnchorElement) {
  * button that opens the region browser.
  */
 export function mountRegionPicker(el: HTMLElement, regions: RegionSummary[], current: RegionSummary, open: () => void) {
-  const label = `${current.title.toUpperCase()} · ${current.cantons.join(' / ')}`;
+  const label = [current.title.toUpperCase(), ...(current.cantons.length ? [current.cantons.join(' / ')] : [])].join(' · ');
   el.title = current.subtitle;
   if (regions.length < 2) {
     el.textContent = label;

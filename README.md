@@ -15,9 +15,10 @@
 
 </div>
 
-HIKA renders 17 Swiss hiking regions as holographic 3D terrain, each with its signposted trail
-network and 330 routes: 279 SchweizMobil routes and 51 curated classics. Pick a route and a hiker
-walks it at official Swiss signpost pace while the instruments follow along.
+HIKA renders Swiss hiking routes on holographic 3D terrain: 950 SchweizMobil routes and stages
+across Switzerland, and 51 curated classics in 17 hand-picked regions, each route with the
+signposted trails around it. Pick a route and a hiker walks it at official Swiss signpost pace
+while the instruments follow along.
 
 ## Features
 
@@ -29,8 +30,8 @@ walks it at official Swiss signpost pace while the instruments follow along.
   as a playlist with repeat and shuffle.
 - **Instruments:** elevation profile, climb and descent, slope and aspect, trail classes, a
   Switzerland locator with lakes and every region, and sunrise and sunset.
-- **Region browser:** a map of Switzerland and a filterable list of the regions, with their routes,
-  trail kilometres and altitude range.
+- **Region browser and route search:** a map of Switzerland with the regions, their routes, trail
+  kilometres and altitude range, and a search over every route in the country.
 - **Real hiking times** from a pace table digitised from the official Schweizer Wanderwege chart.
 - **Shareable links** for every route, e.g. the
   [Eiger Trail](https://sosinone.github.io/hika/?region=jungfrau#route=sm-353.00).

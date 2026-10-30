@@ -77,7 +77,7 @@ appear as a route waypoint (panel B, profile ticks, trail log, footer ticker).
 | Bounding box | `bbox` | ✅ | Locator box, LV95 and WGS84 readouts, sunrise / sunset | — |
 | Region index: every region's title, cantons, bbox, default route and route count | `regions.json` | ✅ | Region browser (map and list); the other regions' boxes in the locator (G), which open them | — |
 | Region facts: curated hike count, trail km per class, hard km, altitude range | `regions.json` `classics`, `trailKm`, `hardKm`, `alt` | ✅ | Region browser list; trail class (C) | — |
-| Route catalogue: every route's meta, stats, bbox, sparkline and regions | `catalogue.json` | ◐ | Which routes a region lists; route windows | A national route search |
+| Route catalogue: every route's meta, stats, bbox, sparkline and regions | `catalogue.json` | ✅ | Which routes a page lists; route windows; the route search in the region browser | Search results don't show their sparkline |
 | Source list, with dataset links and terms | `manifest.json` `sources` | ◐ | The footer credits and links ©swisstopo and Wanderland Schweiz © FEDRO, with LICENCES (`NOTICE.txt`) | An about panel could list all of them |
 | Build time | `manifest.json` `generated` | ✗ | — | Data freshness ("trails as of …") |
 
@@ -108,7 +108,7 @@ Adding any of these means a pipeline change plus an atlas format change (`types.
 | swissNAMES3D polygons (`_PLY.csv`) | See, Grat | Graben 77, Gebiet 57, Tal 4, Gletscher 2, Campingplatzareal 5, Öffentliches Parkplatzareal 2, … | Valley and area names; parking at trailheads |
 | swissNAMES3D lines (`_LIN.csv`) | Not read | Fliessgewässer 113, Skilift 14, Luftseilbahn 6, Sesselbahn 3, Gondelbahn 2 | Draw cable cars (Ebenalp, Säntis, Hoher Kasten) as lines; streams |
 | swissBOUNDARIES3D | National and canton outlines, simplified to 400 m | `tlm_bezirksgebiet`, `tlm_hoheitsgebiet` (districts, municipalities), full-detail rings, Liechtenstein | Canton and municipality borders on the terrain |
-| SchweizMobil `ch.astra.wanderland` | Title, number, whole geometry | `chmobil_has_segment`; routes no region lists | A national catalogue of all 976 routes and stages |
+| Wanderland Schweiz (`ch.astra.wanderland` GeoPackage) | Every stage's number, name, ends and geometry | The 26 routes mostly abroad; per-route difficulty (`KonditionE`, `TechnikE`), the official times (`ZeitStZiE`) and the `Weg` segments with their surface | Show SchweizMobil's difficulty grades; compare their times with ours |
 | Profile service | `DTM2` | `DTM25`, `COMB` | None: DTM2 is the finest model |
 
 ## 3. Not used yet

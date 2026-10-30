@@ -1,6 +1,7 @@
 import { describe, expect, it } from 'vitest';
 import type { CatalogueEntry, RegionConfig, RegionSummary } from '../src/data/types';
-import { DEFAULT_REGION, filterRegions, pickRegion, regionHref } from '../src/regions';
+import { windowFacts, type TerrainWindow } from '../src/data/load';
+import { DEFAULT_REGION, filterRegions, filterRoutes, nearbyRegion, pickRegion, regionHref, routeHref, routesOf } from '../src/regions';
 import { formatIndex, regionIndex, summariseRegion } from '../scripts/lib/regions';
 
 const summary = (id: string): RegionSummary => ({ id, title: id, subtitle: '', cantons: [], bbox: [0, 0, 1, 1], defaultRoute: 'c-x', routes: 1, classics: 1, trailKm: [1, 0, 0], hardKm: 0, alt: [400, 900] });
@@ -67,5 +68,57 @@ describe('formatIndex', () => {
     const text = formatIndex(regionIndex([summary('b'), summary('a')]));
     expect(JSON.parse(text)).toEqual({ version: 3, regions: [summary('a'), summary('b')] });
     expect(text.split('\n').filter((l) => l.includes('"id"'))).toHaveLength(2);
+  });
+});
+
+const entry = (id: string, name: string, from: string, to: string, bbox: [number, number, number, number], regions: string[] = []) =>
+  ({ id, number: id.startsWith('sm-') ? id.slice(3).replace(/\.00$/, '') : null, name, from, to, source: id.startsWith('sm-') ? 'schweizmobil' : 'curated', bbox, regions }) as unknown as CatalogueEntry;
+const catalogue = [
+  entry('sm-1.01', 'Via Alpina', 'Vaduz (Gaflei, FL)', 'Sargans', [2755000, 1210000, 2760000, 1225000], ['alpstein']),
+  entry('sm-893.00', 'Albisgrat-Höhenweg', 'Uetliberg', 'Albis Hochwacht', [2678000, 1236000, 2682000, 1245000]),
+  entry('sm-951.00', 'Gamplüt-Säntis-Weg', 'Wildhaus, Gamplüt', 'Säntis', [2741000, 1229000, 2745000, 1235000], ['alpstein']),
+  entry('sm-890.00', 'Uetliberg-Felsenegg', 'Uetliberg', 'Felsenegg', [2679000, 1240000, 2681000, 1243000]),
+];
+
+describe('filterRoutes', () => {
+  const ids = (q: string) => filterRoutes(catalogue, q).map((r) => r.id);
+  it('finds routes by name, number, start or end, ignoring accents', () => {
+    expect(ids('hohenweg')).toEqual(['sm-893.00']);
+    expect(ids('951')).toEqual(['sm-951.00']);
+    expect(ids('sargans')).toEqual(['sm-1.01']);
+  });
+  it('needs every word', () => expect(ids('uetliberg felsenegg')).toEqual(['sm-890.00']));
+  it('puts names and numbers that start with the query first', () => expect(ids('uetliberg')).toEqual(['sm-890.00', 'sm-893.00']));
+  it('finds nothing without a query', () => expect(ids('  ')).toEqual([]));
+});
+
+describe('nearbyRegion', () => {
+  const near = nearbyRegion(catalogue[1], catalogue);
+  it('is the route\'s own window, with no id', () => {
+    expect(near.id).toBe('');
+    expect(near.bbox).toEqual([2676000, 1234000, 2684000, 1247000]);
+    expect(near.defaultRoute).toBe('sm-893.00');
+    expect(near.title).toBe('Around Uetliberg');
+  });
+  it('lists the routes that cross it', () => {
+    expect(routesOf(near, catalogue).map((r) => r.id)).toEqual(['sm-893.00', 'sm-890.00']);
+    expect(near.routes).toBe(2);
+  });
+  it('leaves a region its own list', () => expect(routesOf({ id: 'alpstein', bbox: [0, 0, 1, 1] }, catalogue).map((r) => r.id)).toEqual(['sm-1.01', 'sm-951.00']));
+});
+
+describe('routeHref', () => {
+  it('opens a route in the first region that lists it', () => expect(routeHref(catalogue[2], 'https://x.ch/hika/?scheme=light#route=c-a')).toBe('https://x.ch/hika/?scheme=light&region=alpstein#route=sm-951.00'));
+  it('opens one no region lists on its own', () => expect(routeHref(catalogue[1], 'https://x.ch/hika/?region=alpstein')).toBe('https://x.ch/hika/#route=sm-893.00'));
+});
+
+describe('windowFacts', () => {
+  it('measures the network by class and the altitude range of a window', () => {
+    // A 1 km Wanderweg on asphalt and a 500 m Bergwanderweg.
+    const win = {
+      grid: { minAlt: 410, maxAlt: 1810 },
+      trails: { offsets: Uint32Array.of(0, 2, 4), cls: Uint8Array.of(0, 1), hard: Uint8Array.of(1, 0), xy: Uint16Array.of(0, 0, 1000, 0, 0, 0, 300, 400) },
+    } as unknown as TerrainWindow;
+    expect(windowFacts(win)).toEqual({ trailKm: [1, 1, 0], hardKm: 1, alt: [410, 1810] });
   });
 });
