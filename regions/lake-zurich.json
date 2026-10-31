@@ -1,0 +1,22 @@
+{
+  "id": "lake-zurich",
+  "title": "Lake Zurich",
+  "subtitle": "Etzel · Einsiedeln · Rapperswil",
+  "cantons": ["ZH", "SZ", "SG"],
+  "bbox": [2683000, 1222000, 2707000, 1241000],
+  "minInside": 0.3,
+  "minInsideKm": 2,
+  "defaultRoute": "sm-4.04",
+  "excludeRoutes": [],
+  "curated": [
+    {
+      "id": "gottschalkenberg-hoehronen",
+      "name": "Gottschalkenberg – Höhronen – Hütten",
+      "via": [
+        { "name": "Gottschalkenberg", "kind": "pass" },
+        { "name": "Höhronen", "kind": "summit" },
+        { "name": "Hütten", "kind": "village" }
+      ]
+    }
+  ]
+}

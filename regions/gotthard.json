@@ -1,0 +1,29 @@
+{
+  "id": "gotthard",
+  "title": "Gotthard",
+  "subtitle": "Andermatt · Furka · Airolo",
+  "cantons": ["UR", "TI", "VS", "BE"],
+  "bbox": [2666000, 1149000, 2690000, 1168000],
+  "minInside": 0.3,
+  "minInsideKm": 2,
+  "defaultRoute": "sm-49.02",
+  "excludeRoutes": [],
+  "curated": [
+    {
+      "id": "goescheneralp-dammahuette",
+      "name": "Göscheneralp – Dammahütte",
+      "via": [
+        { "name": "Göscheneralp, Dammagletscher", "kind": "stop" },
+        { "name": "Dammahütte SAC", "kind": "inn" }
+      ]
+    },
+    {
+      "id": "realp-rotondohuette",
+      "name": "Realp – Rotondohütte",
+      "via": [
+        { "name": "Realp", "kind": "stop" },
+        { "name": "Rotondohütte SAC", "kind": "inn" }
+      ]
+    }
+  ]
+}

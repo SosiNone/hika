@@ -16,7 +16,7 @@
 </div>
 
 HIKA renders Swiss hiking routes on holographic 3D terrain: 950 SchweizMobil routes and stages
-across Switzerland, and 51 curated classics in 17 hand-picked regions, each route with the
+across Switzerland, and 66 curated classics in 29 hand-picked regions, each route with the
 signposted trails around it. Pick a route and a hiker walks it at official Swiss signpost pace
 while the instruments follow along.
 
