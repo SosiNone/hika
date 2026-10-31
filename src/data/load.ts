@@ -1,7 +1,7 @@
 import { cumulativeMinutes } from '../geo/hikingTime';
 import { clipToBox, routeClimb, type XY } from '../geo/track';
 import { decodeGrid, decodeRoute, decodeTrails, type Trails } from './codec';
-import { CELL, routeWindow, stitchGrid, TILE_CELLS, TRAIL_BIAS, tileKey, tilesCovering } from './tiles';
+import { CELL, reliefBox, routeWindow, stitchGrid, TILE_CELLS, TRAIL_BIAS, tileKey, tilesCovering } from './tiles';
 import { routesOf } from '../regions';
 import { ATLAS_FORMAT, type AtlasManifest, type AtlasRoute, type BBox, type Catalogue, type CatalogueEntry, type Locator, type Place, type RangeSummary, type RegionIndex, type RegionSummary, type Route } from './types';
 
@@ -43,7 +43,22 @@ export interface TerrainWindow {
   places: Place[];
 }
 
-/** The area a page shows: its routes, the places they name, and the window around the selected route. */
+/** An area's relief (`relief/<id>.bin`): all of it, coarse, around the window. */
+export interface Relief {
+  bbox: BBox;
+  cols: number;
+  rows: number;
+  cell: number;
+  /** Row-major Uint16 decimetres, row 0 at the north edge, 0 = no data. */
+  heights: Uint16Array;
+  minAlt: number;
+  maxAlt: number;
+}
+
+/**
+ * The area a page shows: its routes, the places they name, the window around the selected route,
+ * and the area's relief around that.
+ */
 export interface Region {
   summary: RegionSummary;
   routes: RouteView[];
@@ -51,6 +66,8 @@ export interface Region {
   places: Map<string, Place>;
   /** Replaced when the selected route leaves it (`loadWindow`). */
   window: TerrainWindow;
+  /** Null where the atlas has none (built before reliefs) or it failed to load. */
+  relief: Relief | null;
 }
 
 export async function loadAtlas(): Promise<Atlas> {
@@ -142,6 +159,23 @@ export async function loadWindow(atlas: Atlas, bbox: BBox): Promise<TerrainWindo
   };
 }
 
+/** An area's relief (`manifest.relief`); null if the atlas has none, or it fails, as the page works without. */
+export async function loadRelief(atlas: Atlas, region: RegionSummary): Promise<Relief | null> {
+  const spec = atlas.manifest.relief;
+  if (!spec) return null;
+  const bbox = reliefBox(region.bbox, spec.margin), cols = (bbox[2] - bbox[0]) / spec.cell, rows = (bbox[3] - bbox[1]) / spec.cell;
+  try {
+    const heights = decodeGrid(new Uint8Array(await binary(`relief/${region.id}.bin`)), cols, rows);
+    let minAlt = Infinity, maxAlt = -Infinity;
+    for (const v of heights) if (v) { if (v < minAlt) minAlt = v; if (v > maxAlt) maxAlt = v; }
+    if (!Number.isFinite(minAlt)) return null;
+    return { bbox, cols, rows, cell: spec.cell, heights, minAlt: Math.round(minAlt / 10), maxAlt: Math.round(maxAlt / 10) };
+  } catch (err) {
+    console.warn(`no relief for ${region.id}:`, err);
+    return null;
+  }
+}
+
 let detail: Promise<Uint16Array | null> | null = null;
 
 /** The finer national relief the region browser zooms into (`locator.detail`), fetched once; null if the atlas has none or it fails. */
@@ -170,6 +204,7 @@ export function prefetchRegion(atlas: Atlas, id: string) {
   prefetched.add(id);
   const files = keysOf(atlas, routeWindow(first.bbox, region.bbox)).flatMap((k) => [`terrain/${k}.bin`, `trails/${k}.bin`, `places/${k}.json`]);
   for (const r of atlas.catalogue.values()) if (r.regions.includes(id)) files.push(`routes/${r.id}.bin`);
+  if (atlas.manifest.relief) files.push(`relief/${id}.bin`);
   for (const file of files) {
     const link = document.createElement('link');
     link.rel = 'prefetch';

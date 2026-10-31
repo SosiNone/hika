@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { covers, routeWindow, stitchGrid, TILE, TILE_CELLS, tileKey, tileOf, tilesCovering } from '../src/data/tiles';
+import { coarseGrid, covers, RELIEF_CELL, RELIEF_MARGIN, reliefBox, routeWindow, stitchGrid, TILE, TILE_CELLS, tileKey, tileOf, tilesCovering } from '../src/data/tiles';
 import type { BBox } from '../src/data/types';
 
 describe('tile grid', () => {
@@ -65,4 +65,38 @@ describe('stitching', () => {
     expect(at(g, 250, 0)).toBe(0);
   });
   it('refuses a window off the cell grid', () => expect(() => stitchGrid([5, 0, 1000, 1000], () => undefined)).toThrow(/20 m grid/));
+});
+
+describe('area reliefs', () => {
+  it('reach RELIEF_MARGIN beyond the area', () => {
+    expect(reliefBox([2_740_000, 1_225_000, 2_760_000, 1_240_000])).toEqual([2_740_000 - RELIEF_MARGIN, 1_225_000 - RELIEF_MARGIN, 2_760_000 + RELIEF_MARGIN, 1_240_000 + RELIEF_MARGIN]);
+    expect(reliefBox([0, 0, 1000, 1000], 2000)).toEqual([-2000, -2000, 3000, 3000]);
+  });
+
+  it('average the cells with data in each coarse cell, north row first, across tiles', () => {
+    // Two tiles side by side: the west one rises to the north (row j holds 1000 + 250 - j dm), the
+    // east one is flat at 500 dm with a hole of no data in its north-west corner.
+    const west = new Uint16Array(TILE_CELLS * TILE_CELLS), east = new Uint16Array(TILE_CELLS * TILE_CELLS).fill(500);
+    for (let j = 0; j < TILE_CELLS; j++) west.fill(1000 + TILE_CELLS - j, j * TILE_CELLS, (j + 1) * TILE_CELLS);
+    for (let j = 0; j < 5; j++) east.fill(0, j * TILE_CELLS, j * TILE_CELLS + 5);
+    for (let j = 5; j < 10; j++) east.fill(0, j * TILE_CELLS, j * TILE_CELLS + 3);
+    const tiles = new Map([[tileKey(2_600_000, 1_200_000), west], [tileKey(2_605_000, 1_200_000), east]]);
+    // 9 × 5 km from 1 km into the west tile, over the east one and 1 km beyond it (no tile there).
+    const { cols, rows, heights } = coarseGrid([2_601_000, 1_200_000, 2_611_000, 1_205_000], RELIEF_CELL, (k) => tiles.get(k));
+    expect([cols, rows]).toEqual([100, 50]);
+    const k = RELIEF_CELL / (TILE / TILE_CELLS);
+    // West: the mean of rows 0–4 is 1000 + 250 − 2.
+    expect(heights[0]).toBe(1248);
+    expect(heights[49 * cols]).toBe(1000 + TILE_CELLS - (49 * k + 2));
+    // East: no data at all in the corner, then a cell with 15 of its 25 empty.
+    expect(heights[40]).toBe(0);
+    expect(heights[cols + 40]).toBe(500);
+    expect(heights[cols + 41]).toBe(500);
+    // Beyond the east tile.
+    expect(heights[cols - 1]).toBe(0);
+  });
+
+  it('refuse a box off their grid', () => {
+    expect(() => coarseGrid([2_601_050, 1_200_000, 2_602_000, 1_201_000], RELIEF_CELL, () => undefined)).toThrow();
+  });
 });

@@ -1,5 +1,6 @@
 import './styles/hud.css';
-import { indexAtMinute, loadAtlas, loadRoutes, loadWindow, prefetchWindow, reverseRoute, type Atlas, type Region, type RouteView } from './data/load';
+import { indexAtMinute, loadAtlas, loadRelief, loadRoutes, loadWindow, prefetchWindow, reverseRoute, type Atlas, type Region, type RouteView } from './data/load';
+import { decodeArc, decodeRings } from './data/shapes';
 import { covers, routeWindow } from './data/tiles';
 import { project } from './gl/glkit';
 import { RoutePicker } from './gl/picker';
@@ -41,10 +42,11 @@ async function boot() {
     }
     bootEl.textContent = `LOADING ${summary.title.toUpperCase()}…`;
     document.title = `HIKA · ${summary.title}`;
+    const relief = loadRelief(atlas, summary);
     const { routes, places } = await loadRoutes(atlas, summary);
     const first = routes.find((r) => r.id === linked?.id) ?? routes.find((r) => r.id === summary.defaultRoute) ?? routes[0];
     const window = await loadWindow(atlas, routeWindow(atlas.catalogue.get(first.id)!.bbox, summary.bbox));
-    start(atlas, { summary, routes, places, window }, first.id, first.id === linked?.id && hash.get('reverse') === '1');
+    start(atlas, { summary, routes, places, window, relief: await relief }, first.id, first.id === linked?.id && hash.get('reverse') === '1');
     bootEl.classList.add('done');
     setTimeout(() => bootEl.remove(), 700);
   } catch (err) {
@@ -92,6 +94,8 @@ function start(atlas: Atlas, region: Region, routeId: string, reversed: boolean)
   const canvas = document.getElementById('terrain') as HTMLCanvasElement;
   const view = new TerrainView(canvas, region.window);
   view.palette = palette.gl;
+  view.setRelief(region.relief);
+  view.setArea(decodeRings(atlas.index.arcs.map(decodeArc), region.summary.rings));
   const labels = new LabelLayer(document.getElementById('terrain-hud') as HTMLCanvasElement, region, view);
   // Switching areas is a page load: the back button returns to the last one.
   const goToRegion = (id: string) => { if (id !== region.summary.id) location.assign(regionHref(id, location.href)); };
@@ -326,18 +330,20 @@ function mountStageOverlay(region: Region, store: Store, view: TerrainView) {
   };
   showTrailMode();
   // Altitude meter: a scale in round 500 m steps, a band over the range the scan sweeps, and a
-  // marker that follows the scan line. It is drawn for the window shown, and again when that changes.
+  // marker that follows the scan line. It is drawn for the terrain shown (the window and the
+  // area's relief), and again when the window changes.
   let meterOf: TerrainView['win'] | null = null, lo = 0, hi = 1, mark: HTMLElement, markValue: HTMLElement;
   const pct = (alt: number) => `${((alt - lo) / (hi - lo)) * 100}%`;
   const drawMeter = () => {
-    const { grid } = (meterOf = view.win);
-    lo = Math.floor(grid.minAlt / 500) * 500;
-    hi = Math.ceil(grid.maxAlt / 500) * 500;
+    meterOf = view.win;
+    const [minAlt, maxAlt] = view.altRange();
+    lo = Math.floor(minAlt / 500) * 500;
+    hi = Math.ceil(maxAlt / 500) * 500;
     const ticks: string[] = [];
     for (let a = lo; a <= hi; a += 100) {
       ticks.push(a % 500 ? `<i style="bottom:${pct(a)}"></i>` : `<i class="major" style="bottom:${pct(a)}"></i><span style="bottom:${pct(a)}">${a}</span>`);
     }
-    q('meter').innerHTML = `<b class="range" style="bottom:${pct(grid.minAlt)};top:calc(100% - ${pct(grid.maxAlt)})"></b>${ticks.join('')}<div class="mark">▸<s></s><em></em></div>`;
+    q('meter').innerHTML = `<b class="range" style="bottom:${pct(minAlt)};top:calc(100% - ${pct(maxAlt)})"></b>${ticks.join('')}<div class="mark">▸<s></s><em></em></div>`;
     mark = q('meter').querySelector<HTMLElement>('.mark')!;
     markValue = mark.querySelector('em')!;
   };

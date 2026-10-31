@@ -82,3 +82,47 @@ export function stitchGrid(bbox: BBox, tile: (key: string) => Uint16Array | unde
   }
   return { cols, rows, heights };
 }
+
+/**
+ * Cell (m) of an area's relief (`relief/<id>.bin`): the whole area, coarse, around the window. At
+ * 100 m it costs about a twentieth of the 20 m terrain, and in an overview of an area a pixel
+ * spans 50–100 m anyway.
+ */
+export const RELIEF_CELL = 100;
+/** How far an area's relief reaches beyond its extent (m): its border lies well inside, and the edge dissolves beyond it. */
+export const RELIEF_MARGIN = 4000;
+
+/** The extent of an area's relief: its own (whole km) plus `margin`, RELIEF_MARGIN unless the atlas says otherwise. */
+export const reliefBox = ([w, s, e, n]: BBox, margin = RELIEF_MARGIN): BBox => [w - margin, s - margin, e + margin, n + margin];
+
+/**
+ * A coarse grid over `bbox` (on whole km; row 0 = north edge) from the tiles that cover it: each of
+ * its cells, of `cell` m, is the mean of the CELL cells with data in it, rounded, and 0 where none
+ * has data. `tile` is as for `stitchGrid`.
+ */
+export function coarseGrid(bbox: BBox, cell: number, tile: (key: string) => Uint16Array | undefined): { cols: number; rows: number; heights: Uint16Array } {
+  const [minE, minN, maxE, maxN] = bbox;
+  if (cell % CELL || [minE, minN, maxE, maxN].some((v) => v % cell)) throw new Error(`relief ${bbox.join(',')} is not on the ${cell} m grid`);
+  const cols = (maxE - minE) / cell, rows = (maxN - minN) / cell, k = cell / CELL;
+  const sum = new Float64Array(cols * rows), count = new Uint16Array(cols * rows);
+  for (const [te, tn] of tilesCovering(bbox)) {
+    const h = tile(tileKey(te, tn));
+    if (!h) continue;
+    // Tile cell (i, j) lies in coarse cell ((i + dx) / k, (j + dy) / k), rounded down; both grids
+    // have row 0 in the north, and the coarse grid's lines fall on the tile's.
+    const dx = (te - minE) / CELL, dy = (maxN - tn - TILE) / CELL;
+    for (let j = Math.max(0, -dy); j < Math.min(TILE_CELLS, rows * k - dy); j++) {
+      const row = Math.floor((j + dy) / k) * cols;
+      for (let i = Math.max(0, -dx); i < Math.min(TILE_CELLS, cols * k - dx); i++) {
+        const v = h[j * TILE_CELLS + i];
+        if (!v) continue;
+        const c = row + Math.floor((i + dx) / k);
+        sum[c] += v;
+        count[c]++;
+      }
+    }
+  }
+  const heights = new Uint16Array(cols * rows);
+  for (let c = 0; c < heights.length; c++) if (count[c]) heights[c] = Math.round(sum[c] / count[c]);
+  return { cols, rows, heights };
+}

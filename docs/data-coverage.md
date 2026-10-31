@@ -17,12 +17,13 @@ field, a panel or a source, update the matching row.
 |---|---|---|---|---|---|
 | Height grid, 20 m (5 km tiles, stitched into windows) | swissALTI3D | `terrain/<key>.bin` | ✅ | Point cloud, contours (worker), trail draping, slope aspect rose (I) | No height or slope readout under the cursor; no slope shading of the cloud |
 | No-data cells beyond the border (`0`) | swissALTI3D (Switzerland only) | `terrain.bin` | ◐ | Left empty: no points or contours (Zermatt, Aletsch) | The Italian side of the Matterhorn is blank; a coarse foreign DEM could fill it |
+| Area relief, 100 m (each area plus 4 km) | swissALTI3D, averaged from the 20 m tiles (`coarseGrid`) | `relief/<id>.bin`, `manifest.relief` | ✅ | Point cloud and contours around the window, cross-fading with it; the home view (double-click) shows all of it | No place labels or trails beyond the window |
 | Grid min / max altitude | swissALTI3D | `grid.minAlt`, `grid.maxAlt` | ◐ | Exaggeration base, hiker drop line | Not shown as numbers |
 | National relief, 2 km | Profile service (DTM2) | `switzerland.u16` | ✅ | Locator (G) and region browser, which drape the borders and the ranges and areas on it | — |
 | National relief, 1 km | swissALTI3D, averaged from the partition's 200 m terrain model | `switzerland-1km.u16` (`locator.detail`) | ✅ | Region browser, fetched when it opens: the relief it zooms into a range on | — |
 | National border, canton borders | swissBOUNDARIES3D | `locator.border`, `locator.cantons` | ✅ | Locator (G), region browser | Canton borders are not drawn on the 3D terrain (the region spans AI, AR and SG) |
 | Lakes | Derived in the app from the flat cells of `switzerland.u16` (`lakeCells`) | — | ✅ | Locator (G), region browser | At 2 km cells only the larger lakes show (two or more flat cells); no lake names |
-| Mountain ranges and areas: outlines, shared borders | swissNAMES3D (Grossregion, Landschaftsname, Haupttal, Huegelzug, Massiv polygons), grown over the terrain by hiking time (`scripts/lib/partition.ts`) | `regions.json` `ranges`, `regions[].rings`, `arcs` | ✅ | Locator (G) and region browser: a range glows under the pointer, the browser zooms into it, the current area is lit | Not drawn on the 3D terrain: where the area ends |
+| Mountain ranges and areas: outlines, shared borders | swissNAMES3D (Grossregion, Landschaftsname, Haupttal, Huegelzug, Massiv polygons), grown over the terrain by hiking time (`scripts/lib/partition.ts`) | `regions.json` `ranges`, `regions[].rings`, `arcs` | ✅ | Locator (G) and region browser: a range glows under the pointer, the browser zooms into it, the current area is lit. 3D terrain: the current area's border is draped on it, and the ground beyond recedes | — |
 
 ### Trail network
 
