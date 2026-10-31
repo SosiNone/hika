@@ -1,0 +1,30 @@
+{
+  "id": "hasliberg",
+  "title": "Hasliberg",
+  "subtitle": "Melchsee-Frutt · Brünig · Brienzer Rothorn",
+  "cantons": ["BE", "OW", "LU"],
+  "bbox": [2645000, 1173000, 2669000, 1192000],
+  "minInside": 0.3,
+  "minInsideKm": 2,
+  "defaultRoute": "c-planplatten-melchsee-frutt",
+  "excludeRoutes": [],
+  "curated": [
+    {
+      "id": "planplatten-melchsee-frutt",
+      "name": "Planplatten – Balmeregghorn – Melchsee-Frutt",
+      "via": [
+        { "name": "Planplatten", "kind": "lift" },
+        { "name": "Balmeregghoren", "kind": "summit" },
+        { "name": "Melchsee-Frutt (Bergstation)", "kind": "lift" }
+      ]
+    },
+    {
+      "id": "reichenbachfall-aareschlucht",
+      "name": "Reichenbachfall – Aareschlucht",
+      "via": [
+        { "name": "Reichenbachfall", "kind": "stop" },
+        { "name": "Aareschlucht, Ost", "kind": "stop" }
+      ]
+    }
+  ]
+}

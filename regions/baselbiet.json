@@ -1,0 +1,22 @@
+{
+  "id": "baselbiet",
+  "title": "Baselbiet",
+  "subtitle": "Wasserfallen · Passwang · Belchenflue",
+  "cantons": ["BL", "SO"],
+  "bbox": [2610000, 1242000, 2634000, 1261000],
+  "minInside": 0.3,
+  "minInsideKm": 2,
+  "defaultRoute": "sm-472.00",
+  "excludeRoutes": [],
+  "curated": [
+    {
+      "id": "wasserfallen-passwang",
+      "name": "Wasserfallen – Vogelberg – Passwang",
+      "via": [
+        { "name": "Wasserfallen", "kind": "lift" },
+        { "name": "Vogelberg", "kind": "summit" },
+        { "name": "Passwanghöhe", "kind": "pass" }
+      ]
+    }
+  ]
+}

@@ -1,0 +1,21 @@
+{
+  "id": "schwyz",
+  "title": "Schwyz",
+  "subtitle": "Mythen · Stoos · Muotathal",
+  "cantons": ["SZ", "UR", "NW"],
+  "bbox": [2682000, 1198000, 2706000, 1217000],
+  "minInside": 0.3,
+  "minInsideKm": 2,
+  "defaultRoute": "sm-827.00",
+  "excludeRoutes": [],
+  "curated": [
+    {
+      "id": "holzegg-grosser-mythen",
+      "name": "Holzegg – Grosser Mythen",
+      "via": [
+        { "name": "Holzegg", "kind": "lift" },
+        { "name": "Gross Mythen", "kind": "summit" }
+      ]
+    }
+  ]
+}

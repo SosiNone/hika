@@ -1,0 +1,21 @@
+{
+  "id": "lugano",
+  "title": "Lugano",
+  "subtitle": "Monte Tamaro · Monte Brè · Morcote",
+  "cantons": ["TI"],
+  "bbox": [2701000, 1090000, 2725000, 1109000],
+  "minInside": 0.3,
+  "minInsideKm": 2,
+  "defaultRoute": "sm-52.07",
+  "excludeRoutes": [],
+  "curated": [
+    {
+      "id": "bre-boglia",
+      "name": "Monte Brè – Monte Boglia",
+      "via": [
+        { "name": "Monte Brè", "kind": "stop" },
+        { "name": "Monte Boglia", "kind": "summit" }
+      ]
+    }
+  ]
+}

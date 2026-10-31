@@ -1,0 +1,21 @@
+{
+  "id": "chasseral",
+  "title": "Chasseral",
+  "subtitle": "Combe Grède · Franches-Montagnes · Doubs",
+  "cantons": ["BE", "JU"],
+  "bbox": [2562000, 1219000, 2586000, 1238000],
+  "minInside": 0.3,
+  "minInsideKm": 2,
+  "defaultRoute": "sm-427.00",
+  "excludeRoutes": [],
+  "curated": [
+    {
+      "id": "saignelegier-gruere",
+      "name": "Saignelégier – Étang de la Gruère",
+      "via": [
+        { "name": "Saignelégier", "kind": "stop" },
+        { "name": "Etang de la Gruère", "kind": "lake" }
+      ]
+    }
+  ]
+}

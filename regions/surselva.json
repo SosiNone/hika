@@ -1,0 +1,29 @@
+{
+  "id": "surselva",
+  "title": "Surselva",
+  "subtitle": "Disentis · Sedrun · Oberalp",
+  "cantons": ["GR", "UR"],
+  "bbox": [2694000, 1160000, 2718000, 1179000],
+  "minInside": 0.3,
+  "minInsideKm": 2,
+  "defaultRoute": "sm-676.00",
+  "excludeRoutes": [],
+  "curated": [
+    {
+      "id": "oberalp-maighels",
+      "name": "Oberalppass – Camona da Maighels",
+      "via": [
+        { "name": "Oberalppass", "kind": "pass" },
+        { "name": "Camona da Maighels CAS", "kind": "inn" }
+      ]
+    },
+    {
+      "id": "cavardiras",
+      "name": "Cavardiras – Camona da Cavardiras",
+      "via": [
+        { "name": "Cavardiras", "kind": "village" },
+        { "name": "Camona da Cavardiras CAS", "kind": "inn" }
+      ]
+    }
+  ]
+}
