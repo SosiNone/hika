@@ -18,9 +18,11 @@ field, a panel or a source, update the matching row.
 | Height grid, 20 m (5 km tiles, stitched into windows) | swissALTI3D | `terrain/<key>.bin` | ✅ | Point cloud, contours (worker), trail draping, slope aspect rose (I) | No height or slope readout under the cursor; no slope shading of the cloud |
 | No-data cells beyond the border (`0`) | swissALTI3D (Switzerland only) | `terrain.bin` | ◐ | Left empty: no points or contours (Zermatt, Aletsch) | The Italian side of the Matterhorn is blank; a coarse foreign DEM could fill it |
 | Grid min / max altitude | swissALTI3D | `grid.minAlt`, `grid.maxAlt` | ◐ | Exaggeration base, hiker drop line | Not shown as numbers |
-| National relief, 2 km | Profile service (DTM2) | `switzerland.u16` | ✅ | Locator (G) and region browser, which drape the borders and region boxes on it | — |
+| National relief, 2 km | Profile service (DTM2) | `switzerland.u16` | ✅ | Locator (G) and region browser, which drape the borders and the ranges and areas on it | — |
+| National relief, 1 km | swissALTI3D, averaged from the partition's 200 m terrain model | `switzerland-1km.u16` (`locator.detail`) | ✅ | Region browser, fetched when it opens: the relief it zooms into a range on | — |
 | National border, canton borders | swissBOUNDARIES3D | `locator.border`, `locator.cantons` | ✅ | Locator (G), region browser | Canton borders are not drawn on the 3D terrain (the region spans AI, AR and SG) |
 | Lakes | Derived in the app from the flat cells of `switzerland.u16` (`lakeCells`) | — | ✅ | Locator (G), region browser | At 2 km cells only the larger lakes show (two or more flat cells); no lake names |
+| Mountain ranges and areas: outlines, shared borders | swissNAMES3D (Grossregion, Landschaftsname, Haupttal, Huegelzug, Massiv polygons), grown over the terrain by hiking time (`scripts/lib/partition.ts`) | `regions.json` `ranges`, `regions[].rings`, `arcs` | ✅ | Locator (G) and region browser: a range glows under the pointer, the browser zooms into it, the current area is lit | Not drawn on the 3D terrain: where the area ends |
 
 ### Trail network
 
@@ -68,16 +70,18 @@ appear as a route waypoint (panel B, profile ticks, trail log, footer ticker).
 | Km steeper than ±40 % | `stats.steepKm` | ✗ | — | Panel I recomputes a "> 40 %" bin from `alt`; nothing tells the user the time model is extrapolated there |
 | Waypoints (place, km, alt, time) | `waypoints` | ✅ | B, E, J, map labels, preview "next point", footer ticker | — |
 
-### Region metadata
+### Range and area metadata
 
 | Data | Field (`regions.json`, `manifest.json`) | Shown | Where | Unused / ideas |
 |---|---|---|---|---|
-| Title, cantons | `title`, `cantons` | ✅ | Region button (brand line), region browser, stage head, locator, classics group in the route list | — |
-| Subtitle | `subtitle` | ✅ | Region browser list; locator meta while a region is hovered; tooltip on the region button | — |
-| Bounding box | `bbox` | ✅ | Locator box, LV95 and WGS84 readouts, sunrise / sunset | — |
-| Region index: every region's title, cantons, bbox, default route and route count | `regions.json` | ✅ | Region browser (map and list); the other regions' boxes in the locator (G), which open them | — |
-| Region facts: curated hike count, trail km per class, hard km, altitude range | `regions.json` `classics`, `trailKm`, `hardKm`, `alt` | ✅ | Region browser list; trail class (C) | — |
-| Route catalogue: every route's meta, stats, bbox, sparkline and regions | `catalogue.json` | ✅ | Which routes a page lists; route windows; the route search in the region browser | Search results don't show their sparkline |
+| Area title, cantons | `title`, `cantons` | ✅ | Region button (brand line), region browser, stage head, classics group in the route list | — |
+| Area subtitle | `subtitle` | ✅ | Region browser list; tooltip on the region button | — |
+| Range of an area, range titles and official names in every language | `range`, `ranges[].title`, `ranges[].names` | ✅ | Brand line (area · range); region browser list, map labels and search; locator meta while a range is hovered | — |
+| Official names of the outlines an area grew from, former ids | `names`, `aliases` | ◐ | Region browser search ("Conches" finds Goms); old `?region=` links | Not shown as text |
+| Label point, extent, km² | `label`, `bbox`, `km2` | ◐ | Map labels and pulse, LV95 and WGS84 readouts, sunrise / sunset; `bbox` for windows and prefetch | Area size is not shown |
+| Area facts: route count, curated hike count, trail km per class, hard km, altitude range | `routes`, `classics`, `trailKm`, `hardKm`, `alt` | ✅ | Region browser list (summed per range); trail class (C) | — |
+| Range facts: areas, routes | `ranges[].areas`, `ranges[].routes` | ✅ | Region browser list and map plates, locator plate | — |
+| Route catalogue: every route's meta, stats, bbox, sparkline and areas (home area first) | `catalogue.json` | ✅ | Which routes a page lists; route windows; the route search in the region browser | Search results don't show their sparkline |
 | Source list, with dataset links and terms | `manifest.json` `sources` | ◐ | The footer credits and links ©swisstopo and Wanderland Schweiz © FEDRO, with LICENCES (`NOTICE.txt`) | An about panel could list all of them |
 | Build time | `manifest.json` `generated` | ✗ | — | Data freshness ("trails as of …") |
 
@@ -88,7 +92,7 @@ appear as a route waypoint (panel B, profile ticks, trail log, footer ticker).
 | Cumulative minutes, climb, descent per sample | `deriveRoute` (`src/data/load.ts`) | Route player (A), profile (E), gradient (F), cumulative (H), log (J) |
 | Slope classes, max slope over 100 m, current slope | `analyse` (`src/panels/right.ts`) | Terrain analysis (I), walked part and the hiker's class live |
 | Slope aspect along the route | `analyse`, from `heightAt` | Terrain analysis (I) rose, walked part, the hiker's sector and walking direction live |
-| Sunrise / sunset at the region centre | `sunTimes` (`src/ui/chrome.ts`) | Top-bar clock |
+| Sunrise / sunset at the area's label point | `sunTimes` (`src/ui/chrome.ts`) | Top-bar clock |
 
 ## 2. Downloaded by the pipeline but dropped
 
@@ -105,7 +109,8 @@ Adding any of these means a pipeline change plus an atlas format change (`types.
 | swissTLM3D Wanderwege: names, change dates | — | `name`, `strassenname`, `revision_jahr`, … | Trail names in tooltips; data age |
 | swissTLM3D Wanderwege: vertex heights | Parsed as XYZ | Z is discarded; the app drapes trails on the 20 m grid | Exact 3D trail heights |
 | swissNAMES3D points (`_PKT.csv`) | 14 object types plus inns and villages | Flurname 2832, Lokalname 89, Kapelle 7, Quelle 2, Felsblock 2, Erratischer Block 1, … | Alp and field names at close zoom; springs as water sources |
-| swissNAMES3D polygons (`_PLY.csv`) | See, Grat | Graben 77, Gebiet 57, Tal 4, Gletscher 2, Campingplatzareal 5, Öffentliches Parkplatzareal 2, … | Valley and area names; parking at trailheads |
+| swissNAMES3D polygons (`_PLY.csv`) | See, Grat (label points) | Graben 77, Gebiet 57, Tal 4, Gletscher 2, Campingplatzareal 5, Öffentliches Parkplatzareal 2, … | Parking at trailheads |
+| swissNAMES3D polygons (GeoPackage, 2026 release on) | The outlines of Grossregion (the ranges), Landschaftsname, Haupttal, Huegelzug and Massiv, with every language's name: they seed the areas | Every other polygon type; the outlines themselves (only the areas grown from them are stored) | Massif and valley names on the zoomed map |
 | swissNAMES3D lines (`_LIN.csv`) | Not read | Fliessgewässer 113, Skilift 14, Luftseilbahn 6, Sesselbahn 3, Gondelbahn 2 | Draw cable cars (Ebenalp, Säntis, Hoher Kasten) as lines; streams |
 | swissBOUNDARIES3D | National and canton outlines, simplified to 400 m | `tlm_bezirksgebiet`, `tlm_hoheitsgebiet` (districts, municipalities), full-detail rings, Liechtenstein | Canton and municipality borders on the terrain |
 | Wanderland Schweiz (`ch.astra.wanderland` GeoPackage) | Every stage's number, name, ends and geometry | The 26 routes mostly abroad; per-route difficulty (`KonditionE`, `TechnikE`), the official times (`ZeitStZiE`) and the `Weg` segments with their surface | Show SchweizMobil's difficulty grades; compare their times with ours |
@@ -123,7 +128,7 @@ them would be baked into the atlas at build time.
 | Public transport stops | `ch.bav.haltestellen-oev` | Reliable trailhead stops by mode | Timetables are not on geo.admin.ch |
 | Wildlife rest zones | `ch.bafu.wrz-wildruhezonen_portal` | Area overlay; route warnings | Mostly winter restrictions |
 | Federal hunting ban areas | `ch.bafu.bundesinventare-jagdbanngebiete` | Protected area overlay | |
-| Parks of national importance | `ch.bafu.schutzgebiete-paerke_nationaler_bedeutung_perimeter` | Area overlay for future regions | |
+| Parks of national importance | `ch.bafu.schutzgebiete-paerke_nationaler_bedeutung_perimeter` | Area overlay; seeds for areas | |
 | swissTLM3D (full model) | `ch.swisstopo.swisstlm3d` (STAC) | Land cover (forest, rock, scree, glacier) to tint the point cloud; waters; cableway lines; buildings | Large download |
 | swissSURFACE3D raster | `ch.swisstopo.swisssurface3d-raster` (STAC) | Surface minus terrain gives forest height: forest vs open ground along a route | Large download |
 | swissBUILDINGS3D 3.0 | `ch.swisstopo.swissbuildings3d_3_0` (STAC) | Huts and summit buildings in 3D | |

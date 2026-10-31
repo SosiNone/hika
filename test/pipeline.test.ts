@@ -1,6 +1,7 @@
 import { describe, expect, it } from 'vitest';
 import { clipToBox, type XY } from '../src/geo/track';
-import type { Place } from '../src/data/types';
+import type { BBox, Place } from '../src/data/types';
+import { emptyCells } from '../scripts/lib/coverage';
 import { TrailGraph } from '../scripts/lib/graph';
 import { resolveRouteEnd } from '../scripts/lib/names';
 import { chain } from '../scripts/lib/wanderland';
@@ -76,4 +77,12 @@ describe('resolveRouteEnd', () => {
     expect(resolveRouteEnd(withStation, 'Lugano (Station)', near)?.id).toBe('lugano');
   });
   it('finds nothing for an unknown place', () => expect(id('Atlantis')).toBeUndefined());
+});
+
+describe('emptyCells', () => {
+  // 4 × 2 cells of 10 m over [0, 0, 40, 20]; the border runs down the middle (x = 20).
+  const b = { bbox: [0, 0, 40, 20] as BBox, grid: { cols: 4, rows: 2, cell: 10, minAlt: 0, maxAlt: 0 }, locator: { border: [[0, 0, 20, 0, 20, 20, 0, 20]] } } as Parameters<typeof emptyCells>[1];
+
+  it('accepts empty cells abroad', () => expect(emptyCells(Uint16Array.of(5, 5, 0, 0, 5, 5, 0, 0), b)).toEqual({ empty: 4, inside: 0 }));
+  it('flags empty cells inside Switzerland', () => expect(emptyCells(Uint16Array.of(0, 5, 0, 0, 5, 5, 5, 5), b)).toEqual({ empty: 3, inside: 1 }));
 });

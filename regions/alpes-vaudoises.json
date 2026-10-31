@@ -1,12 +1,17 @@
 {
   "id": "alpes-vaudoises",
-  "title": "Alpes vaudoises",
-  "subtitle": "Les Diablerets · Leysin · Château-d'Oex",
-  "cantons": ["VD", "BE"],
-  "bbox": [2563000, 1130000, 2587000, 1149000],
+  "title": "Alpes vaudoises & Chablais",
+  "subtitle": "Les Diablerets · Leysin · Dents du Midi",
+  "cantons": ["VD", "VS"],
+  "range": "waadtlaender-alpen",
+  "seeds": [
+    { "name": "Chablais", "kind": "Landschaftsname" },
+    { "name": "Val d'Illiez", "kind": "Haupttal" },
+    { "name": "Les Diablerets", "kind": "Massiv" },
+    { "name": "Dents du Midi", "kind": "Massiv" }
+  ],
   "minInside": 0.3,
   "minInsideKm": 2,
-  "defaultRoute": "sm-1.19",
   "excludeRoutes": [],
   "curated": [
     {
@@ -24,15 +29,6 @@
         { "name": "Col des Mosses", "kind": "pass" },
         { "name": "Lac Lioson", "kind": "lake" },
         { "name": "Pic Chaussy", "kind": "summit" }
-      ]
-    },
-    {
-      "id": "videmanette-rougemont",
-      "name": "La Videmanette – Rougemont",
-      "via": [
-        { "name": "La Videmanette", "kind": "lift" },
-        { "name": "Cabane de la Videmanette", "kind": "inn" },
-        { "name": "Rougemont", "kind": "stop" }
       ]
     }
   ]

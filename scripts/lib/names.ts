@@ -1,6 +1,9 @@
 import { readFileSync } from 'node:fs';
-import type { BBox, Place, PlaceKind } from '../../src/data/types';
-import { downloadAsset } from './download';
+import { DatabaseSync } from 'node:sqlite';
+import type { AreaKind, BBox, Place, PlaceKind } from '../../src/data/types';
+import type { XY } from '../../src/geo/track';
+import { downloadAsset, downloadFile } from './download';
+import { parseGpkgRings } from './gpkg';
 import { latestItem } from './stac';
 
 /** swissNAMES3D object types worth showing to hikers, with kind and base label priority. */
@@ -40,6 +43,54 @@ export async function loadPlaces(): Promise<Place[]> {
     }
   }
   return dedupe(places);
+}
+
+/** A named swissNAMES3D area with its outline: a Grossregion (mountain range), landscape, main valley, hill chain or massif. */
+export interface AreaFeature {
+  uuid: string;
+  kind: AreaKind;
+  /** Every language variant, official names first. */
+  names: string[];
+  /** Outer rings and holes, even-odd. */
+  rings: XY[][];
+}
+
+const AREA_KINDS: AreaKind[] = ['Grossregion', 'Landschaftsname', 'Haupttal', 'Huegelzug', 'Massiv'];
+
+/**
+ * The area outlines of swissNAMES3D. The CSV that `loadPlaces` reads has only a label point per
+ * area, so they come from the GeoPackage, which only the 2026 release offers. Language variants
+ * are rows with the same uuid and geometry, merged into one feature.
+ */
+export async function loadAreaFeatures(): Promise<AreaFeature[]> {
+  const item = await latestItem('ch.swisstopo.swissnames3d');
+  const asset = Object.values(item.assets).find((a) => a.href.endsWith('.gpkg'));
+  if (!asset) throw new Error(`swissNAMES3D ${item.id} has no GeoPackage: ${Object.values(item.assets).map((a) => a.href).join(', ')}`);
+  const db = new DatabaseSync(await downloadFile(asset.href, 'swissnames3d'), { readOnly: true });
+  const tables = (db.prepare("SELECT table_name FROM gpkg_geometry_columns WHERE geometry_type_name LIKE '%POLYGON%'").all() as { table_name: string }[]).map((t) => t.table_name);
+  if (tables.length !== 1) throw new Error(`expected one polygon table in swissNAMES3D, found ${tables.join(', ') || 'none'}`);
+  const rows = db.prepare(`SELECT uuid, name, status, namen_typ, objektart, geom FROM "${tables[0]}" WHERE objektart IN (${AREA_KINDS.map(() => '?').join(',')}) ORDER BY uuid, name`).all(...AREA_KINDS) as {
+    uuid: string; name: string; status: string; namen_typ: string; objektart: AreaKind; geom: Uint8Array;
+  }[];
+  db.close();
+  const byUuid = new Map<string, { kind: AreaKind; names: { name: string; rank: number }[]; geom: Uint8Array }>();
+  for (const r of rows) {
+    // Official names before informal ones, and endonyms before exonyms.
+    const rank = (r.status === 'offiziell' ? 0 : 2) + (r.namen_typ === 'Exonym' ? 1 : 0);
+    const f = byUuid.get(r.uuid) ?? byUuid.set(r.uuid, { kind: r.objektart, names: [], geom: r.geom }).get(r.uuid)!;
+    if (!f.names.some((n) => n.name === r.name)) f.names.push({ name: r.name, rank });
+  }
+  return [...byUuid].map(([uuid, f]) => ({
+    uuid: uuid.replace(/[{}]/g, ''), kind: f.kind,
+    names: f.names.sort((a, b) => a.rank - b.rank || a.name.localeCompare(b.name, 'de')).map((n) => n.name),
+    rings: parseGpkgRings(f.geom).map((ring) => ring.map(([e, n]) => [e, n] as XY)),
+  }));
+}
+
+/** The area features a seed name matches, ignoring case and accents, of the given kind if any. */
+export function matchAreaFeatures(features: AreaFeature[], name: string, kind?: AreaKind): AreaFeature[] {
+  const q = fold(name);
+  return features.filter((f) => (!kind || f.kind === kind) && f.names.some((n) => fold(n) === q));
 }
 
 /** The same name and kind within 150 m (e.g. a lift's top and bottom record) counts once. */

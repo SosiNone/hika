@@ -1,0 +1,27 @@
+{
+  "id": "arosa",
+  "title": "Chur, Arosa & Lenzerheide",
+  "subtitle": "Weisshorn · Brambrüesch · Rothorn",
+  "cantons": ["GR"],
+  "seeds": [
+    { "name": "Schanfigg", "kind": "Landschaftsname" },
+    { "place": "Lenzerheide", "kind": "village" },
+    { "place": "Chur", "kind": "village" },
+    { "name": "Calanda", "kind": "Massiv" },
+    { "name": "Fünf Dörfer", "kind": "Landschaftsname" }
+  ],
+  "minInside": 0.3,
+  "minInsideKm": 2,
+  "excludeRoutes": [],
+  "curated": [
+    {
+      "id": "weisshorn-hoernli",
+      "name": "Weisshorn – Carmennahütte – Hörnli",
+      "via": [
+        { "name": "Weisshorn", "kind": "view" },
+        { "name": "Carmennahütte", "kind": "inn" },
+        { "name": "Hörnlihütte Arosa", "kind": "inn" }
+      ]
+    }
+  ]
+}

@@ -1,0 +1,18 @@
+{
+  "id": "seeland",
+  "title": "Three Lakes",
+  "subtitle": "Seeland · Broye · Mont Vully",
+  "cantons": ["BE", "FR", "VD", "NE"],
+  "seeds": [
+    { "name": "Seeland", "kind": "Landschaftsname" },
+    { "name": "Grosses Moos", "kind": "Landschaftsname" },
+    { "name": "Mont Vully", "kind": "Huegelzug" },
+    { "name": "Frienisberg", "kind": "Huegelzug" },
+    { "name": "Bucheggberg", "kind": "Landschaftsname" },
+    { "name": "La Broye", "kind": "Landschaftsname" }
+  ],
+  "minInside": 0.3,
+  "minInsideKm": 2,
+  "excludeRoutes": [],
+  "curated": []
+}

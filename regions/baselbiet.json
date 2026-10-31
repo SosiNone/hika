@@ -3,7 +3,11 @@
   "title": "Baselbiet",
   "subtitle": "Wasserfallen · Passwang · Belchenflue",
   "cantons": ["BL", "SO"],
-  "bbox": [2610000, 1242000, 2634000, 1261000],
+  "seeds": [
+    { "name": "Schwarzbubenland", "kind": "Landschaftsname" },
+    { "place": "Liestal", "kind": "village" },
+    { "place": "Waldenburg", "kind": "village" }
+  ],
   "minInside": 0.3,
   "minInsideKm": 2,
   "defaultRoute": "sm-472.00",

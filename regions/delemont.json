@@ -1,0 +1,17 @@
+{
+  "id": "delemont",
+  "title": "Delémont & Weissenstein",
+  "subtitle": "Moutier · Weissenstein · Raimeux",
+  "cantons": ["JU", "BE", "SO"],
+  "seeds": [
+    { "name": "Delsberger Becken", "kind": "Haupttal" },
+    { "name": "Vallée de Tavannes", "kind": "Haupttal" },
+    { "name": "Moron", "kind": "Huegelzug" },
+    { "name": "Weissenstein", "kind": "Huegelzug" },
+    { "name": "Montoz", "kind": "Huegelzug" }
+  ],
+  "minInside": 0.3,
+  "minInsideKm": 2,
+  "excludeRoutes": [],
+  "curated": []
+}

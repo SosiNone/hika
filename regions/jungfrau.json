@@ -1,9 +1,14 @@
 {
   "id": "jungfrau",
-  "title": "Jungfrau",
+  "title": "Jungfrau & Interlaken",
   "subtitle": "Eiger · Grindelwald · Lauterbrunnen",
   "cantons": ["BE", "VS"],
-  "bbox": [2628000, 1153000, 2652000, 1172000],
+  "seeds": [
+    { "name": "Lütschinental", "kind": "Haupttal" },
+    { "name": "Schynige Platte", "kind": "Massiv" },
+    { "place": "Beatenberg", "kind": "village" },
+    { "place": "Sigriswil", "kind": "village" }
+  ],
   "minInside": 0.3,
   "minInsideKm": 2,
   "defaultRoute": "sm-353.00",

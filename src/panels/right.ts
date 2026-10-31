@@ -1,20 +1,21 @@
-import { prefetchRegion, type RouteView } from '../data/load';
-import { OFF_NETWORK, TRAIL_CLASSES, type RegionSummary } from '../data/types';
+import type { RouteView } from '../data/load';
+import { OFF_NETWORK, TRAIL_CLASSES, type RangeSummary } from '../data/types';
 import { smoothAltitudes } from '../geo/hikingTime';
 import { lv95ToWgs84 } from '../geo/lv95';
 import { pointer } from '../hud/pointer';
-import { cameraCone, hitRegion, regionDetail, SwissMap, type Sway, type Target } from '../hud/switzerland';
+import { cameraCone, hitTarget, rangeDetail, SwissMap, type Sway, type Target } from '../hud/switzerland';
 import { chart, COLORS, esc, FONT, frame, hm, num, type Ctx } from './common';
 
 /** Four corners, the "expand" glyph of the button that opens the region browser. */
 const EXPAND_ICON = '<svg viewBox="0 0 12 12" aria-hidden="true"><path d="M1 4.5V1h3.5M7.5 1H11v3.5M11 7.5V11H7.5M4.5 11H1V7.5"/></svg>';
 
 /**
- * G · Switzerland locator: the national relief with lakes and every region boxed
- * (src/hud/switzerland.ts), the current region in the accent with the 3D camera's footprint. It
- * sways slowly (`sway`, shared with the region browser) but holds still under the pointer. Hovering
- * a region names it and a click opens it; on a touch screen the first tap names it and offers an
- * OPEN button, since opening is a page load. The head button opens the region browser.
+ * G · Switzerland locator: the national relief with lakes, the mountain ranges and the areas that
+ * tile them (src/hud/switzerland.ts), the current area in the accent with the 3D camera's footprint.
+ * It sways slowly (`sway`, shared with the region browser) but holds still under the pointer.
+ * Hovering a range lights it up and names it, and a click opens the region browser zoomed into it;
+ * on a touch screen the first tap names it and offers a button for that. The head button opens the
+ * browser on the whole country.
  */
 export function mountLocator(el: HTMLElement, c: Ctx, sway: Sway) {
   const { body, meta } = frame(el, 'G', 'Switzerland');
@@ -23,8 +24,8 @@ export function mountLocator(el: HTMLElement, c: Ctx, sway: Sway) {
   const ch = chart(body);
   const expand = document.createElement('button');
   expand.className = 'btn icon';
-  expand.title = 'All regions (G)';
-  expand.setAttribute('aria-label', 'All regions');
+  expand.title = 'All areas (G)';
+  expand.setAttribute('aria-label', 'All areas');
   expand.innerHTML = EXPAND_ICON;
   expand.onclick = () => c.openRegions();
   el.querySelector('.panel-head')!.appendChild(expand);
@@ -33,56 +34,47 @@ export function mountLocator(el: HTMLElement, c: Ctx, sway: Sway) {
   open.hidden = true;
   body.appendChild(open);
 
-  const current = c.region.summary.id, bb = c.region.summary.bbox;
-  const map = new SwissMap(c.atlas.locator, c.atlas.swiss, c.regions, current);
+  const map = new SwissMap(c.atlas.locator, c.atlas.swiss, c.atlas.index, c.region.summary.id);
   const still = matchMedia('(prefers-reduced-motion: reduce)').matches;
-  const [lon, lat] = lv95ToWgs84((bb[0] + bb[2]) / 2, (bb[1] + bb[3]) / 2);
+  const [lon, lat] = lv95ToWgs84(...c.region.summary.label);
   const coords = `${lat.toFixed(2)}N ${lon.toFixed(2)}E`;
+  const rangeById = new Map(c.atlas.ranges.map((g) => [g.id, g]));
   let targets: Target[] = [];
-  let hover: string | null = null, selected: RegionSummary | null = null, over = false, pointerType = 'mouse';
-  let last = 0, dwell = 0;
+  let hover: string | null = null, selected: RangeSummary | null = null, over = false, pointerType = 'mouse';
+  let last = 0;
 
-  /** Another region under the pointer (the current one is not a target), with a finger getting more slack. */
+  /** The range under the pointer, with a finger getting more slack. */
   const at = (e: PointerEvent | MouseEvent) => {
     const r = ch.canvas.getBoundingClientRect();
-    const hit = hitRegion(targets, e.clientX - r.left, e.clientY - r.top, pointerType === 'mouse' ? 6 : 12);
-    return hit && hit.id !== current ? hit : null;
+    const hit = hitTarget(targets, e.clientX - r.left, e.clientY - r.top, pointerType === 'mouse' ? 4 : 12);
+    return hit ? rangeById.get(hit.id) ?? null : null;
   };
-  // Lingering on a region warms the cache for it.
-  const setHover = (id: string | null) => {
-    if (id === hover) return;
-    hover = id;
-    clearTimeout(dwell);
-    if (id) dwell = window.setTimeout(() => prefetchRegion(c.atlas, id), 200);
+  const select = (g: RangeSummary | null) => {
+    selected = g;
+    open.hidden = !g;
+    if (g) open.textContent = `EXPLORE ${g.title.toUpperCase()} ›`;
   };
-  const select = (r: RegionSummary | null) => {
-    selected = r;
-    open.hidden = !r;
-    if (!r) return;
-    open.textContent = `OPEN ${r.title.toUpperCase()} ›`;
-    prefetchRegion(c.atlas, r.id);
-  };
-  open.onclick = () => { if (selected) c.goToRegion(selected.id); };
+  open.onclick = () => { if (selected) c.openRegions(selected.id); };
   ch.canvas.addEventListener('pointerdown', (e) => { pointerType = e.pointerType; });
   ch.canvas.addEventListener('pointermove', (e) => {
     over = true;
     if (e.pointerType !== 'mouse') return;
-    const r = at(e);
-    setHover(r?.id ?? null);
-    ch.canvas.style.cursor = r ? 'pointer' : '';
+    const g = at(e);
+    hover = g?.id ?? null;
+    ch.canvas.style.cursor = g ? 'pointer' : '';
   });
-  ch.canvas.addEventListener('pointerleave', () => { over = false; setHover(null); });
+  ch.canvas.addEventListener('pointerleave', () => { over = false; hover = null; });
   ch.canvas.addEventListener('click', (e) => {
-    const r = at(e);
-    if (pointerType === 'mouse') { if (r) c.goToRegion(r.id); }
-    else if (r && r.id === selected?.id) c.goToRegion(r.id);
-    else select(r);
+    const g = at(e);
+    if (pointerType === 'mouse') { if (g) c.openRegions(g.id); }
+    else if (g && g.id === selected?.id) c.openRegions(g.id);
+    else select(g);
   });
 
   return (t: number) => {
     const dt = last ? t - last : 0;
     last = t;
-    // The sway stops while the pointer is over the map or a region is picked, so targets hold still.
+    // The sway stops while the pointer is over the map or a range is picked, so targets hold still.
     if (!still && !over && !selected) sway.step(dt);
     const { w, h } = ch.begin();
     targets = map.draw(ch.ctx, w, h, {
@@ -92,10 +84,10 @@ export function mountLocator(el: HTMLElement, c: Ctx, sway: Sway) {
       selected: selected?.id,
       pulse: still ? undefined : t,
       cone: cameraCone(c.view),
-      detail: regionDetail,
+      detail: (tg) => rangeDetail(rangeById.get(tg.id)!),
     });
-    const focus = c.regions.find((r) => r.id === (hover ?? selected?.id));
-    meta.textContent = focus ? focus.subtitle.toUpperCase() : coords;
+    const focus = rangeById.get((hover ?? selected?.id)!);
+    meta.textContent = focus ? focus.names[0].toUpperCase() : coords;
   };
 }
 

@@ -1,9 +1,13 @@
 {
   "id": "engelberg",
-  "title": "Engelberg",
-  "subtitle": "Titlis · Surenenpass · Altdorf",
+  "title": "Engelberg & Titlis",
+  "subtitle": "Titlis · Surenenpass · Stans",
   "cantons": ["OW", "NW", "UR"],
-  "bbox": [2672000, 1179000, 2696000, 1198000],
+  "seeds": [
+    { "name": "Engelbergertal", "kind": "Haupttal" },
+    { "name": "Walenstöcke", "kind": "Massiv" },
+    { "name": "Schlossberg", "kind": "Massiv" }
+  ],
   "minInside": 0.3,
   "minInsideKm": 2,
   "defaultRoute": "sm-1.07",

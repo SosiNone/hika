@@ -1,9 +1,13 @@
 {
   "id": "zermatt",
-  "title": "Zermatt",
+  "title": "Zermatt & Saas",
   "subtitle": "Matterhorn · Gornergrat · Saas-Fee",
   "cantons": ["VS"],
-  "bbox": [2614000, 1089000, 2641000, 1108000],
+  "seeds": [
+    { "name": "Mattertal", "kind": "Haupttal" },
+    { "name": "Saastal", "kind": "Haupttal" },
+    { "name": "Vispertal", "kind": "Haupttal" }
+  ],
   "minInside": 0.3,
   "minInsideKm": 2,
   "defaultRoute": "c-gornergrat-riffelberg",

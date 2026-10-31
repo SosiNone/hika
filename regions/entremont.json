@@ -1,0 +1,16 @@
+{
+  "id": "entremont",
+  "title": "Val d'Entremont & Trient",
+  "subtitle": "Great St Bernard · Champex · Trient",
+  "cantons": ["VS"],
+  "seeds": [
+    { "name": "Val d'Entremont", "kind": "Haupttal" },
+    { "place": "Trient", "kind": "village" },
+    { "place": "Champex", "kind": "village" },
+    { "place": "Salvan", "kind": "village" }
+  ],
+  "minInside": 0.3,
+  "minInsideKm": 2,
+  "excludeRoutes": [],
+  "curated": []
+}

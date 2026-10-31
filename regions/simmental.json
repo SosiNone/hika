@@ -1,0 +1,15 @@
+{
+  "id": "simmental",
+  "title": "Simmental & Diemtigtal",
+  "subtitle": "Lenk · Zweisimmen · Stockhorn",
+  "cantons": ["BE"],
+  "seeds": [
+    { "name": "Obersimmental", "kind": "Haupttal" },
+    { "name": "Niedersimmental", "kind": "Haupttal" },
+    { "name": "Diemtigtal", "kind": "Haupttal" }
+  ],
+  "minInside": 0.3,
+  "minInsideKm": 2,
+  "excludeRoutes": [],
+  "curated": []
+}

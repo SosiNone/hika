@@ -1,7 +1,7 @@
 {
   "name": "hika",
   "private": true,
-  "version": "0.15.0",
+  "version": "0.16.0",
   "type": "module",
   "description": "Sci-fi HUD trail explorer for Swiss hiking routes, built on swisstopo open data.",
   "license": "MIT",
@@ -20,7 +20,7 @@
     "preview": "vite preview",
     "build:atlas": "tsx scripts/build-atlas.ts",
     "check:atlas": "tsx scripts/check-atlas.ts",
-    "scout:regions": "tsx scripts/scout-regions.ts",
+    "preview:regions": "tsx scripts/preview-regions.ts",
     "test": "vitest run",
     "typecheck": "tsc --noEmit"
   },

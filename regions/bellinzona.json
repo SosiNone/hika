@@ -1,0 +1,17 @@
+{
+  "id": "bellinzona",
+  "title": "Bellinzona & Mesolcina",
+  "subtitle": "Bellinzona · Mesolcina · Calanca",
+  "cantons": ["TI", "GR"],
+  "seeds": [
+    { "name": "Riviera", "kind": "Landschaftsname" },
+    { "name": "Piano di Magadino", "kind": "Landschaftsname" },
+    { "name": "Valle Mesolcina", "kind": "Haupttal" },
+    { "name": "Val Calanca", "kind": "Haupttal" },
+    { "place": "Bellinzona", "kind": "village" }
+  ],
+  "minInside": 0.3,
+  "minInsideKm": 2,
+  "excludeRoutes": [],
+  "curated": []
+}

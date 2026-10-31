@@ -1,0 +1,19 @@
+{
+  "id": "sarganserland",
+  "title": "Sarganserland & Walensee",
+  "subtitle": "Walensee · Pizol · Werdenberg",
+  "cantons": ["SG"],
+  "seeds": [
+    { "name": "Sarganserland", "kind": "Landschaftsname" },
+    { "name": "Werdenberg", "kind": "Landschaftsname" },
+    { "name": "Seeztal", "kind": "Haupttal" },
+    { "name": "Taminatal", "kind": "Haupttal" },
+    { "name": "Weisstannental", "kind": "Haupttal" },
+    { "name": "Graue Hörner", "kind": "Massiv" },
+    { "name": "Churfirsten", "kind": "Massiv" }
+  ],
+  "minInside": 0.3,
+  "minInsideKm": 2,
+  "excludeRoutes": [],
+  "curated": []
+}

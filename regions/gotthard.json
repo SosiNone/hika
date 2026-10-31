@@ -1,9 +1,13 @@
 {
   "id": "gotthard",
   "title": "Gotthard",
-  "subtitle": "Andermatt · Furka · Airolo",
-  "cantons": ["UR", "TI", "VS", "BE"],
-  "bbox": [2666000, 1149000, 2690000, 1168000],
+  "subtitle": "Andermatt · Oberalp · Airolo",
+  "cantons": ["UR", "TI"],
+  "seeds": [
+    { "name": "Urseren", "kind": "Landschaftsname" },
+    { "place": "Airolo", "kind": "village" },
+    { "place": "Bedretto", "kind": "village" }
+  ],
   "minInside": 0.3,
   "minInsideKm": 2,
   "defaultRoute": "sm-49.02",
@@ -23,6 +27,14 @@
       "via": [
         { "name": "Realp", "kind": "stop" },
         { "name": "Rotondohütte SAC", "kind": "inn" }
+      ]
+    },
+    {
+      "id": "oberalp-maighels",
+      "name": "Oberalppass – Camona da Maighels",
+      "via": [
+        { "name": "Oberalppass", "kind": "pass" },
+        { "name": "Camona da Maighels CAS", "kind": "inn" }
       ]
     }
   ]

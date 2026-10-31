@@ -1,0 +1,23 @@
+{
+  "id": "zurcher-oberland",
+  "title": "Zürcher Oberland",
+  "subtitle": "Bachtel · Hörnli · Tösstal",
+  "cantons": ["ZH"],
+  "seeds": [
+    { "name": "Zürcher Oberland", "kind": "Landschaftsname" },
+    { "name": "Tösstal", "kind": "Haupttal" }
+  ],
+  "minInside": 0.3,
+  "minInsideKm": 2,
+  "excludeRoutes": [],
+  "curated": [
+    {
+      "id": "steg-hoernli",
+      "name": "Steg – Hörnli",
+      "via": [
+        { "name": "Steg im Tösstal, Bahnhof", "kind": "stop" },
+        { "name": "Hörnli", "kind": "summit", "near": [2713533, 1247760] }
+      ]
+    }
+  ]
+}

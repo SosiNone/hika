@@ -1,12 +1,16 @@
+import { createHash } from 'node:crypto';
 import { existsSync, mkdirSync, readFileSync, writeFileSync } from 'node:fs';
 import { fromUrl } from 'geotiff';
-import { CELL, TILE as ATLAS_TILE, TILE_CELLS, tileKey } from '../../src/data/tiles';
+import { CELL, TILE as ATLAS_TILE, TILE_CELLS, tileBox, tileKey, tilesCovering } from '../../src/data/tiles';
 import type { BBox } from '../../src/data/types';
+import type { XY } from '../../src/geo/track';
 import { mapLimit, withSlot } from './http';
+import { CH_BBOX, swissGround } from './locator';
 import { stacItems } from './stac';
 
 const TILE = 1000;
 const CACHE = '.cache/alti';
+const DEM_CACHE = '.cache/dem';
 
 export interface Grid { cols: number; rows: number; cell: number; data: Float32Array }
 
@@ -21,17 +25,7 @@ export async function buildTerrain(bbox: BBox, cell: number, quiet = false): Pro
   const cols = (maxE - minE) / cell, rows = (maxN - minN) / cell;
   const data = new Float32Array(cols * rows).fill(NaN);
 
-  const newest = new Map<string, { year: number; href: string }>();
-  for (const item of await stacItems('ch.swisstopo.swissalti3d', bbox)) {
-    const m = /_(\d{4})_(\d{4})-(\d{4})$/.exec(item.id);
-    const asset = Object.values(item.assets).find((a) => a.gsd === 2 && a.type.includes('geotiff'));
-    if (!m || !asset) continue;
-    const key = `${m[2]}-${m[3]}`, year = +m[1];
-    if ((newest.get(key)?.year ?? 0) < year) newest.set(key, { year, href: asset.href });
-  }
-  const tiles = [...newest.entries()]
-    .map(([key, v]) => ({ key, e: +key.split('-')[0] * TILE, n: +key.split('-')[1] * TILE, ...v }))
-    .filter((t) => t.e < maxE && t.e + TILE > minE && t.n < maxN && t.n + TILE > minN);
+  const tiles = await terrainTiles(bbox);
   if (!quiet) console.log(`  swissALTI3D: ${tiles.length} tiles`);
 
   const per = TILE / cell;
@@ -47,6 +41,63 @@ export async function buildTerrain(bbox: BBox, cell: number, quiet = false): Pro
       }
     }
   }, quiet ? undefined : 'terrain tiles', 100);
+  return { cols, rows, cell, data };
+}
+
+interface TerrainTile { key: string; e: number; n: number; year: number; href: string }
+
+/** The newest swissALTI3D 1 km tile of every place the STAC search finds in `bbox`. */
+async function terrainTiles(bbox: BBox): Promise<TerrainTile[]> {
+  const [minE, minN, maxE, maxN] = bbox;
+  const newest = new Map<string, { year: number; href: string }>();
+  for (const item of await stacItems('ch.swisstopo.swissalti3d', bbox)) {
+    const m = /_(\d{4})_(\d{4})-(\d{4})$/.exec(item.id);
+    const asset = Object.values(item.assets).find((a) => a.gsd === 2 && a.type.includes('geotiff'));
+    if (!m || !asset) continue;
+    const key = `${m[2]}-${m[3]}`, year = +m[1];
+    if ((newest.get(key)?.year ?? 0) < year) newest.set(key, { year, href: asset.href });
+  }
+  return [...newest.entries()]
+    .map(([key, v]) => ({ key, e: +key.split('-')[0] * TILE, n: +key.split('-')[1] * TILE, ...v }))
+    .filter((t) => t.e < maxE && t.e + TILE > minE && t.n < maxN && t.n + TILE > minN);
+}
+
+/**
+ * A coarse terrain model of Switzerland (`CH_BBOX`, row 0 north, NaN = no data), for the area
+ * partition and the zoomed locator relief. It is box-averaged from the same 20 m blocks the atlas
+ * tiles are built from, found through the same cached STAC searches (one per atlas tile with Swiss
+ * ground), so it costs no requests after a national build. Cached per set of blocks.
+ */
+export async function nationalDem(border: XY[][], cell: number): Promise<Grid> {
+  if (cell % CELL !== 0 || TILE % cell !== 0) throw new Error(`cell must be a multiple of ${CELL} m that divides ${TILE}`);
+  const [minE, minN, maxE, maxN] = CH_BBOX;
+  const cols = (maxE - minE) / cell, rows = (maxN - minN) / cell;
+  const boxes = tilesCovering(CH_BBOX).filter(([e, n]) => swissGround(border, e, n));
+  const blocks = new Map<string, TerrainTile>();
+  for (const list of await mapLimit(boxes, 8, ([e, n]) => terrainTiles(tileBox(e, n)))) for (const t of list) blocks.set(t.key, t);
+  const sorted = [...blocks.values()].sort((a, b) => a.key.localeCompare(b.key));
+  const hash = createHash('sha1').update(sorted.map((t) => `${t.key}_${t.year}`).join(',')).digest('hex').slice(0, 12);
+  const file = `${DEM_CACHE}/ch_${cell}_${hash}.f32`;
+  if (existsSync(file)) return { cols, rows, cell, data: new Float32Array(readFileSync(file).buffer.slice(0)) };
+
+  const data = new Float32Array(cols * rows).fill(NaN);
+  const fine = TILE / CELL, k = cell / CELL, per = TILE / cell;
+  await mapLimit(sorted, 8, async (t) => {
+    const block = await tileBlock(t.href, `${CACHE}/${t.key}_${t.year}_${CELL}.f32`, fine);
+    const col0 = (t.e - minE) / cell, row0 = (maxN - t.n - TILE) / cell;
+    for (let j = 0; j < per; j++) for (let i = 0; i < per; i++) {
+      const col = col0 + i, row = row0 + j;
+      if (col < 0 || row < 0 || col >= cols || row >= rows) continue;
+      let sum = 0, n = 0;
+      for (let y = j * k; y < (j + 1) * k; y++) for (let x = i * k; x < (i + 1) * k; x++) {
+        const v = block[y * fine + x];
+        if (!Number.isNaN(v)) { sum += v; n++; }
+      }
+      if (n) data[row * cols + col] = sum / n;
+    }
+  }, 'national terrain blocks', 5000);
+  mkdirSync(DEM_CACHE, { recursive: true });
+  writeFileSync(file, Buffer.from(data.buffer));
   return { cols, rows, cell, data };
 }
 

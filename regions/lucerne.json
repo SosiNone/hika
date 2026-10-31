@@ -2,8 +2,15 @@
   "id": "lucerne",
   "title": "Lake Lucerne",
   "subtitle": "Rigi · Pilatus · Luzern",
-  "cantons": ["LU", "NW", "OW", "SZ"],
-  "bbox": [2658000, 1198000, 2682000, 1217000],
+  "cantons": ["LU", "NW", "OW", "SZ", "ZG"],
+  "seeds": [
+    { "name": "Rigi", "kind": "Massiv" },
+    { "name": "Rossberg", "kind": "Massiv" },
+    { "name": "Pilatus", "kind": "Massiv" },
+    { "name": "Rooterberg", "kind": "Huegelzug" },
+    { "name": "Zugerberg", "kind": "Huegelzug" },
+    { "place": "Stans", "kind": "village" }
+  ],
   "minInside": 0.3,
   "minInsideKm": 2,
   "defaultRoute": "c-rigi-kulm-kaenzeli",

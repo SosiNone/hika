@@ -1,0 +1,17 @@
+{
+  "id": "emmental",
+  "title": "Emmental",
+  "subtitle": "Lüderenalp · Lueg · Oberaargau",
+  "cantons": ["BE"],
+  "seeds": [
+    { "name": "Emmental", "kind": "Haupttal" },
+    { "name": "Honegg", "kind": "Huegelzug" },
+    { "name": "Hohgant", "kind": "Massiv" },
+    { "name": "Oberaargau", "kind": "Landschaftsname" },
+    { "name": "Santeberg", "kind": "Huegelzug" }
+  ],
+  "minInside": 0.3,
+  "minInsideKm": 2,
+  "excludeRoutes": [],
+  "curated": []
+}

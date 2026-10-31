@@ -1,0 +1,16 @@
+{
+  "id": "lausanne",
+  "title": "Lausanne & Lavaux",
+  "subtitle": "Jorat · Lavaux · Montreux",
+  "cantons": ["VD"],
+  "seeds": [
+    { "name": "Le Jorat", "kind": "Landschaftsname" },
+    { "name": "Gros-de-Vaud", "kind": "Landschaftsname" },
+    { "name": "Plaine de l'Orbe", "kind": "Landschaftsname" },
+    { "name": "Riviera vaudoise", "kind": "Landschaftsname" }
+  ],
+  "minInside": 0.3,
+  "minInsideKm": 2,
+  "excludeRoutes": [],
+  "curated": []
+}

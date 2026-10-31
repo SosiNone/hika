@@ -1,9 +1,13 @@
 {
   "id": "davos",
-  "title": "Davos",
-  "subtitle": "Weissfluh · Klosters · Arosa",
+  "title": "Davos & Albula",
+  "subtitle": "Weissfluh · Bergün · Landwasser",
   "cantons": ["GR"],
-  "bbox": [2765000, 1181000, 2789000, 1200000],
+  "seeds": [
+    { "name": "Landwassertal", "kind": "Haupttal" },
+    { "place": "Bergün", "kind": "village" },
+    { "place": "Weissfluhjoch", "kind": "stop" }
+  ],
   "minInside": 0.3,
   "minInsideKm": 2,
   "defaultRoute": "sm-35.15",
@@ -25,15 +29,6 @@
         { "name": "Weissfluhjoch", "kind": "stop" },
         { "name": "Totalpsee", "kind": "lake" },
         { "name": "Berggasthaus Parsennhütte", "kind": "inn" }
-      ]
-    },
-    {
-      "id": "weisshorn-hoernli",
-      "name": "Weisshorn – Carmennahütte – Hörnli",
-      "via": [
-        { "name": "Weisshorn", "kind": "view" },
-        { "name": "Carmennahütte", "kind": "inn" },
-        { "name": "Hörnlihütte Arosa", "kind": "inn" }
       ]
     }
   ]

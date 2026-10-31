@@ -1,0 +1,17 @@
+{
+  "id": "bern",
+  "title": "Bern & Aare Valley",
+  "subtitle": "Bern · Gürbetal · Längenberg",
+  "cantons": ["BE"],
+  "seeds": [
+    { "name": "Aaretal", "kind": "Haupttal" },
+    { "name": "Gürbetal", "kind": "Haupttal" },
+    { "name": "Längenberg", "kind": "Huegelzug" },
+    { "name": "Belpberg", "kind": "Huegelzug" },
+    { "name": "Churzenberg", "kind": "Huegelzug" }
+  ],
+  "minInside": 0.3,
+  "minInsideKm": 2,
+  "excludeRoutes": [],
+  "curated": []
+}

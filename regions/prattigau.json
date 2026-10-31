@@ -1,0 +1,15 @@
+{
+  "id": "prattigau",
+  "title": "Prättigau & Bündner Herrschaft",
+  "subtitle": "Klosters · Schesaplana · Maienfeld",
+  "cantons": ["GR"],
+  "seeds": [
+    { "name": "Prättigau", "kind": "Landschaftsname" },
+    { "name": "Rätikon", "kind": "Landschaftsname" },
+    { "name": "Bündner Herrschaft", "kind": "Landschaftsname" }
+  ],
+  "minInside": 0.3,
+  "minInsideKm": 2,
+  "excludeRoutes": [],
+  "curated": []
+}

@@ -1,0 +1,23 @@
+{
+  "id": "aargau",
+  "title": "Aargau",
+  "subtitle": "Hallwilersee · Fricktal · Reuss",
+  "cantons": ["AG", "LU"],
+  "seeds": [
+    { "name": "Fricktal", "kind": "Haupttal" },
+    { "name": "Eigenamt", "kind": "Landschaftsname" },
+    { "name": "Freiamt", "kind": "Landschaftsname" },
+    { "name": "Seetal", "kind": "Haupttal" },
+    { "name": "Bünztal", "kind": "Haupttal" },
+    { "name": "Wynental", "kind": "Haupttal" },
+    { "name": "Suhrental", "kind": "Haupttal" },
+    { "name": "Reusstal", "kind": "Haupttal" },
+    { "name": "Lindenberg", "kind": "Huegelzug" },
+    { "name": "Heitersberg", "kind": "Huegelzug" },
+    { "name": "Erlosen", "kind": "Huegelzug" }
+  ],
+  "minInside": 0.3,
+  "minInsideKm": 2,
+  "excludeRoutes": [],
+  "curated": []
+}

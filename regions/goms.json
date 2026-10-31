@@ -1,0 +1,14 @@
+{
+  "id": "goms",
+  "title": "Goms & Binntal",
+  "subtitle": "Furka · Binn · Fiesch",
+  "cantons": ["VS"],
+  "seeds": [
+    { "name": "Goms", "kind": "Landschaftsname" },
+    { "place": "Binn", "kind": "village" }
+  ],
+  "minInside": 0.3,
+  "minInsideKm": 2,
+  "excludeRoutes": [],
+  "curated": []
+}

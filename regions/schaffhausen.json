@@ -1,0 +1,20 @@
+{
+  "id": "schaffhausen",
+  "title": "Schaffhausen & Weinland",
+  "subtitle": "Randen · Rhine Falls · Irchel",
+  "cantons": ["SH", "ZH"],
+  "seeds": [
+    { "name": "Randen", "kind": "Landschaftsname" },
+    { "name": "Klettgau", "kind": "Landschaftsname" },
+    { "name": "Reiat", "kind": "Landschaftsname" },
+    { "name": "Zürcher Weinland", "kind": "Landschaftsname" },
+    { "name": "Zürcher Unterland", "kind": "Landschaftsname" },
+    { "name": "Glatttal", "kind": "Haupttal" },
+    { "name": "Irchel", "kind": "Huegelzug" },
+    { "name": "Cholfirst", "kind": "Huegelzug" }
+  ],
+  "minInside": 0.3,
+  "minInsideKm": 2,
+  "excludeRoutes": [],
+  "curated": []
+}

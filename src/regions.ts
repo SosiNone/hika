@@ -1,13 +1,20 @@
-import { routeWindow } from './data/tiles';
-import type { BBox, CatalogueEntry, RegionSummary } from './data/types';
+import type { CatalogueEntry, RangeSummary, RegionSummary } from './data/types';
 
-/** Region opened when the URL names none: the first region HIKA had, so older `#route=` links keep working. */
+/** Area opened when the URL names none: the first region HIKA had, so older `#route=` links keep working. */
 export const DEFAULT_REGION = 'alpstein';
 
-/** The region `?region=<id>` asks for, else DEFAULT_REGION, else the first one; undefined when none is built. */
+/**
+ * The area `?region=<id>` asks for, by its id or a former one (`aliases`), else DEFAULT_REGION,
+ * else the first one; undefined when none is built.
+ */
 export function pickRegion(regions: RegionSummary[], search: string): RegionSummary | undefined {
   const id = new URLSearchParams(search).get('region');
-  return regions.find((r) => r.id === id) ?? regions.find((r) => r.id === DEFAULT_REGION) ?? regions[0];
+  return regions.find((r) => r.id === id) ?? regions.find((r) => id !== null && r.aliases.includes(id)) ?? regions.find((r) => r.id === DEFAULT_REGION) ?? regions[0];
+}
+
+/** The range an area belongs to. */
+export function rangeOf(ranges: RangeSummary[], region: Pick<RegionSummary, 'range'>): RangeSummary | undefined {
+  return ranges.find((g) => g.id === region.range);
 }
 
 /** Canton names by code, in their official languages and English, for the region filter. */
@@ -20,15 +27,22 @@ export const CANTON_NAMES: Record<string, string> = {
   UR: 'Uri', VD: 'Vaud Waadt', VS: 'Valais Wallis', ZG: 'Zug Zoug', ZH: 'Zürich Zurich',
 };
 
+type Searchable = Pick<RegionSummary, 'title' | 'subtitle' | 'cantons' | 'names' | 'aliases' | 'range'>;
+
 /**
- * The regions whose title, subtitle or cantons (code or name) contain every word of `query`,
- * ignoring case and accents ("neuchatel" finds the region in Neuchâtel), in their original order.
+ * The areas whose title, subtitle, official names (in every language: "conches" finds Goms),
+ * former ids, cantons (code or name) or range contain every word of `query`, ignoring case and
+ * accents ("neuchatel" finds the areas in Neuchâtel), in their original order.
  */
-export function filterRegions<R extends Pick<RegionSummary, 'title' | 'subtitle' | 'cantons'>>(regions: R[], query: string): R[] {
+export function filterRegions<R extends Searchable>(regions: R[], query: string, ranges: Pick<RangeSummary, 'id' | 'title' | 'names'>[] = []): R[] {
   const words = fold(query).split(/\s+/).filter(Boolean);
   if (!words.length) return regions;
   return regions.filter((r) => {
-    const text = fold(`${r.title} ${r.subtitle} ${r.cantons.map((c) => `${c} ${CANTON_NAMES[c] ?? ''}`).join(' ')}`);
+    const range = ranges.find((g) => g.id === r.range);
+    const text = fold([
+      r.title, r.subtitle, ...r.names, ...r.aliases, ...r.cantons.map((c) => `${c} ${CANTON_NAMES[c] ?? ''}`),
+      ...(range ? [range.title, ...range.names] : []),
+    ].join(' '));
     return words.every((w) => text.includes(w));
   });
 }
@@ -51,26 +65,12 @@ export function filterRoutes<R extends Pick<CatalogueEntry, 'number' | 'name' | 
   return found.map((r, i) => ({ r, i })).sort((a, b) => first(a.r) - first(b.r) || a.i - b.i).map(({ r }) => r);
 }
 
-const intersects = (a: BBox, b: BBox) => a[0] < b[2] && b[0] < a[2] && a[1] < b[3] && b[1] < a[3];
-
-/**
- * The page for a route no region lists: its window, as a region with no id, listing every route
- * that crosses it. Its network and altitude facts come from the window once it is loaded.
- */
-export function nearbyRegion(route: CatalogueEntry, routes: CatalogueEntry[]): RegionSummary {
-  const bbox = routeWindow(route.bbox), near = routes.filter((r) => intersects(r.bbox, bbox));
-  return {
-    id: '', title: `Around ${route.from}`, subtitle: `${route.name} and the routes near it`, cantons: [], bbox, defaultRoute: route.id,
-    routes: near.length, classics: near.filter((r) => r.source === 'curated').length, trailKm: [0, 0, 0], hardKm: 0, alt: [0, 0],
-  };
+/** The routes an area lists: its home routes and those it holds enough of. */
+export function routesOf<R extends Pick<CatalogueEntry, 'regions'>>(region: Pick<RegionSummary, 'id'>, routes: R[]): R[] {
+  return routes.filter((r) => r.regions.includes(region.id));
 }
 
-/** The routes a page lists: those a region names, or for a route's neighbourhood (`nearbyRegion`) those that cross it. */
-export function routesOf<R extends Pick<CatalogueEntry, 'regions' | 'bbox'>>(region: Pick<RegionSummary, 'id' | 'bbox'>, routes: R[]): R[] {
-  return routes.filter((r) => (region.id ? r.regions.includes(region.id) : intersects(r.bbox, region.bbox)));
-}
-
-/** The URL that opens a route: in the first region that lists it, else in its own neighbourhood. */
+/** The URL that opens a route: in its home area, the one holding most of it. */
 export function routeHref(route: Pick<CatalogueEntry, 'id' | 'regions'>, href: string): string {
   const url = new URL(href);
   if (route.regions[0]) url.searchParams.set('region', route.regions[0]);
@@ -80,8 +80,8 @@ export function routeHref(route: Pick<CatalogueEntry, 'id' | 'regions'>, href: s
 }
 
 /**
- * The URL of another region: `?region=<id>` with the other query parameters (`?scheme=`) kept and
- * the hash dropped, since route ids belong to a region.
+ * The URL of another area: `?region=<id>` with the other query parameters (`?scheme=`) kept and
+ * the hash dropped, since route ids belong to an area.
  */
 export function regionHref(id: string, href: string): string {
   const url = new URL(href);
