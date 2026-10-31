@@ -16,8 +16,8 @@
 </div>
 
 HIKA renders Swiss hiking routes on holographic 3D terrain: 950 SchweizMobil routes and stages
-across Switzerland, and 66 curated classics in 29 hand-picked regions, each route with the
-signposted trails around it. Pick a route and a hiker walks it at official Swiss signpost pace
+across Switzerland and 66 curated classics, in 54 valleys and landscapes across the 10 Swiss
+mountain ranges, each route with the signposted trails around it. Pick a route and a hiker walks it at official Swiss signpost pace
 while the instruments follow along.
 
 ## Features
@@ -26,12 +26,13 @@ while the instruments follow along.
   exaggeration.
 - **Trails** from swissTLM3D in the official signpost colours, with summits, huts, passes and lakes
   from swissNAMES3D.
-- **Route player:** scrub, change speed, walk the hike in reverse, or let the region's routes play
+- **Route player:** scrub, change speed, walk the hike in reverse, or let the area's routes play
   as a playlist with repeat and shuffle.
 - **Instruments:** elevation profile, climb and descent, slope and aspect, trail classes, a
-  Switzerland locator with lakes and every region, and sunrise and sunset.
-- **Region browser and route search:** a map of Switzerland with the regions, their routes, trail
-  kilometres and altitude range, and a search over every route in the country.
+  Switzerland locator with lakes and the mountain ranges, and sunrise and sunset.
+- **Region browser and route search:** pick a mountain range on a map of Switzerland, zoom into
+  its valleys and landscapes with their routes, trail kilometres and altitude range, and search
+  every area (in any national language) and every route in the country.
 - **Real hiking times** from a pace table digitised from the official Schweizer Wanderwege chart.
 - **Shareable links** for every route, e.g. the
   [Eiger Trail](https://sosinone.github.io/hika/?region=jungfrau#route=sm-353.00).
@@ -52,28 +53,75 @@ while the instruments follow along.
 | G | Region browser |
 | ← / → | Previous / next route |
 
-## Regions
+## Ranges and areas
 
-[Aletsch](https://sosinone.github.io/hika/?region=aletsch) ·
-[Alpes vaudoises](https://sosinone.github.io/hika/?region=alpes-vaudoises) ·
-[Alpstein](https://sosinone.github.io/hika/?region=alpstein) ·
-[Davos](https://sosinone.github.io/hika/?region=davos) ·
-[Engadin](https://sosinone.github.io/hika/?region=engadin) ·
-[Engelberg](https://sosinone.github.io/hika/?region=engelberg) ·
-[Flims](https://sosinone.github.io/hika/?region=flims) ·
-[Glarus](https://sosinone.github.io/hika/?region=glarus) ·
-[Jungfrau](https://sosinone.github.io/hika/?region=jungfrau) ·
-[Jura](https://sosinone.github.io/hika/?region=jura) ·
-[Kandersteg](https://sosinone.github.io/hika/?region=kandersteg) ·
+**Jura:** [Ajoie & Franches-Montagnes](https://sosinone.github.io/hika/?region=ajoie) ·
+[Baselbiet](https://sosinone.github.io/hika/?region=baselbiet) ·
+[Chasseral](https://sosinone.github.io/hika/?region=chasseral) ·
+[Creux du Van & Val-de-Travers](https://sosinone.github.io/hika/?region=val-de-travers) ·
+[Delémont & Weissenstein](https://sosinone.github.io/hika/?region=delemont) ·
+[Vallée de Joux](https://sosinone.github.io/hika/?region=vallee-de-joux)
+
+**Swiss Plateau:** [Aargau](https://sosinone.github.io/hika/?region=aargau) ·
+[Bern & Aare Valley](https://sosinone.github.io/hika/?region=bern) ·
+[Emmental](https://sosinone.github.io/hika/?region=emmental) ·
+[Entlebuch & Napf](https://sosinone.github.io/hika/?region=entlebuch) ·
+[Geneva & La Côte](https://sosinone.github.io/hika/?region=geneve) ·
 [Lake Lucerne](https://sosinone.github.io/hika/?region=lucerne) ·
-[Leventina](https://sosinone.github.io/hika/?region=leventina) ·
-[National Park](https://sosinone.github.io/hika/?region=nationalpark) ·
-[Verbier](https://sosinone.github.io/hika/?region=verbier) ·
-[Verzasca](https://sosinone.github.io/hika/?region=verzasca) ·
-[Zermatt](https://sosinone.github.io/hika/?region=zermatt)
+[Lake Zurich & Einsiedeln](https://sosinone.github.io/hika/?region=lake-zurich) ·
+[Lausanne & Lavaux](https://sosinone.github.io/hika/?region=lausanne) ·
+[Schaffhausen & Weinland](https://sosinone.github.io/hika/?region=schaffhausen) ·
+[Three Lakes](https://sosinone.github.io/hika/?region=seeland) ·
+[Thurgau & Fürstenland](https://sosinone.github.io/hika/?region=thurgau) ·
+[Toggenburg](https://sosinone.github.io/hika/?region=toggenburg) ·
+[Zürcher Oberland](https://sosinone.github.io/hika/?region=zurcher-oberland) ·
+[Zurich & Albis](https://sosinone.github.io/hika/?region=zurich)
 
-Each region is a 24 × 19 km box scored from the national data (mountain trails, huts, summits,
-lakes and lifts) and anchored on a well-known hiking area.
+**Prealps:** [Gruyère & Schwarzsee](https://sosinone.github.io/hika/?region=gruyere) ·
+[Pays-d'Enhaut & Saanenland](https://sosinone.github.io/hika/?region=pays-d-enhaut) ·
+[Simmental & Diemtigtal](https://sosinone.github.io/hika/?region=simmental)
+
+**Vaud Alps:** [Alpes vaudoises & Chablais](https://sosinone.github.io/hika/?region=alpes-vaudoises)
+
+**Bernese Alps:** [Aletsch & Brig](https://sosinone.github.io/hika/?region=aletsch) ·
+[Jungfrau & Interlaken](https://sosinone.github.io/hika/?region=jungfrau) ·
+[Kandersteg & Adelboden](https://sosinone.github.io/hika/?region=kandersteg)
+
+**Valais Alps:** [Sion, Anniviers & Hérens](https://sosinone.github.io/hika/?region=sion) ·
+[Val d'Entremont & Trient](https://sosinone.github.io/hika/?region=entremont) ·
+[Verbier & Val de Bagnes](https://sosinone.github.io/hika/?region=verbier) ·
+[Zermatt & Saas](https://sosinone.github.io/hika/?region=zermatt)
+
+**Uri Alps:** [Engelberg & Titlis](https://sosinone.github.io/hika/?region=engelberg) ·
+[Haslital & Hasliberg](https://sosinone.github.io/hika/?region=haslital) ·
+[Uri & Maderanertal](https://sosinone.github.io/hika/?region=uri)
+
+**Glarus Alps:** [Alpstein & Appenzell](https://sosinone.github.io/hika/?region=alpstein) ·
+[Flims & Laax](https://sosinone.github.io/hika/?region=flims) ·
+[Glarnerland](https://sosinone.github.io/hika/?region=glarus) ·
+[Sarganserland & Walensee](https://sosinone.github.io/hika/?region=sarganserland) ·
+[Schwyz & Muotatal](https://sosinone.github.io/hika/?region=schwyz)
+
+**Lepontine Alps:** [Bellinzona & Mesolcina](https://sosinone.github.io/hika/?region=bellinzona) ·
+[Goms & Binntal](https://sosinone.github.io/hika/?region=goms) ·
+[Gotthard](https://sosinone.github.io/hika/?region=gotthard) ·
+[Leventina & Blenio](https://sosinone.github.io/hika/?region=leventina) ·
+[Locarno, Maggia & Verzasca](https://sosinone.github.io/hika/?region=verzasca) ·
+[Lugano](https://sosinone.github.io/hika/?region=lugano) ·
+[Surselva](https://sosinone.github.io/hika/?region=surselva) ·
+[Vals & Rheinwald](https://sosinone.github.io/hika/?region=vals)
+
+**Rhaetian Alps:** [Chur, Arosa & Lenzerheide](https://sosinone.github.io/hika/?region=arosa) ·
+[Davos & Albula](https://sosinone.github.io/hika/?region=davos) ·
+[Lower Engadine & National Park](https://sosinone.github.io/hika/?region=nationalpark) ·
+[Prättigau & Bündner Herrschaft](https://sosinone.github.io/hika/?region=prattigau) ·
+[Upper Engadine & Bregaglia](https://sosinone.github.io/hika/?region=engadin) ·
+[Valposchiavo](https://sosinone.github.io/hika/?region=valposchiavo) ·
+[Viamala & Surses](https://sosinone.github.io/hika/?region=viamala)
+
+The ranges are swisstopo's ten Grossregionen. The areas tile the country: each grows from official
+swisstopo outlines of a landscape or valley over the terrain by Swiss hiking time, so their borders
+fall on ridges and lakes, and every route belongs to the area that holds most of it.
 
 ## Quick start
 
@@ -89,7 +137,7 @@ The app reads its data, the atlas (see [AGENTS.md](AGENTS.md)), from the publish
 [hika-data](https://github.com/SosiNone/hika-data) site, so it runs without building any data.
 `task` lists every command.
 
-To build the atlas yourself from swisstopo data into `.atlas/v3/`, which `task dev` then serves
+To build the atlas yourself from swisstopo data into `.atlas/v4/`, which `task dev` then serves
 (several GB of downloads on the first run, cached in `.cache/`, at the pace geo.admin.ch's
 fair-use terms allow):
 

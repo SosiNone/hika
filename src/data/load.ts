@@ -3,7 +3,7 @@ import { clipToBox, routeClimb, type XY } from '../geo/track';
 import { decodeGrid, decodeRoute, decodeTrails, type Trails } from './codec';
 import { CELL, routeWindow, stitchGrid, TILE_CELLS, TRAIL_BIAS, tileKey, tilesCovering } from './tiles';
 import { routesOf } from '../regions';
-import { ATLAS_FORMAT, type AtlasManifest, type AtlasRoute, type BBox, type Catalogue, type CatalogueEntry, type Locator, type Place, type RegionIndex, type RegionSummary, type Route } from './types';
+import { ATLAS_FORMAT, type AtlasManifest, type AtlasRoute, type BBox, type Catalogue, type CatalogueEntry, type Locator, type Place, type RangeSummary, type RegionIndex, type RegionSummary, type Route } from './types';
 
 export type { Trails };
 
@@ -21,7 +21,12 @@ export interface Atlas {
   /** Keys of the tiles the atlas has. */
   tiles: Set<string>;
   catalogue: Map<string, CatalogueEntry>;
+  /** The areas, as regions.json lists them (sorted by title). */
   regions: RegionSummary[];
+  /** The mountain ranges the areas belong to, in their fixed order. */
+  ranges: RangeSummary[];
+  /** regions.json whole, with the arcs the outlines of both are drawn from. */
+  index: RegionIndex;
   locator: Locator;
   /** The coarse national relief (`locator.file`). */
   swiss: Uint16Array;
@@ -38,7 +43,7 @@ export interface TerrainWindow {
   places: Place[];
 }
 
-/** The region a page shows: its routes, the places they name, and the window around the selected route. */
+/** The area a page shows: its routes, the places they name, and the window around the selected route. */
 export interface Region {
   summary: RegionSummary;
   routes: RouteView[];
@@ -57,6 +62,8 @@ export async function loadAtlas(): Promise<Atlas> {
     tiles: new Set(manifest.tiles),
     catalogue: new Map(catalogue.routes.map((r) => [r.id, r])),
     regions: index.regions,
+    ranges: index.ranges,
+    index,
     locator,
     swiss: new Uint16Array(await binary(locator.file)),
   };
@@ -135,18 +142,13 @@ export async function loadWindow(atlas: Atlas, bbox: BBox): Promise<TerrainWindo
   };
 }
 
-/** What a region's facts say, measured in a window: its network by trail class, and its altitude range. */
-export function windowFacts(win: TerrainWindow): Pick<RegionSummary, 'trailKm' | 'hardKm' | 'alt'> {
-  const { offsets, cls, hard, xy } = win.trails;
-  const trailKm: [number, number, number] = [0, 0, 0];
-  let hardKm = 0;
-  for (let l = 0; l < cls.length; l++) {
-    let m = 0;
-    for (let v = offsets[l] + 1; v < offsets[l + 1]; v++) m += Math.hypot(xy[2 * v] - xy[2 * v - 2], xy[2 * v + 1] - xy[2 * v - 1]);
-    trailKm[cls[l]] += m / 1000;
-    if (hard[l]) hardKm += m / 1000;
-  }
-  return { trailKm: trailKm.map(Math.round) as [number, number, number], hardKm: Math.round(hardKm), alt: [win.grid.minAlt, win.grid.maxAlt] };
+let detail: Promise<Uint16Array | null> | null = null;
+
+/** The finer national relief the region browser zooms into (`locator.detail`), fetched once; null if the atlas has none or it fails. */
+export function loadDetailRelief(atlas: Atlas): Promise<Uint16Array | null> {
+  const file = atlas.locator.detail?.file;
+  detail ??= file ? binary(file).then((b) => new Uint16Array(b), () => null) : Promise.resolve(null);
+  return detail;
 }
 
 /** Starts fetching a window's tiles, so switching to it later is quick. */
@@ -157,8 +159,8 @@ export function prefetchWindow(atlas: Atlas, bbox: BBox) {
 const prefetched = new Set<string>();
 
 /**
- * Warms the HTTP cache for another region (opening it is a page load): the tiles of the window it
- * opens with and its route files, as prefetch hints. Once per region, and never when the browser
+ * Warms the HTTP cache for another area (opening it is a page load): the tiles of the window it
+ * opens with and its route files, as prefetch hints. Once per area, and never when the browser
  * asks to save data.
  */
 export function prefetchRegion(atlas: Atlas, id: string) {

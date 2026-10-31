@@ -1,4 +1,5 @@
 import { DatabaseSync } from 'node:sqlite';
+import { TILE } from '../../src/data/tiles';
 import type { BBox, Locator } from '../../src/data/types';
 import { insideRings, simplify, type XY } from '../../src/geo/track';
 import { downloadAsset } from './download';
@@ -35,6 +36,12 @@ export async function buildLocator(cell: number): Promise<{ locator: Omit<Locato
 }
 
 const flat = (ring: XY[]) => ring.flatMap(([e, n]) => [Math.round(e), Math.round(n)]);
+
+/** Whether the atlas tile at (e, n) has Swiss ground: any point of a 500 m grid over it lies inside the border. */
+export function swissGround(border: XY[][], e: number, n: number): boolean {
+  for (let y = 250; y < TILE; y += 500) for (let x = 250; x < TILE; x += 500) if (insideRings(border, e + x, n + y)) return true;
+  return false;
+}
 
 /** National border (Switzerland only) and canton outlines from swissBOUNDARIES3D, simplified to 400 m. */
 export async function loadBoundaries(): Promise<{ border: XY[][]; cantons: XY[][] }> {

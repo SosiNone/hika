@@ -1,0 +1,16 @@
+{
+  "id": "vallee-de-joux",
+  "title": "Vallée de Joux",
+  "subtitle": "Mont Tendre · Dent de Vaulion · Le Brassus",
+  "cantons": ["VD"],
+  "seeds": [
+    { "name": "Vallée de Joux", "kind": "Haupttal" },
+    { "name": "Le Risoux", "kind": "Landschaftsname" },
+    { "name": "Le Grand Risoux", "kind": "Landschaftsname" },
+    { "name": "Mont Risoux", "kind": "Huegelzug" }
+  ],
+  "minInside": 0.3,
+  "minInsideKm": 2,
+  "excludeRoutes": [],
+  "curated": []
+}

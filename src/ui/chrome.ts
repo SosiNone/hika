@@ -1,7 +1,8 @@
 import type { Region, RouteView } from '../data/load';
-import type { RegionSummary } from '../data/types';
+import type { RangeSummary, RegionSummary } from '../data/types';
 import { lv95ToWgs84 } from '../geo/lv95';
 import { esc, num } from '../panels/common';
+import { rangeOf } from '../regions';
 import type { Store } from '../state';
 import { isScheme, type Scheme } from '../theme/tokens';
 
@@ -16,18 +17,20 @@ export function showVersion(el: HTMLAnchorElement) {
 }
 
 /**
- * The brand's subtitle line, "ALPSTEIN · AI / AR / SG": once there is more than one region, a
- * button that opens the region browser.
+ * The brand's subtitle line, "ALPSTEIN & APPENZELL · GLARUS ALPS", the area and its range: once
+ * there is more than one area, a button that opens the region browser.
  */
-export function mountRegionPicker(el: HTMLElement, regions: RegionSummary[], current: RegionSummary, open: () => void) {
-  const label = [current.title.toUpperCase(), ...(current.cantons.length ? [current.cantons.join(' / ')] : [])].join(' · ');
-  el.title = current.subtitle;
+export function mountRegionPicker(el: HTMLElement, regions: RegionSummary[], ranges: RangeSummary[], current: RegionSummary, open: () => void) {
+  const range = rangeOf(ranges, current);
+  const label = [current.title.toUpperCase(), ...(range ? [range.title.toUpperCase()] : [])].join(' · ');
+  const tip = [current.subtitle, ...(current.cantons.length ? [current.cantons.join(' / ')] : [])].join(' · ');
+  el.title = tip;
   if (regions.length < 2) {
     el.textContent = label;
     return;
   }
-  el.innerHTML = `<button class="region-pick" aria-haspopup="dialog" title="${esc(current.subtitle)} · all regions (G)">${esc(label)}</button>`;
-  el.querySelector('button')!.onclick = open;
+  el.innerHTML = `<button class="region-pick" aria-haspopup="dialog" title="${esc(tip)} · all areas (G)">${esc(label)}</button>`;
+  el.querySelector('button')!.onclick = () => open();
 }
 
 /** Footer dark / light switch; the store owns the choice, main.ts applies it. */
@@ -45,11 +48,10 @@ export function mountDisplaySwitch(el: HTMLElement, store: Store) {
   sync();
 }
 
-/** Top-bar clock (Swiss local time) with today's sunrise / sunset over the region. */
+/** Top-bar clock (Swiss local time) with today's sunrise / sunset over the area. */
 export function startClock(region: Region) {
   const date = document.getElementById('clock-date')!, time = document.getElementById('clock-time')!, sun = document.getElementById('clock-sun')!;
-  const bb = region.summary.bbox;
-  const [lon, lat] = lv95ToWgs84((bb[0] + bb[2]) / 2, (bb[1] + bb[3]) / 2);
+  const [lon, lat] = lv95ToWgs84(...region.summary.label);
   const tz = 'Europe/Zurich';
   const fmtTime = new Intl.DateTimeFormat('de-CH', { timeZone: tz, hour: '2-digit', minute: '2-digit', second: '2-digit' });
   const fmtShort = new Intl.DateTimeFormat('de-CH', { timeZone: tz, hour: '2-digit', minute: '2-digit' });

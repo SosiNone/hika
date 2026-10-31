@@ -3,8 +3,8 @@
 version: '3'
 
 vars:
-  # Where the atlas is built and checked: a local build, or a hika-data checkout (ATLAS=../hika-data/v3).
-  ATLAS: .atlas/v3
+  # Where the atlas is built and checked: a local build, or a hika-data checkout (ATLAS=../hika-data/v4).
+  ATLAS: .atlas/v4
 
 tasks:
   default:
@@ -73,28 +73,28 @@ tasks:
       - git push --follow-tags
 
   atlas:build:
-    desc: 'Build the atlas for every region and its routes into ATLAS ({{.ATLAS}}), which `task dev` serves. `task atlas:build -- --region alpstein` builds one region (and replaces the rest)'
+    desc: 'Build the atlas, with every area and its routes, into ATLAS ({{.ATLAS}}), which `task dev` serves. `task atlas:build -- --region alpstein` builds one area (and replaces the rest)'
     deps: [install]
     cmds:
       - npm run build:atlas -- --out {{.ATLAS}} {{.CLI_ARGS}}
 
   atlas:check:
-    desc: 'Validate the atlas in ATLAS ({{.ATLAS}}): tiles, routes, catalogue, regions and window budgets'
+    desc: 'Validate the atlas in ATLAS ({{.ATLAS}}): tiles, routes, catalogue, areas and window budgets'
     deps: [install]
     cmds:
       - npm run check:atlas -- {{.ATLAS}}
 
   atlas:
-    desc: 'Build and validate the atlas, e.g. into a hika-data checkout with `task atlas ATLAS=../hika-data/v3`'
+    desc: 'Build and validate the atlas, e.g. into a hika-data checkout with `task atlas ATLAS=../hika-data/v4`'
     cmds:
       - task: atlas:build
       - task: atlas:check
 
-  regions:scout:
-    desc: 'Rank good region boxes from the cached national data, e.g. `task regions:scout -- --places zermatt` (see scripts/scout-regions.ts)'
+  regions:preview:
+    desc: 'Cut Switzerland into the areas of regions/*.json and report them, with a map in .cache/regions/preview.svg, e.g. `task regions:preview -- --routes` (see scripts/preview-regions.ts)'
     deps: [install]
     cmds:
-      - npm run scout:regions -- {{.CLI_ARGS}}
+      - npm run preview:regions -- {{.CLI_ARGS}}
 
   clean:
     desc: Remove build output

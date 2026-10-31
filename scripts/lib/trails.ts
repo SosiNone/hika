@@ -51,23 +51,6 @@ export async function loadTrails(bbox: BBox, whole = false): Promise<TrailLine[]
 }
 
 /**
- * Every signposted segment in Switzerland as the centre and diagonal of its R-tree box: a cheap
- * stand-in for its position and length (segments are short), for scoring the whole country
- * without parsing geometry (scripts/scout-regions.ts).
- */
-export async function trailSketch(): Promise<{ cls: TrailClass; e: number; n: number; km: number }[]> {
-  const db = new DatabaseSync(await wanderwegeGpkg(), { readOnly: true });
-  const rows = db.prepare(`
-    SELECT t.wanderwege, r.minx, r.maxx, r.miny, r.maxy FROM tlm_strassen_strasse t
-    JOIN rtree_tlm_strassen_strasse_geom r ON t.id = r.id`).all() as { wanderwege: string; minx: number; maxx: number; miny: number; maxy: number }[];
-  db.close();
-  return rows.flatMap((r) => {
-    const cls = CLASS[r.wanderwege];
-    return cls === undefined ? [] : [{ cls, e: (r.minx + r.maxx) / 2, n: (r.miny + r.maxy) / 2, km: Math.hypot(r.maxx - r.minx, r.maxy - r.miny) / 1000 }];
-  });
-}
-
-/**
  * The network as an atlas tile stores it (encoded by `encodeTrails` in src/data/codec.ts): whole
  * metres from the box's SW corner, plus `bias` (TRAIL_BIAS).
  */

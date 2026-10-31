@@ -1,9 +1,15 @@
 {
   "id": "kandersteg",
-  "title": "Kandersteg",
-  "subtitle": "Oeschinensee · Adelboden · Leukerbad",
+  "title": "Kandersteg & Adelboden",
+  "subtitle": "Oeschinensee · Adelboden · Lötschental",
   "cantons": ["BE", "VS"],
-  "bbox": [2599000, 1133000, 2623000, 1152000],
+  "seeds": [
+    { "name": "Frutigtal", "kind": "Haupttal" },
+    { "name": "Engstligental", "kind": "Haupttal" },
+    { "name": "Blüemlisalp", "kind": "Massiv" },
+    { "name": "Lötschental", "kind": "Haupttal" },
+    { "place": "Kandersteg", "kind": "village" }
+  ],
   "minInside": 0.3,
   "minInsideKm": 2,
   "defaultRoute": "c-oeschinensee-heuberg",

@@ -1,9 +1,17 @@
 {
   "id": "lake-zurich",
-  "title": "Lake Zurich",
+  "title": "Lake Zurich & Einsiedeln",
   "subtitle": "Etzel · Einsiedeln · Rapperswil",
   "cantons": ["ZH", "SZ", "SG"],
-  "bbox": [2683000, 1222000, 2707000, 1241000],
+  "seeds": [
+    { "name": "Zimmerberg", "kind": "Huegelzug" },
+    { "name": "Höhronen", "kind": "Huegelzug" },
+    { "name": "Buechberg", "kind": "Huegelzug" },
+    { "name": "March", "kind": "Landschaftsname" },
+    { "name": "Linthebene", "kind": "Landschaftsname" },
+    { "name": "Gaster", "kind": "Landschaftsname" },
+    { "place": "Einsiedeln", "kind": "village" }
+  ],
   "minInside": 0.3,
   "minInsideKm": 2,
   "defaultRoute": "sm-4.04",

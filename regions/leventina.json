@@ -1,9 +1,12 @@
 {
   "id": "leventina",
-  "title": "Leventina",
-  "subtitle": "Campo Tencia · Strada Alta · Ritom",
+  "title": "Leventina & Blenio",
+  "subtitle": "Strada Alta · Ritom · Valle di Blenio",
   "cantons": ["TI"],
-  "bbox": [2692000, 1139000, 2716000, 1158000],
+  "seeds": [
+    { "name": "Valle Leventina", "kind": "Haupttal" },
+    { "name": "Valle di Blenio", "kind": "Haupttal" }
+  ],
   "minInside": 0.3,
   "minInsideKm": 2,
   "defaultRoute": "sm-2.26",

@@ -1,21 +1,17 @@
 {
   "id": "viamala",
-  "title": "Viamala",
+  "title": "Viamala & Surses",
   "subtitle": "Thusis · Schams · Savognin",
   "cantons": ["GR"],
-  "bbox": [2744000, 1155000, 2768000, 1174000],
+  "seeds": [
+    { "name": "Domleschg", "kind": "Landschaftsname" },
+    { "name": "Heinzenberg", "kind": "Landschaftsname" },
+    { "name": "Surses", "kind": "Landschaftsname" },
+    { "place": "Andeer", "kind": "village" }
+  ],
   "minInside": 0.3,
   "minInsideKm": 2,
   "defaultRoute": "sm-50.01",
   "excludeRoutes": [],
-  "curated": [
-    {
-      "id": "beverin",
-      "name": "Glaspass – Piz Beverin",
-      "via": [
-        { "name": "Berggasthaus Beverin", "kind": "inn" },
-        { "name": "Piz Beverin", "kind": "summit" }
-      ]
-    }
-  ]
+  "curated": []
 }

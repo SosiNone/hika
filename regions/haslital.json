@@ -1,9 +1,16 @@
 {
-  "id": "hasliberg",
-  "title": "Hasliberg",
-  "subtitle": "Melchsee-Frutt · Brünig · Brienzer Rothorn",
-  "cantons": ["BE", "OW", "LU"],
-  "bbox": [2645000, 1173000, 2669000, 1192000],
+  "id": "haslital",
+  "title": "Haslital & Hasliberg",
+  "subtitle": "Meiringen · Melchsee-Frutt · Brienzer Rothorn",
+  "cantons": ["BE", "OW"],
+  "aliases": ["hasliberg"],
+  "seeds": [
+    { "name": "Haslital", "kind": "Haupttal" },
+    { "name": "Engelhörner", "kind": "Massiv" },
+    { "name": "Giswilerstock", "kind": "Massiv" },
+    { "place": "Hasliberg", "kind": "village" },
+    { "place": "Melchsee-Frutt", "kind": "village" }
+  ],
   "minInside": 0.3,
   "minInsideKm": 2,
   "defaultRoute": "c-planplatten-melchsee-frutt",

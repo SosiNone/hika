@@ -1,0 +1,29 @@
+{
+  "id": "gruyere",
+  "title": "Gruyère & Schwarzsee",
+  "subtitle": "Moléson · Kaiseregg · Gantrisch",
+  "cantons": ["FR", "BE"],
+  "aliases": ["schwarzsee"],
+  "seeds": [
+    { "name": "Haute Gruyère", "kind": "Landschaftsname" },
+    { "name": "Basse Gruyère", "kind": "Landschaftsname" },
+    { "name": "Gurnigel", "kind": "Huegelzug" },
+    { "name": "Schwyberg", "kind": "Massiv" },
+    { "place": "Schwarzsee", "kind": "lake", "near": [2588000, 1168000] }
+  ],
+  "minInside": 0.3,
+  "minInsideKm": 2,
+  "defaultRoute": "sm-267.00",
+  "excludeRoutes": [],
+  "curated": [
+    {
+      "id": "riggisalp-kaiseregg",
+      "name": "Riggisalp – Kaiseregg – Schwarzsee",
+      "via": [
+        { "name": "Riggisalp (Bergstation)", "kind": "lift" },
+        { "name": "Kaiseregg", "kind": "summit" },
+        { "name": "Schwarzsee, Gypsera", "kind": "stop" }
+      ]
+    }
+  ]
+}

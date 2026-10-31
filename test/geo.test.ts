@@ -1,7 +1,7 @@
 import { describe, expect, it } from 'vitest';
 import { formatDuration, paceMinPerKm, segmentMinutes, signpostMinutes } from '../src/geo/hikingTime';
 import { lv95ToWgs84, wgs84ToLv95 } from '../src/geo/lv95';
-import { climb, polylineLength, resample, simplify, type XY } from '../src/geo/track';
+import { climb, insideRings, polylineLength, resample, simplify, type XY } from '../src/geo/track';
 
 describe('LV95 <-> WGS84', () => {
   // swisstopo's worked example: 46°02'38.87" N, 8°43'49.79" E  <->  E 2 700 000, N 1 100 000.
@@ -57,4 +57,12 @@ describe('track helpers', () => {
   it('simplifies a straight line to its ends', () => {
     expect(simplify([[0, 0], [1, 0.01], [2, 0], [3, 0.01], [4, 0]], 0.1)).toEqual([[0, 0], [4, 0]]);
   });
+});
+
+describe('insideRings', () => {
+  const square = [[0, 0], [10, 0], [10, 10], [0, 10]] as [number, number][];
+  const hole = [[4, 4], [6, 4], [6, 6], [4, 6]] as [number, number][];
+  it('finds points inside a ring', () => expect(insideRings([square], 5, 1)).toBe(true));
+  it('treats a nested ring as a hole', () => expect(insideRings([square, hole], 5, 5)).toBe(false));
+  it('rejects points outside', () => expect(insideRings([square], 11, 5)).toBe(false));
 });

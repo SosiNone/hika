@@ -1,6 +1,6 @@
 /**
- * The data the pipeline writes and the app reads: the atlas (format 3, see AGENTS.md), a national
- * store of tiles laid out by src/data/tiles.ts, routes, a catalogue and the regions. Everything in
+ * The data the pipeline writes and the app reads: the atlas (format 4, see AGENTS.md), a national
+ * store of tiles laid out by src/data/tiles.ts, routes, a catalogue, and the ranges and areas. Everything in
  * it is in absolute LV95 (EPSG:2056) metres.
  */
 
@@ -85,9 +85,9 @@ export interface Source {
   terms: string;
 }
 
-export const ATLAS_FORMAT = 3;
+export const ATLAS_FORMAT = 4;
 
-/** v3/manifest.json */
+/** v4/manifest.json */
 export interface AtlasManifest {
   format: typeof ATLAS_FORMAT;
   /** Tile edge and terrain cell (m). */
@@ -107,7 +107,7 @@ export interface AtlasRoute extends Route {
   places: Place[];
 }
 
-/** v3/catalogue.json: every route, enough to list and search them without the route files. */
+/** v4/catalogue.json: every route, enough to list and search them without the route files. */
 export interface Catalogue {
   format: typeof ATLAS_FORMAT;
   /** Sorted by id. */
@@ -119,11 +119,11 @@ export interface CatalogueEntry extends Pick<Route, 'id' | 'number' | 'name' | '
   bbox: BBox;
   /** Altitudes (m) at SPARK_POINTS evenly spaced samples, for sparklines. */
   spark: number[];
-  /** Regions whose route list includes it (their `minInside` rules); none for most routes. */
+  /** The areas that list it: its home area, the one holding most of it, then any holding at least their `minInside` share. */
   regions: string[];
 }
 
-/** v3/locator.json, with the coarse national relief in v3/switzerland.u16. */
+/** v4/locator.json, with the coarse national relief in v4/switzerland.u16. */
 export interface Locator {
   /** The relief as raw Uint16 decimetres. */
   file: string;
@@ -134,13 +134,44 @@ export interface Locator {
   /** Simplified national border and canton borders as flat [e0, n0, e1, n1, …] LV95 rings. */
   border: number[][];
   cantons: number[][];
+  /** A finer relief over the same box, loaded when the region browser zooms into a range. */
+  detail?: { file: string; cell: number; cols: number; rows: number };
 }
 
-/** v3/regions.json: the regions, curated entry points into the atlas (scripts/lib/regions.ts). */
+/**
+ * v4/regions.json (scripts/lib/regions.ts): the mountain ranges and the areas that tile them, the
+ * entry points into the atlas. Their outlines share the arcs: every border is stored once.
+ */
 export interface RegionIndex {
-  version: 3;
-  /** Sorted by title. */
+  version: 4;
+  /** In a fixed order, roughly west to east. */
+  ranges: RangeSummary[];
+  /** The areas (a "region" in the URL and the code), sorted by title. */
   regions: RegionSummary[];
+  /** Borders as whole decametres, delta-coded: [e0, n0, de1, dn1, …] (`src/data/shapes.ts`). */
+  arcs: number[][];
+}
+
+/**
+ * Rings as references into `RegionIndex.arcs`: k walks arc k forwards, −(k + 1) backwards. Fill them
+ * even-odd: an area can have holes and parts.
+ */
+export type ArcRings = number[][];
+
+/** One of swisstopo's Grossregionen, as the union of the areas that belong to it. */
+export interface RangeSummary {
+  id: string;
+  title: string;
+  /** Its official names, in every language swissNAMES3D has. */
+  names: string[];
+  rings: ArcRings;
+  /** A point well inside it, for its label. */
+  label: [number, number];
+  bbox: BBox;
+  /** Ids of its areas. */
+  areas: string[];
+  /** How many routes its areas list. */
+  routes: number;
 }
 
 export interface RegionSummary {
@@ -148,30 +179,58 @@ export interface RegionSummary {
   title: string;
   subtitle: string;
   cantons: string[];
+  /** Id of the range it belongs to. */
+  range: string;
+  /** The official names of the swissNAMES3D outlines it grew from, in every language (for search). */
+  names: string[];
+  /** Former ids that still open it. */
+  aliases: string[];
+  rings: ArcRings;
+  /** A point well inside it, for its label, the map's pulse and the clock. */
+  label: [number, number];
+  /** Its extent, whole km. */
   bbox: BBox;
-  /** Route id selected when a link names no route (or one the region doesn't list). */
+  km2: number;
+  /** Route id selected when a link names no route (or one the area doesn't list). */
   defaultRoute: string;
   routes: number;
   /** How many of the routes are curated hikes (classics). */
   classics: number;
-  /** Signposted network in the box, km per class (Wanderweg, Bergwanderweg, Alpinwanderweg). */
+  /** Signposted network in the area, km per class (Wanderweg, Bergwanderweg, Alpinwanderweg). */
   trailKm: [number, number, number];
   /** Of it, km on a hard surface. */
   hardKm: number;
-  /** Lowest and highest terrain in the box (m). */
+  /** Lowest and highest terrain in the area (m). */
   alt: [number, number];
 }
 
-/** regions/<id>.json: a region as written by hand; build-atlas reads it. */
+/** swissNAMES3D area types: mountain ranges, landscapes, main valleys, hill chains, massifs. */
+export type AreaKind = 'Grossregion' | 'Landschaftsname' | 'Haupttal' | 'Huegelzug' | 'Massiv';
+
+/**
+ * Where an area grows from (scripts/lib/partition.ts): a swissNAMES3D area outline by name (every
+ * feature of that name, or the one nearest `near`), a disc around a place, or a disc around a point.
+ */
+export type AreaSeed =
+  | { name: string; kind?: Exclude<AreaKind, 'Grossregion'>; near?: [number, number] }
+  | { place: string; kind?: PlaceKind; near?: [number, number]; radius?: number }
+  | { at: [number, number]; radius?: number };
+
+/** regions/<id>.json: an area as written by hand; build-atlas reads it. */
 export interface RegionConfig {
   id: string;
   title: string;
   subtitle: string;
   cantons: string[];
-  bbox: BBox;
+  /** The swissNAMES3D outlines and places it grows from over the terrain. */
+  seeds: AreaSeed[];
+  /** Range id, when the area should not belong to the range holding most of it. */
+  range?: string;
+  /** Former ids (the old 24 × 19 km regions), so their links keep working. */
+  aliases?: string[];
   /** Route id (`sm-…` or `c-…`) to open by default; the first curated hike otherwise. */
   defaultRoute?: string;
-  /** List an official route only with at least this share of its length (and these km) inside the bbox. */
+  /** List a route here (besides its home area) only with at least this share of its length (and these km) inside. */
   minInside: number;
   minInsideKm: number;
   /** SchweizMobil ids to leave out of the atlas altogether (e.g. a route abroad). */

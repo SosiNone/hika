@@ -1,0 +1,13 @@
+{
+  "id": "valposchiavo",
+  "title": "Valposchiavo",
+  "subtitle": "Bernina Pass · Poschiavo · Brusio",
+  "cantons": ["GR"],
+  "seeds": [
+    { "name": "Valposchiavo", "kind": "Haupttal" }
+  ],
+  "minInside": 0.3,
+  "minInsideKm": 2,
+  "excludeRoutes": [],
+  "curated": []
+}

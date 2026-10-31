@@ -1,0 +1,20 @@
+{
+  "id": "sion",
+  "title": "Sion, Anniviers & Hérens",
+  "subtitle": "Crans-Montana · Zinal · Evolène",
+  "cantons": ["VS"],
+  "seeds": [
+    { "name": "La Noble Contrée", "kind": "Landschaftsname" },
+    { "name": "La Louable Contrée", "kind": "Landschaftsname" },
+    { "place": "Sion", "kind": "village" },
+    { "place": "Sierre", "kind": "village" },
+    { "place": "Leukerbad", "kind": "village" },
+    { "name": "Val d'Anniviers", "kind": "Haupttal" },
+    { "name": "Turtmanntal", "kind": "Haupttal" },
+    { "name": "Val d'Hérens", "kind": "Haupttal" }
+  ],
+  "minInside": 0.3,
+  "minInsideKm": 2,
+  "excludeRoutes": [],
+  "curated": []
+}

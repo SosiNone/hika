@@ -1,9 +1,19 @@
 {
   "id": "aletsch",
-  "title": "Aletsch",
-  "subtitle": "Riederalp · Bettmeralp · Eggishorn",
+  "title": "Aletsch & Brig",
+  "subtitle": "Riederalp · Eggishorn · Simplon",
   "cantons": ["VS"],
-  "bbox": [2639000, 1130000, 2663000, 1149000],
+  "aliases": ["simplon"],
+  "seeds": [
+    { "place": "Riederalp", "kind": "village" },
+    { "place": "Bettmeralp", "kind": "village" },
+    { "place": "Fiescheralp", "kind": "lift" },
+    { "place": "Eggishorn", "kind": "view" },
+    { "place": "Bettmerhorn", "kind": "view" },
+    { "place": "Belalp", "kind": "village" },
+    { "place": "Brig", "kind": "village" },
+    { "place": "Simplon Dorf", "kind": "village" }
+  ],
   "minInside": 0.3,
   "minInsideKm": 2,
   "defaultRoute": "sm-39.01",
@@ -31,6 +41,14 @@
       "via": [
         { "name": "Fiescheralp", "kind": "lift" },
         { "name": "Eggishorn", "kind": "view" }
+      ]
+    },
+    {
+      "id": "simplon-hopschusee",
+      "name": "Simplon Hospiz – Hopschusee",
+      "via": [
+        { "name": "Simplon Hospiz", "kind": "inn" },
+        { "name": "Hopschusee", "kind": "lake" }
       ]
     }
   ]

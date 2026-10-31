@@ -1,0 +1,18 @@
+{
+  "id": "zurich",
+  "title": "Zurich & Albis",
+  "subtitle": "Uetliberg · Albis · Pfannenstiel",
+  "cantons": ["ZH"],
+  "seeds": [
+    { "name": "Limmattal", "kind": "Haupttal" },
+    { "name": "Reppischtal", "kind": "Haupttal" },
+    { "name": "Albis", "kind": "Huegelzug" },
+    { "name": "Knonaueramt", "kind": "Landschaftsname" },
+    { "name": "Pfannenstiel", "kind": "Huegelzug" },
+    { "name": "Lägern", "kind": "Huegelzug" }
+  ],
+  "minInside": 0.3,
+  "minInsideKm": 2,
+  "excludeRoutes": [],
+  "curated": []
+}

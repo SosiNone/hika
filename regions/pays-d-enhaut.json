@@ -1,0 +1,25 @@
+{
+  "id": "pays-d-enhaut",
+  "title": "Pays-d'Enhaut & Saanenland",
+  "subtitle": "Château-d'Oex · Gstaad · Rougemont",
+  "cantons": ["VD", "BE"],
+  "seeds": [
+    { "name": "Pays d'Enhaut", "kind": "Landschaftsname" },
+    { "name": "Saanenland", "kind": "Landschaftsname" },
+    { "name": "Gastlosen", "kind": "Massiv" }
+  ],
+  "minInside": 0.3,
+  "minInsideKm": 2,
+  "excludeRoutes": [],
+  "curated": [
+    {
+      "id": "videmanette-rougemont",
+      "name": "La Videmanette – Rougemont",
+      "via": [
+        { "name": "La Videmanette", "kind": "lift" },
+        { "name": "Cabane de la Videmanette", "kind": "inn" },
+        { "name": "Rougemont", "kind": "stop" }
+      ]
+    }
+  ]
+}

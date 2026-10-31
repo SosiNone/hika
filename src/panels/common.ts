@@ -7,12 +7,12 @@ import type { Store } from '../state';
 export interface Ctx {
   atlas: Atlas;
   region: Region;
-  /** Every region the app offers (the atlas's regions.json), the current one included. */
+  /** Every area the app offers (the atlas's regions.json), the current one included. */
   regions: RegionSummary[];
-  /** Opens another region; the page reloads on its `?region=` URL. */
+  /** Opens another area; the page reloads on its `?region=` URL. */
   goToRegion(id: string): void;
-  /** Opens the region browser (src/ui/regionBrowser.ts). */
-  openRegions(): void;
+  /** Opens the region browser (src/ui/regionBrowser.ts), zoomed into a range if one is given. */
+  openRegions(range?: string): void;
   store: Store;
   view: TerrainView;
   route(): RouteView;

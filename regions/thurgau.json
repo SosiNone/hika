@@ -1,0 +1,16 @@
+{
+  "id": "thurgau",
+  "title": "Thurgau & Fürstenland",
+  "subtitle": "Seerücken · Untersee · Wil",
+  "cantons": ["TG", "SG"],
+  "seeds": [
+    { "name": "Seerücken", "kind": "Huegelzug" },
+    { "name": "Ottenberg", "kind": "Huegelzug" },
+    { "name": "Oberthurgau", "kind": "Landschaftsname" },
+    { "name": "Fürstenland", "kind": "Landschaftsname" }
+  ],
+  "minInside": 0.3,
+  "minInsideKm": 2,
+  "excludeRoutes": [],
+  "curated": []
+}

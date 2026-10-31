@@ -1,49 +1,65 @@
 import { describe, expect, it } from 'vitest';
-import type { RegionSummary } from '../src/data/types';
-import { hitRegion, placeLabels, Sway, type Rect, type Target } from '../src/hud/switzerland';
+import { hitTarget, mixView, placeAt, Sway, type Rect, type Target } from '../src/hud/switzerland';
 
-const target = (id: string, rect: Rect): Target => ({
-  region: { id } as RegionSummary, rect, cx: (rect[0] + rect[2]) / 2, cy: (rect[1] + rect[3]) / 2,
+/** A target from a screen polygon, labelled at `label` (or the middle of its extent). */
+const target = (kind: Target['kind'], id: string, pts: number[], label?: [number, number]): Target => {
+  const xs = pts.filter((_, k) => k % 2 === 0), ys = pts.filter((_, k) => k % 2 === 1);
+  const rect: Rect = [Math.min(...xs), Math.min(...ys), Math.max(...xs), Math.max(...ys)];
+  const [lx, ly] = label ?? [(rect[0] + rect[2]) / 2, (rect[1] + rect[3]) / 2];
+  return { kind, id, rings: [Float32Array.from(pts)], rect, lx, ly };
+};
+
+describe('hitTarget', () => {
+  // An L-shaped area whose label sits in its long arm, beside a square neighbour.
+  const ell = target('area', 'ell', [0, 0, 10, 0, 10, 30, 30, 30, 30, 40, 0, 40], [5, 20]);
+  const square = target('area', 'square', [10, 0, 30, 0, 30, 30, 10, 30]);
+
+  it('takes the shape that holds the point, not the nearest label', () => {
+    // (25, 35) is in the foot of the L, nearer the square's label than the L's.
+    expect(hitTarget([ell, square], 25, 35, 4)?.id).toBe('ell');
+    expect(hitTarget([ell, square], 25, 25, 4)?.id).toBe('square');
+  });
+
+  it('prefers an area over the range around it', () => {
+    const range = target('range', 'range', [-10, -10, 50, -10, 50, 50, -10, 50]);
+    expect(hitTarget([range, square], 20, 10, 4)?.id).toBe('square');
+    expect(hitTarget([range, square], 45, 45, 4)?.id).toBe('range');
+  });
+
+  it('gives a finger slack outside the outlines, and nothing beyond it', () => {
+    expect(hitTarget([square], 33, 10, 4)?.id).toBe('square');
+    expect(hitTarget([square], 36, 10, 4)).toBeNull();
+  });
 });
 
-describe('hitRegion', () => {
-  // Two neighbouring boxes whose padded rectangles overlap at the shared edge.
-  const targets = [target('west', [0, 0, 20, 10]), target('east', [20, 0, 40, 10])];
-
-  it('takes the box whose centre is nearest', () => {
-    expect(hitRegion(targets, 21, 5, 6)?.id).toBe('east');
-    expect(hitRegion(targets, 19, 5, 6)?.id).toBe('west');
+describe('placeAt', () => {
+  it('centres labels on their points, inside the view', () => {
+    const placed = placeAt([{ id: 'a', x: 50, y: 20, w: 40, h: 10 }, { id: 'b', x: 2, y: 2, w: 20, h: 10 }], 100, 40);
+    expect(placed.get('a')).toEqual([30, 15, 70, 25]);
+    expect(placed.get('b')).toEqual([0, 0, 20, 10]);
   });
 
-  it('counts the padding, and nothing beyond it', () => {
-    expect(hitRegion(targets, -5, 5, 6)?.id).toBe('west');
-    expect(hitRegion(targets, -7, 5, 6)).toBeNull();
+  it('moves a label off one placed before it, and leaves it out if it cannot', () => {
+    const items = [{ id: 'a', x: 50, y: 20, w: 40, h: 10 }, { id: 'b', x: 50, y: 20, w: 40, h: 10 }, { id: 'c', x: 50, y: 20, w: 40, h: 10 }, { id: 'd', x: 50, y: 20, w: 40, h: 10 }];
+    const placed = placeAt(items, 100, 60);
+    expect(placed.get('b')).toEqual([30, 4, 70, 14]);
+    expect(placed.get('c')).toEqual([30, 26, 70, 36]);
+    expect(placed.has('d')).toBe(false);
+  });
+
+  it('always places a forced label', () => {
+    const placed = placeAt([{ id: 'a', x: 50, y: 20, w: 40, h: 10 }, { id: 'b', x: 50, y: 20, w: 40, h: 40, force: true }], 100, 40);
+    expect(placed.has('b')).toBe(true);
   });
 });
 
-describe('placeLabels', () => {
-  const overlaps = (a: Rect, b: Rect) => a[0] < b[2] && b[0] < a[2] && a[1] < b[3] && b[1] < a[3];
-
-  it('places labels inside the view without overlaps', () => {
-    const items = Array.from({ length: 12 }, (_, k) => ({ id: `r${k}`, box: [20 + (k % 4) * 50, 20 + Math.floor(k / 4) * 40, 50 + (k % 4) * 50, 40 + Math.floor(k / 4) * 40] as Rect, w: 40, h: 12 }));
-    const placed = [...placeLabels(items, 240, 160).values()];
-    expect(placed.length).toBeGreaterThan(0);
-    for (const r of placed) expect(r[0] >= 0 && r[1] >= 0 && r[2] <= 240 && r[3] <= 160).toBe(true);
-    placed.forEach((a, i) => placed.slice(i + 1).forEach((b) => expect(overlaps(a, b)).toBe(false)));
+describe('mixView', () => {
+  const a = { s: 1, u: 0, v: 0 }, b = { s: 4, u: 100, v: -50 };
+  it('starts and ends on the two views', () => {
+    expect(mixView(a, b, 0)).toEqual(a);
+    expect(mixView(a, b, 1)).toEqual(b);
   });
-
-  it('prefers the right of the box, and leaves out what does not fit', () => {
-    const placed = placeLabels([{ id: 'a', box: [10, 10, 30, 30], w: 40, h: 10 }, { id: 'b', box: [10, 10, 30, 30], w: 200, h: 10 }], 100, 40);
-    expect(placed.get('a')).toEqual([33, 15, 73, 25]);
-    expect(placed.has('b')).toBe(false);
-  });
-
-  it('always places a forced label, inside the view', () => {
-    const placed = placeLabels([{ id: 'a', box: [80, 0, 100, 40], w: 60, h: 40, force: true }], 100, 40);
-    const r = placed.get('a')!;
-    expect(r[0]).toBeGreaterThanOrEqual(0);
-    expect(r[2]).toBeLessThanOrEqual(100);
-  });
+  it('zooms evenly in log', () => expect(mixView(a, b, 0.5).s).toBeCloseTo(2));
 });
 
 describe('Sway', () => {

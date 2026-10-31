@@ -1,9 +1,14 @@
 {
   "id": "nationalpark",
-  "title": "National Park",
-  "subtitle": "Zernez · Il Fuorn · Scuol",
+  "title": "Lower Engadine & National Park",
+  "subtitle": "Zernez · Scuol · Val Müstair",
   "cantons": ["GR"],
-  "bbox": [2800000, 1170000, 2824000, 1189000],
+  "seeds": [
+    { "name": "Engiadina Bassa", "kind": "Landschaftsname" },
+    { "name": "Samnaun", "kind": "Landschaftsname" },
+    { "name": "Val S-charl", "kind": "Haupttal" },
+    { "name": "Val Müstair", "kind": "Haupttal" }
+  ],
   "minInside": 0.3,
   "minInsideKm": 2,
   "defaultRoute": "sm-45.06",

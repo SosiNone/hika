@@ -1,5 +1,5 @@
 import './styles/hud.css';
-import { indexAtMinute, loadAtlas, loadRoutes, loadWindow, prefetchWindow, reverseRoute, windowFacts, type Atlas, type Region, type RouteView } from './data/load';
+import { indexAtMinute, loadAtlas, loadRoutes, loadWindow, prefetchWindow, reverseRoute, type Atlas, type Region, type RouteView } from './data/load';
 import { covers, routeWindow } from './data/tiles';
 import { project } from './gl/glkit';
 import { RoutePicker } from './gl/picker';
@@ -11,7 +11,7 @@ import type { Ctx } from './panels/common';
 import { mountPreview, mountRoutes, mountTrailClass, mountWaypoints } from './panels/left';
 import { mountLocator, mountLog, mountTerrainStats } from './panels/right';
 import { Playlist } from './playlist';
-import { nearbyRegion, pickRegion, regionHref, routeHref } from './regions';
+import { pickRegion, regionHref, routeHref } from './regions';
 import { Store } from './state';
 import { applyDisplay, loadDisplay, palette, saveDisplay } from './theme/apply';
 import { mountDisplaySwitch, mountRegionPicker, renderTickers, showVersion, startClock } from './ui/chrome';
@@ -27,25 +27,23 @@ async function boot() {
   try {
     const atlas = await loadAtlas();
     const picked = pickRegion(atlas.regions, location.search);
-    if (!picked) throw new Error('the atlas lists no regions');
+    if (!picked) throw new Error('the atlas lists no areas');
     let summary = picked;
     const hash = new URLSearchParams(location.hash.slice(1));
     const linked = atlas.catalogue.get(hash.get('route') ?? '');
-    // A link to a route another region lists opens that region; one no region lists, its neighbourhood.
-    if (linked && !linked.regions.includes(summary.id)) {
-      summary = atlas.regions.find((r) => r.id === linked.regions[0]) ?? nearbyRegion(linked, [...atlas.catalogue.values()]);
-      const url = new URL(location.href);
-      if (summary.id) url.searchParams.set('region', summary.id);
-      else url.searchParams.delete('region');
-      history.replaceState(null, '', url.href);
+    // A link to a route this area doesn't list opens the route's home area.
+    if (linked && !linked.regions.includes(summary.id)) summary = atlas.regions.find((r) => r.id === linked.regions[0]) ?? summary;
+    // The URL names the area shown, by its current id (an old one, an alias, is replaced).
+    const url = new URL(location.href);
+    if (url.searchParams.has('region') || summary !== picked) {
+      url.searchParams.set('region', summary.id);
+      if (url.href !== location.href) history.replaceState(null, '', url.href);
     }
     bootEl.textContent = `LOADING ${summary.title.toUpperCase()}…`;
     document.title = `HIKA · ${summary.title}`;
     const { routes, places } = await loadRoutes(atlas, summary);
     const first = routes.find((r) => r.id === linked?.id) ?? routes.find((r) => r.id === summary.defaultRoute) ?? routes[0];
     const window = await loadWindow(atlas, routeWindow(atlas.catalogue.get(first.id)!.bbox, summary.bbox));
-    // A neighbourhood measures its facts in its window.
-    if (!summary.id) summary = { ...summary, ...windowFacts(window) };
     start(atlas, { summary, routes, places, window }, first.id, first.id === linked?.id && hash.get('reverse') === '1');
     bootEl.classList.add('done');
     setTimeout(() => bootEl.remove(), 700);
@@ -95,7 +93,7 @@ function start(atlas: Atlas, region: Region, routeId: string, reversed: boolean)
   const view = new TerrainView(canvas, region.window);
   view.palette = palette.gl;
   const labels = new LabelLayer(document.getElementById('terrain-hud') as HTMLCanvasElement, region, view);
-  // Switching regions is a page load: the back button returns to the last one.
+  // Switching areas is a page load: the back button returns to the last one.
   const goToRegion = (id: string) => { if (id !== region.summary.id) location.assign(regionHref(id, location.href)); };
   // A route on this page is selected; any other opens its own page.
   const openRoute = (id: string) => {
@@ -105,9 +103,9 @@ function start(atlas: Atlas, region: Region, routeId: string, reversed: boolean)
   // The locator tile (G) and the region browser it grows into draw one map at one angle.
   const locator = document.getElementById('p-locator')!, sway = new Sway();
   const browser = mountRegionBrowser(atlas, region, view, goToRegion, openRoute, locator, sway);
-  const openRegions = () => browser.open();
+  const openRegions = (range?: string) => browser.open(range);
   const ctx: Ctx = { atlas, region, regions: atlas.regions, goToRegion, openRegions, store, view, route, hikerIndex: () => indexAtMinute(route(), store.state.minute), waypointIds: () => ids, playlist, skip };
-  mountRegionPicker(document.getElementById('brand-sub')!, atlas.regions, region.summary, openRegions);
+  mountRegionPicker(document.getElementById('brand-sub')!, atlas.regions, atlas.ranges, region.summary, () => openRegions());
   const overlay = mountStageOverlay(region, store, view);
 
   const panels = [
@@ -123,7 +121,7 @@ function start(atlas: Atlas, region: Region, routeId: string, reversed: boolean)
     mountLog(document.getElementById('p-log')!, ctx),
   ];
 
-  /** The window a route opens from this region, joined with its box where that fits. */
+  /** The window a route opens from this area, joined with its extent where that fits. */
   const windowOf = (id: string) => routeWindow(atlas.catalogue.get(id)!.bbox, region.summary.bbox);
   /**
    * Keeps the window while it shows the route whole, else loads the route's own and swaps it in
@@ -186,7 +184,7 @@ function start(atlas: Atlas, region: Region, routeId: string, reversed: boolean)
     const hash = new URLSearchParams(location.hash.slice(1));
     const id = hash.get('route'), reversed = hash.get('reverse') === '1';
     if (id && byId.has(id) && (id !== store.state.routeId || reversed !== store.state.reversed)) store.set({ routeId: id, reversed, minute: 0, playing: true });
-    // A route another region lists: boot opens its region.
+    // A route this area doesn't list: boot opens its home area.
     else if (id && !byId.has(id) && atlas.catalogue.has(id)) location.reload();
   });
 
@@ -203,8 +201,8 @@ function start(atlas: Atlas, region: Region, routeId: string, reversed: boolean)
       MediaTrackPrevious: () => skip(-1),
       ArrowRight: () => skip(1),
       MediaTrackNext: () => skip(1),
-      g: openRegions,
-      G: openRegions,
+      g: () => openRegions(),
+      G: () => openRegions(),
     };
     if (!action[e.key]) return;
     e.preventDefault();

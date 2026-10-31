@@ -1,0 +1,24 @@
+{
+  "id": "vals",
+  "title": "Vals & Rheinwald",
+  "subtitle": "Vals · Safiental · Splügen",
+  "cantons": ["GR"],
+  "seeds": [
+    { "name": "Valser Tal", "kind": "Haupttal" },
+    { "name": "Safiental", "kind": "Haupttal" },
+    { "name": "Rheinwald", "kind": "Landschaftsname" }
+  ],
+  "minInside": 0.3,
+  "minInsideKm": 2,
+  "excludeRoutes": [],
+  "curated": [
+    {
+      "id": "beverin",
+      "name": "Glaspass – Piz Beverin",
+      "via": [
+        { "name": "Berggasthaus Beverin", "kind": "inn" },
+        { "name": "Piz Beverin", "kind": "summit" }
+      ]
+    }
+  ]
+}

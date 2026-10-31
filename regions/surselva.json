@@ -1,20 +1,25 @@
 {
   "id": "surselva",
   "title": "Surselva",
-  "subtitle": "Disentis · Sedrun · Oberalp",
+  "subtitle": "Disentis · Sedrun · Val Lumnezia",
   "cantons": ["GR", "UR"],
-  "bbox": [2694000, 1160000, 2718000, 1179000],
+  "seeds": [
+    { "name": "Val Lumnezia", "kind": "Haupttal" },
+    { "place": "Disentis", "kind": "village" },
+    { "place": "Sedrun", "kind": "village" },
+    { "place": "Tschamut", "kind": "village" }
+  ],
   "minInside": 0.3,
   "minInsideKm": 2,
-  "defaultRoute": "sm-676.00",
   "excludeRoutes": [],
   "curated": [
     {
-      "id": "oberalp-maighels",
-      "name": "Oberalppass – Camona da Maighels",
+      "id": "piz-mundaun",
+      "name": "Stein – Piz Mundaun – Cuolm Sura",
       "via": [
-        { "name": "Oberalppass", "kind": "pass" },
-        { "name": "Camona da Maighels CAS", "kind": "inn" }
+        { "name": "Stein Bergstation", "kind": "lift" },
+        { "name": "Piz Mundaun", "kind": "view" },
+        { "name": "Berggasthaus Cuolm Sura", "kind": "inn" }
       ]
     },
     {

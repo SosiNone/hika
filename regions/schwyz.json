@@ -1,9 +1,14 @@
 {
   "id": "schwyz",
-  "title": "Schwyz",
+  "title": "Schwyz & Muotatal",
   "subtitle": "Mythen · Stoos · Muotathal",
-  "cantons": ["SZ", "UR", "NW"],
-  "bbox": [2682000, 1198000, 2706000, 1217000],
+  "cantons": ["SZ"],
+  "seeds": [
+    { "name": "Muotatal", "kind": "Haupttal" },
+    { "name": "Iberig", "kind": "Landschaftsname" },
+    { "place": "Schwyz", "kind": "village" },
+    { "place": "Stoos SZ", "kind": "village" }
+  ],
   "minInside": 0.3,
   "minInsideKm": 2,
   "defaultRoute": "sm-827.00",

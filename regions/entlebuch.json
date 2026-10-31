@@ -1,0 +1,15 @@
+{
+  "id": "entlebuch",
+  "title": "Entlebuch & Napf",
+  "subtitle": "Napf · Schrattenflue · Sörenberg",
+  "cantons": ["LU"],
+  "seeds": [
+    { "name": "Entlebuch", "kind": "Landschaftsname" },
+    { "name": "Bramegg", "kind": "Huegelzug" },
+    { "name": "Schratteflue", "kind": "Massiv" }
+  ],
+  "minInside": 0.3,
+  "minInsideKm": 2,
+  "excludeRoutes": [],
+  "curated": []
+}

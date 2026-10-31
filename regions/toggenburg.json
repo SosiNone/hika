@@ -1,21 +1,18 @@
 {
   "id": "toggenburg",
   "title": "Toggenburg",
-  "subtitle": "Hörnli · Wattwil · Zürcher Oberland",
-  "cantons": ["SG", "ZH"],
-  "bbox": [2712000, 1232000, 2736000, 1251000],
+  "subtitle": "Wildhaus · Wattwil · Speer",
+  "cantons": ["SG"],
+  "seeds": [
+    { "name": "Toggenburg", "kind": "Landschaftsname" },
+    { "name": "Alttoggenburg", "kind": "Landschaftsname" },
+    { "name": "Neutoggenburg", "kind": "Landschaftsname" },
+    { "name": "Obertoggenburg", "kind": "Landschaftsname" },
+    { "name": "Untertoggenburg", "kind": "Landschaftsname" }
+  ],
   "minInside": 0.3,
   "minInsideKm": 2,
   "defaultRoute": "sm-48.04",
   "excludeRoutes": [],
-  "curated": [
-    {
-      "id": "steg-hoernli",
-      "name": "Steg – Hörnli",
-      "via": [
-        { "name": "Steg im Tösstal, Bahnhof", "kind": "stop" },
-        { "name": "Hörnli", "kind": "summit", "near": [2713533, 1247760] }
-      ]
-    }
-  ]
+  "curated": []
 }

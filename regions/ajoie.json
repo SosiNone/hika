@@ -1,0 +1,24 @@
+{
+  "id": "ajoie",
+  "title": "Ajoie & Franches-Montagnes",
+  "subtitle": "Porrentruy · Saignelégier · Doubs",
+  "cantons": ["JU"],
+  "seeds": [
+    { "name": "Ajoie", "kind": "Landschaftsname" },
+    { "name": "Clos du Doubs", "kind": "Landschaftsname" },
+    { "name": "Franches Montagnes", "kind": "Landschaftsname" }
+  ],
+  "minInside": 0.3,
+  "minInsideKm": 2,
+  "excludeRoutes": [],
+  "curated": [
+    {
+      "id": "saignelegier-gruere",
+      "name": "Saignelégier – Étang de la Gruère",
+      "via": [
+        { "name": "Saignelégier", "kind": "stop" },
+        { "name": "Etang de la Gruère", "kind": "lake" }
+      ]
+    }
+  ]
+}

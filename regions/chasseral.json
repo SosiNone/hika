@@ -1,21 +1,16 @@
 {
   "id": "chasseral",
   "title": "Chasseral",
-  "subtitle": "Combe Grède · Franches-Montagnes · Doubs",
-  "cantons": ["BE", "JU"],
-  "bbox": [2562000, 1219000, 2586000, 1238000],
+  "subtitle": "Combe Grède · Saint-Imier · Val de Ruz",
+  "cantons": ["BE", "NE"],
+  "seeds": [
+    { "name": "Vallon de Saint-Imier", "kind": "Haupttal" },
+    { "name": "Val de Ruz", "kind": "Haupttal" },
+    { "name": "Montagne du Droit", "kind": "Huegelzug" }
+  ],
   "minInside": 0.3,
   "minInsideKm": 2,
   "defaultRoute": "sm-427.00",
   "excludeRoutes": [],
-  "curated": [
-    {
-      "id": "saignelegier-gruere",
-      "name": "Saignelégier – Étang de la Gruère",
-      "via": [
-        { "name": "Saignelégier", "kind": "stop" },
-        { "name": "Etang de la Gruère", "kind": "lake" }
-      ]
-    }
-  ]
+  "curated": []
 }

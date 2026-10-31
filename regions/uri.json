@@ -1,0 +1,17 @@
+{
+  "id": "uri",
+  "title": "Uri & Maderanertal",
+  "subtitle": "Altdorf · Maderanertal · Schächental",
+  "cantons": ["UR"],
+  "range": "urner-alpen",
+  "seeds": [
+    { "place": "Altdorf", "kind": "village" },
+    { "place": "Bristen", "kind": "village" },
+    { "place": "Wassen", "kind": "village" },
+    { "place": "Unterschächen", "kind": "village" }
+  ],
+  "minInside": 0.3,
+  "minInsideKm": 2,
+  "excludeRoutes": [],
+  "curated": []
+}

@@ -1,0 +1,15 @@
+{
+  "id": "geneve",
+  "title": "Geneva & La Côte",
+  "subtitle": "Rhône · Nyon · Vineyards",
+  "cantons": ["GE", "VD"],
+  "seeds": [
+    { "name": "Val d'Arve", "kind": "Haupttal" },
+    { "place": "Genève", "kind": "village" },
+    { "place": "Nyon", "kind": "village" }
+  ],
+  "minInside": 0.3,
+  "minInsideKm": 2,
+  "excludeRoutes": [],
+  "curated": []
+}

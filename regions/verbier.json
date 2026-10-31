@@ -1,9 +1,13 @@
 {
   "id": "verbier",
-  "title": "Verbier",
+  "title": "Verbier & Val de Bagnes",
   "subtitle": "Val de Bagnes · Mont Fort · Nendaz",
   "cantons": ["VS"],
-  "bbox": [2571000, 1099000, 2595000, 1118000],
+  "seeds": [
+    { "name": "Val de Bagnes", "kind": "Haupttal" },
+    { "name": "Le Mont Chemin", "kind": "Landschaftsname" },
+    { "place": "Haute-Nendaz", "kind": "village" }
+  ],
   "minInside": 0.3,
   "minInsideKm": 2,
   "defaultRoute": "sm-58.02",
