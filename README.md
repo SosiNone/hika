@@ -23,7 +23,8 @@ while the instruments follow along.
 ## Features
 
 - **Terrain** from swissALTI3D as a point cloud with contours and adjustable vertical
-  exaggeration.
+  exaggeration: the whole area, with full detail around the selected route and its border on the
+  ridges.
 - **Trails** from swissTLM3D in the official signpost colours, with summits, huts, passes and lakes
   from swissNAMES3D.
 - **Route player:** scrub, change speed, walk the hike in reverse, or let the area's routes play

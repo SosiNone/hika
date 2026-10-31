@@ -4,7 +4,7 @@
  * arc references (`ArcRings`). Shared by the pipeline, which encodes, and the app, which decodes.
  * Pure, no DOM.
  */
-import type { ArcRings } from './types';
+import type { ArcRings, BBox } from './types';
 
 const UNIT = 10;
 
@@ -54,6 +54,74 @@ export function decodeRings(arcs: number[][], rings: ArcRings): number[][] {
 function reversed(flat: number[]): number[] {
   const out = new Array<number>(flat.length);
   for (let k = 0; k < flat.length; k += 2) { out[flat.length - 2 - k] = flat[k]; out[flat.length - 1 - k] = flat[k + 1]; }
+  return out;
+}
+
+/**
+ * A flat ring with its corners cut `times` over (Chaikin): borders are traced along the cells of
+ * the partition's 200 m raster, and these steps show up close. It stays within a quarter of an edge
+ * of the ring, and straight stretches stay straight.
+ */
+export function smoothRing(ring: number[], times: number): number[] {
+  let pts = ring;
+  for (let t = 0; t < times; t++) {
+    const out = new Array<number>(pts.length * 2);
+    for (let i = 0; i < pts.length; i += 2) {
+      const x0 = pts[i], y0 = pts[i + 1], x1 = pts[(i + 2) % pts.length], y1 = pts[(i + 3) % pts.length];
+      out[i * 2] = 0.75 * x0 + 0.25 * x1;
+      out[i * 2 + 1] = 0.75 * y0 + 0.25 * y1;
+      out[i * 2 + 2] = 0.25 * x0 + 0.75 * x1;
+      out[i * 2 + 3] = 0.25 * y0 + 0.75 * y1;
+    }
+    pts = out;
+  }
+  return pts;
+}
+
+/**
+ * Flat rings on a grid of `cell` m over `bbox` (row 0 at the north edge, like the terrain): 255 where
+ * a cell's centre lies inside them by the even-odd rule, as `insideFlat` decides, else 0. A scanline
+ * fill: each row costs one pass over the edges.
+ */
+export function rasterizeRings(rings: number[][], [w, s, e, n]: BBox, cell: number): { cols: number; rows: number; mask: Uint8Array } {
+  const cols = Math.round((e - w) / cell), rows = Math.round((n - s) / cell);
+  const mask = new Uint8Array(cols * rows), xs: number[] = [];
+  for (let r = 0; r < rows; r++) {
+    const y = n - (r + 0.5) * cell;
+    xs.length = 0;
+    for (const ring of rings) for (let i = 0, j = ring.length - 2; i < ring.length; j = i, i += 2) {
+      const xi = ring[i], yi = ring[i + 1], xj = ring[j], yj = ring[j + 1];
+      if (yi > y !== yj > y) xs.push(((xj - xi) * (y - yi)) / (yj - yi) + xi);
+    }
+    xs.sort((a, b) => a - b);
+    // Cells whose centre lies at or past one crossing and before the next.
+    for (let k = 0; k + 1 < xs.length; k += 2) {
+      const from = Math.max(0, Math.ceil((xs[k] - w) / cell - 0.5)), to = Math.min(cols, Math.ceil((xs[k + 1] - w) / cell - 0.5));
+      if (from < to) mask.fill(255, r * cols + from, r * cols + to);
+    }
+  }
+  return { cols, rows, mask };
+}
+
+/**
+ * The parts of flat rings inside `bbox`, as flat [e0, n0, …] polylines with a point at least every
+ * `step` m, so they can be draped on the terrain. A ring that leaves the box breaks into pieces.
+ */
+export function clipRings(rings: number[][], [w, s, e, n]: BBox, step: number): number[][] {
+  const out: number[][] = [];
+  for (const ring of rings) {
+    let line: number[] = [];
+    const end = () => { if (line.length >= 4) out.push(line); line = []; };
+    const visit = (x: number, y: number) => { if (x >= w && x <= e && y >= s && y <= n) line.push(x, y); else end(); };
+    // Each edge from its first point up to the next one, then the first point again to close it.
+    for (let i = 0; i < ring.length; i += 2) {
+      const x0 = ring[i], y0 = ring[i + 1], x1 = ring[(i + 2) % ring.length], y1 = ring[(i + 3) % ring.length];
+      const parts = Math.max(1, Math.ceil(Math.hypot(x1 - x0, y1 - y0) / step));
+      for (let k = 0; k < parts; k++) visit(x0 + ((x1 - x0) * k) / parts, y0 + ((y1 - y0) * k) / parts);
+    }
+    if (ring.length) visit(ring[0], ring[1]);
+    end();
+  }
   return out;
 }
 

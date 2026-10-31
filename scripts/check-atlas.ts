@@ -6,7 +6,7 @@
 import { existsSync, readdirSync, readFileSync, statSync } from 'node:fs';
 import { gzipSync } from 'node:zlib';
 import { decodeGrid, decodeRoute, decodeTrails } from '../src/data/codec';
-import { CELL, routeWindow, TILE, TILE_CELLS, TRAIL_BIAS, tileBox, tileKey, tileOf, tilesCovering } from '../src/data/tiles';
+import { CELL, coarseGrid, RELIEF_CELL, RELIEF_MARGIN, reliefBox, routeWindow, TILE, TILE_CELLS, TRAIL_BIAS, tileBox, tileKey, tileOf, tilesCovering } from '../src/data/tiles';
 import { decodeArc, decodeRings, insideFlat } from '../src/data/shapes';
 import { ATLAS_FORMAT, SPARK_POINTS, type AtlasManifest, type BBox, type Catalogue, type Locator, type Place, type RegionConfig, type RegionIndex } from '../src/data/types';
 import { insideRings, type XY } from '../src/geo/track';
@@ -18,8 +18,8 @@ import { routeProblems } from './lib/route';
 const DIR = process.argv[2] ?? '.atlas/v4';
 /**
  * The most one window may cost over the wire (gzipped, as GitHub Pages serves it): its tiles, plus
- * the catalogue, the locator and the routes the region lists. A region bundle with its imagery
- * cost 2.3–2.5 MB.
+ * the catalogue, the locator, the routes the region lists and its relief. A region bundle with its
+ * imagery cost 2.3–2.5 MB.
  */
 const BUDGET = 3 * 1024 * 1024;
 
@@ -158,6 +158,21 @@ for (const entry of catalogue.routes) {
 
 console.log('\nareas and ranges');
 check(index.version === 4 && readFileSync(`${DIR}/regions.json`, 'utf8') === formatIndex(index), `regions.json: version ${index.version}, one range, area or arc per line`);
+// Each area's relief is its tiles averaged, as the pipeline does, so it can't go stale.
+const relief = manifest.relief;
+check(relief?.cell === RELIEF_CELL && relief.margin === RELIEF_MARGIN, `area reliefs of ${relief?.cell} m cells, ${relief?.margin} m beyond each area (the app reads ${RELIEF_CELL} m, ${RELIEF_MARGIN} m)`);
+if (relief) {
+  const files = existsSync(`${DIR}/relief`) ? readdirSync(`${DIR}/relief`) : [];
+  const stray = files.filter((f) => !index.regions.some((r) => `${r.id}.bin` === f));
+  const wrong: string[] = [];
+  for (const r of index.regions) {
+    const want = coarseGrid(reliefBox(r.bbox), RELIEF_CELL, (key) => heights.get(key));
+    if (size(`relief/${r.id}.bin`) !== want.heights.length * 2) { wrong.push(`${r.id}: missing or not ${want.cols}×${want.rows}`); continue; }
+    const got = decodeGrid(readFileSync(`${DIR}/relief/${r.id}.bin`), want.cols, want.rows);
+    if (got.some((v, i) => v !== want.heights[i])) wrong.push(`${r.id}: differs from its tiles`);
+  }
+  check(!stray.length && !wrong.length, `relief/: ${files.length} files, each its area's tiles averaged${stray.length ? `; no such area: ${stray.slice(0, 5).join(', ')}` : ''}${wrong.length ? `; ${wrong.slice(0, 5).join('; ')}` : ''}`);
+}
 const titles = index.regions.map((r) => r.title);
 check(titles.join() === [...titles].sort((a, b) => a.localeCompare(b, 'de')).join(), 'areas are sorted by title');
 const rangeIds = index.ranges.map((r) => r.id);
@@ -206,9 +221,9 @@ for (const summary of index.regions) {
   const few = routes.length < 12 ? ' (few)' : routes.length > 45 ? ' (many)' : '';
   check(!problems.length, `${id}: ${routes.length} routes${few}, default ${summary.defaultRoute}${problems.length ? `: ${problems.join('; ')}` : ''}`);
   // The heaviest window the area opens: any of its routes, joined with its extent where that fits.
-  const routeFiles = routes.reduce((s, r) => s + wire(`routes/${r.id}.bin`), 0);
+  const routeFiles = routes.reduce((s, r) => s + wire(`routes/${r.id}.bin`), 0) + wire(`relief/${id}.bin`);
   const worst = Math.max(...routes.map((r) => windowBytes(routeWindow(r.bbox, summary.bbox))));
-  check(fixed + routeFiles + worst < BUDGET, `${id}: heaviest window ${((fixed + routeFiles + worst) / 1024 / 1024).toFixed(2)} MB gzipped (budget ${BUDGET / 1024 / 1024} MB)`);
+  check(fixed + routeFiles + worst < BUDGET, `${id}: heaviest window ${((fixed + routeFiles + worst) / 1024 / 1024).toFixed(2)} MB gzipped, with its relief (${(wire(`relief/${id}.bin`) / 1024).toFixed(0)} kB; budget ${BUDGET / 1024 / 1024} MB)`);
 }
 
 if (failed) { console.error(`${failed} check(s) failed`); process.exit(1); }

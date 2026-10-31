@@ -1,4 +1,5 @@
 import { nextWaypoint, type Region, type RouteView, type TerrainWindow } from '../data/load';
+import { insideFlat } from '../data/shapes';
 import type { Place, PlaceKind } from '../data/types';
 import { project } from '../gl/glkit';
 import type { RenderInfo, TerrainView } from '../gl/terrain';
@@ -40,9 +41,13 @@ const tone = (state: WaypointState) =>
  */
 export class LabelLayer {
   private ctx: CanvasRenderingContext2D;
-  /** The places worth a label in the view's window, best first; picked again when the window changes. */
+  /**
+   * The places worth a label in the view's window, best first: those in the page's area before
+   * those beyond it (`beyond`), which are drawn fainter. Picked again when the window changes.
+   */
   private candidates: Place[] = [];
   private candidatesOf: TerrainWindow | null = null;
+  private beyond = new Set<Place>();
   /** Under `prefers-reduced-motion` the markers hold still. */
   private still = matchMedia('(prefers-reduced-motion: reduce)').matches;
   /** Filtered screen angle of the hiker's heading arrow, see `smoothHeading`. */
@@ -56,7 +61,12 @@ export class LabelLayer {
     const win = this.view.win;
     if (this.candidatesOf !== win) {
       const keep: Partial<Record<PlaceKind, number>> = { summit: 60, pass: 60, lake: 50, inn: 99, stop: 45, lift: 99, view: 55 };
-      this.candidates = win.places.filter((p) => p.prio >= (keep[p.kind] ?? 999)).sort((a, b) => b.prio - a.prio);
+      // Not where the terrain has mostly dissolved at its edge.
+      const shown = (p: Place) => this.view.shownAt(p.e, p.n, p.alt || this.view.heightAt(p.e, p.n)) >= 0.5;
+      const area = this.view.area;
+      this.candidates = win.places.filter((p) => p.prio >= (keep[p.kind] ?? 999) && shown(p));
+      this.beyond = new Set(area ? this.candidates.filter((p) => !insideFlat(area, p.e, p.n)) : []);
+      this.candidates.sort((a, b) => Number(this.beyond.has(a)) - Number(this.beyond.has(b)) || b.prio - a.prio);
       this.candidatesOf = win;
     }
     return this.candidates;
@@ -107,7 +117,7 @@ export class LabelLayer {
       const s = at(p.e, p.n, p.alt || this.view.heightAt(p.e, p.n));
       if (s.w <= 0 || s.x < 0 || s.y < 0 || s.x > W || s.y > H) continue;
       const sub = p.kind === 'summit' || p.kind === 'pass' ? `${p.alt} M` : '';
-      this.label(s.x, s.y, p.kind === 'summit' ? 22 : 14, `${GLYPH[p.kind]} ${p.name.toUpperCase()}`, sub, taken, W);
+      this.label(s.x, s.y, p.kind === 'summit' ? 22 : 14, `${GLYPH[p.kind]} ${p.name.toUpperCase()}`, sub, taken, W, this.beyond.has(p));
     }
 
     // Screen direction of travel at sample i, over HEADING_SPAN metres either side, so it also
@@ -167,7 +177,7 @@ export class LabelLayer {
   }
 
   /** Draws a place label on a leader line; returns false when it was skipped for overlapping. */
-  private label(x: number, y: number, lift: number, text: string, sub: string, taken: Rect[], W: number): boolean {
+  private label(x: number, y: number, lift: number, text: string, sub: string, taken: Rect[], W: number, faint = false): boolean {
     const { ctx } = this;
     ctx.font = FONT;
     const tw = Math.max(ctx.measureText(text).width, sub ? ctx.measureText(sub).width : 0);
@@ -177,16 +187,16 @@ export class LabelLayer {
     ctx.beginPath();
     ctx.moveTo(x + 0.5, y);
     ctx.lineTo(x + 0.5, y - lift);
-    this.stroke(C.ink(0.55));
+    this.stroke(C.ink(faint ? 0.3 : 0.55));
     ctx.beginPath();
     ctx.arc(x + 0.5, y, 1.8, 0, Math.PI * 2);
-    ctx.fillStyle = C.text;
+    ctx.fillStyle = faint ? C.text3 : C.text;
     ctx.fill();
     ctx.textBaseline = 'alphabetic';
-    this.text(text, left, y - lift - (sub ? 10 : 0), C.text);
+    this.text(text, left, y - lift - (sub ? 10 : 0), faint ? C.text3 : C.text);
     if (sub) {
       ctx.font = SMALL;
-      this.text(sub, left, y - lift + 1, C.text2);
+      this.text(sub, left, y - lift + 1, faint ? C.text3 : C.text2);
     }
     return true;
   }

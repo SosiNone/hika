@@ -97,6 +97,12 @@ export interface AtlasManifest {
   tiles: string[];
   /** Route count (catalogue.json lists them). */
   routes: number;
+  /**
+   * Each area's relief, `relief/<id>.bin` (`encodeGrid`): `cell` m cells over the area's extent plus
+   * `margin` (`reliefBox`), averaged from the tiles (`coarseGrid`). Absent from atlases built before
+   * it was added, which the app then shows without.
+   */
+  relief?: { cell: number; margin: number };
   sources: Source[];
   generated: string;
 }

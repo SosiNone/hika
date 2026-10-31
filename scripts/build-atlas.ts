@@ -2,8 +2,8 @@
  * Builds the atlas (format 4, see AGENTS.md) from swisstopo open data: `npm run build:atlas`.
  * It covers Switzerland: every tile with Swiss ground, every SchweizMobil route whole with the
  * terrain window around it, and the areas of regions/*.json, which tile the country, with their
- * curated hikes. Writes .atlas/v4/ (or `--out <dir>`, such as a checkout of the hika-data repo)
- * and removes tile and route files that are no longer in it. `--dry-run` only reports the
+ * curated hikes, and each area's coarse relief. Writes .atlas/v4/ (or `--out <dir>`, such as a
+ * checkout of the hika-data repo) and removes tile, route and relief files no longer in it. `--dry-run` only reports the
  * footprint. `--region <id>` (repeatable) builds only those areas and the routes they list, for
  * trying out a change: the atlas in the output directory then holds just that (the areas are still
  * cut nationally, as they compete for the ground).
@@ -12,7 +12,7 @@
 import { existsSync, mkdirSync, readdirSync, readFileSync, rmSync, writeFileSync } from 'node:fs';
 import { dirname } from 'node:path';
 import { encodeGrid, encodeRoute, encodeTrails } from '../src/data/codec';
-import { CELL, routeWindow, TILE, TILE_CELLS, TRAIL_BIAS, tileBox, tileKey, tileOf, tilesCovering } from '../src/data/tiles';
+import { CELL, coarseGrid, RELIEF_CELL, RELIEF_MARGIN, reliefBox, routeWindow, TILE, TILE_CELLS, TRAIL_BIAS, tileBox, tileKey, tileOf, tilesCovering } from '../src/data/tiles';
 import { encodeArc } from '../src/data/shapes';
 import { ATLAS_FORMAT, SPARK_POINTS, type AtlasManifest, type AtlasRoute, type BBox, type Catalogue, type CatalogueEntry, type Place, type RangeSummary, type RegionConfig, type RegionSummary } from '../src/data/types';
 import { insideRings, polylineLength, type XY } from '../src/geo/track';
@@ -176,6 +176,8 @@ for (const cfg of configs) {
 const scope = new Set<string>();
 const cover = (b: BBox) => { for (const [e, n] of tilesCovering(b)) scope.add(tileKey(e, n)); };
 if (national) for (const [e, n] of tilesCovering(CH_BBOX)) if (swissGround(border, e, n)) scope.add(tileKey(e, n));
+// An area's relief is averaged from the tiles: nationally they are all there, else add its ground.
+else for (const id of built) for (const [e, n] of tilesCovering(reliefBox(shapes.get(id)!.bbox))) if (swissGround(border, e, n)) scope.add(tileKey(e, n));
 for (const p of planned.values()) {
   cover(routeWindow(bounds(p.line)));
   for (const rid of p.regions) cover(routeWindow(bounds(p.line), shapes.get(rid)!.bbox));
@@ -307,6 +309,12 @@ const used = [...new Set([...ranges, ...summaries].flatMap((x) => x.rings.flat()
 const renumber = new Map(used.map((k, i) => [k, i]));
 for (const x of [...ranges, ...summaries]) x.rings = x.rings.map((refs) => refs.map((ref) => (ref >= 0 ? renumber.get(ref)! : -renumber.get(-ref - 1)! - 1)));
 write('regions.json', formatIndex(regionIndex(ranges, summaries, used.map((k) => encodeArc(partition.arcs[k].pts)))));
+// Each area whole, coarse, for the app to show around the window (tiles abroad have no data).
+for (const s of summaries) {
+  const r = coarseGrid(reliefBox(s.bbox), RELIEF_CELL, (key) => heights.get(key));
+  write(`relief/${s.id}.bin`, encodeGrid(r.heights, r.cols));
+}
+log(`  reliefs of ${summaries.length} areas at ${RELIEF_CELL} m`);
 
 log('Switzerland locator');
 const { locator, heights: relief } = await buildLocator(2000);
@@ -326,8 +334,8 @@ for (let j = 0; j < rows; j++) for (let i = 0; i < cols; i++) {
 write('switzerland-1km.u16', encodeU16(detail));
 write('locator.json', `${JSON.stringify({ file: 'switzerland.u16', ...locator, detail: { file: 'switzerland-1km.u16', cell: DETAIL, cols, rows } })}\n`);
 
-// Stale tiles and routes go; anything else in OUT is left alone.
-for (const dir of ['terrain', 'trails', 'places', 'routes']) {
+// Stale tiles, routes and reliefs go; anything else in OUT is left alone.
+for (const dir of ['terrain', 'trails', 'places', 'routes', 'relief']) {
   if (!existsSync(`${OUT}/${dir}`)) continue;
   for (const f of readdirSync(`${OUT}/${dir}`)) {
     if (written.has(`${dir}/${f}`)) continue;
@@ -336,7 +344,10 @@ for (const dir of ['terrain', 'trails', 'places', 'routes']) {
   }
 }
 
-const manifest: AtlasManifest = { format: ATLAS_FORMAT, tile: TILE, cell: CELL, tiles, routes: entries.length, sources: SOURCES, generated: new Date().toISOString() };
+const manifest: AtlasManifest = {
+  format: ATLAS_FORMAT, tile: TILE, cell: CELL, tiles, routes: entries.length, relief: { cell: RELIEF_CELL, margin: RELIEF_MARGIN },
+  sources: SOURCES, generated: new Date().toISOString(),
+};
 // Unchanged data keeps its build time, so the rebuild leaves manifest.json byte-identical too.
 const manifestFile = `${OUT}/manifest.json`;
 const previous = existsSync(manifestFile) ? (JSON.parse(readFileSync(manifestFile, 'utf8')) as AtlasManifest) : null;
