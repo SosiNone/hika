@@ -18,8 +18,6 @@ export interface Ctx {
   route(): RouteView;
   /** Sample index of the preview hiker on the selected route. */
   hikerIndex(): number;
-  /** Place id -> short label (DEP, P1 … ARR) for the selected route. */
-  waypointIds(): Map<string, string>;
   /** The region's routes in play order. */
   playlist: Playlist;
   /** Next (1) or previous (-1) route; previous restarts the current one once it is under way. */
