@@ -20,17 +20,44 @@ const POPULATION_PRIO: Record<string, number> = {
   "2'000 bis 9'999": 55, "10'000 bis 49'999": 70, "50'000 bis 100'000": 80, "> 100'000": 90,
 };
 
+/** A place as the pipeline knows it: `also` holds its other names, which `resolvePlace` finds it by. They stay out of the atlas. */
+export interface NamedPlace extends Place {
+  also?: string[];
+}
+
+/** A swissNAMES3D row: one name of a place, with how good a name it is (`nameRank`). */
+export interface PlaceRow extends Place {
+  rank: number;
+}
+
+/** Lower is better: official names before customary and informal ones, and endonyms before exonyms. */
+const nameRank = (status: string, type: string) => (status === 'offiziell' ? 0 : 2) + (type === 'Exonym' ? 1 : 0);
+
+/**
+ * One place per uuid. swissNAMES3D has a row per name: "Zwinglipass" and "Chreialppass" are one
+ * pass, "Genève", "Genf" and "Ginevra" one town, at one point and of one type. A place goes by its
+ * best name, and of equals by the first the file lists.
+ */
+export function mergeNames(rows: PlaceRow[]): NamedPlace[] {
+  const byId = new Map<string, PlaceRow[]>();
+  for (const r of rows) (byId.get(r.id) ?? byId.set(r.id, []).get(r.id)!).push(r);
+  return [...byId.values()].map((names) => {
+    const [{ rank: _, ...best }, ...others] = names.toSorted((a, b) => a.rank - b.rank);
+    return others.length ? { ...best, also: others.map((r) => r.name) } : best;
+  });
+}
+
 /** Every hiker-relevant swissNAMES3D place in Switzerland (and Liechtenstein). */
-export async function loadPlaces(): Promise<Place[]> {
+export async function loadPlaces(): Promise<NamedPlace[]> {
   const item = await latestItem('ch.swisstopo.swissnames3d');
   const asset = Object.values(item.assets).find((a) => a.href.endsWith('.csv.zip'))!;
   const files = await downloadAsset(asset.href, 'swissnames3d', (n) => n.endsWith('.csv'));
-  const places: Place[] = [];
+  const rows: PlaceRow[] = [];
   for (const file of files.filter((f) => /_(PKT|PLY)\.csv$/.test(f))) {
     const lines = readFileSync(file, 'utf8').split(/\r?\n/);
     const head = lines[0].replace(/^﻿/, '').split(';');
     const col = (name: string) => head.indexOf(name);
-    const [iUuid, iName, iType, iUse, iPop, iE, iN, iZ] = ['UUID', 'NAME', 'OBJEKTART', 'GEBAEUDENUTZUNG', 'EINWOHNERKATEGORIE', 'E', 'N', 'Z'].map(col);
+    const [iUuid, iName, iStatus, iNameType, iType, iUse, iPop, iE, iN, iZ] = ['UUID', 'NAME', 'STATUS', 'NAMEN_TYP', 'OBJEKTART', 'GEBAEUDENUTZUNG', 'EINWOHNERKATEGORIE', 'E', 'N', 'Z'].map(col);
     const polygons = file.endsWith('_PLY.csv');
     for (let i = 1; i < lines.length; i++) {
       const c = lines[i].split(';');
@@ -39,10 +66,10 @@ export async function loadPlaces(): Promise<Place[]> {
       let spec = polygons ? POLYGON_TYPES[type] : POINT_TYPES[type] ?? (iUse >= 0 ? BUILDING_USES[c[iUse]] : undefined);
       if (!spec && type === 'Ort' && !polygons) spec = ['village', POPULATION_PRIO[c[iPop]] ?? 5];
       if (!spec) continue;
-      places.push({ id: c[iUuid].replace(/[{}]/g, '').slice(0, 13), name: c[iName], kind: spec[0], e: +c[iE], n: +c[iN], alt: Math.round(+c[iZ]), prio: spec[1] });
+      rows.push({ id: c[iUuid].replace(/[{}]/g, '').slice(0, 13), name: c[iName], kind: spec[0], e: +c[iE], n: +c[iN], alt: Math.round(+c[iZ]), prio: spec[1], rank: nameRank(c[iStatus], c[iNameType]) });
     }
   }
-  return dedupe(places);
+  return mergeNames(dedupe(rows));
 }
 
 /** A named swissNAMES3D area with its outline: a Grossregion (mountain range), landscape, main valley, hill chain or massif. */
@@ -75,8 +102,7 @@ export async function loadAreaFeatures(): Promise<AreaFeature[]> {
   db.close();
   const byUuid = new Map<string, { kind: AreaKind; names: { name: string; rank: number }[]; geom: Uint8Array }>();
   for (const r of rows) {
-    // Official names before informal ones, and endonyms before exonyms.
-    const rank = (r.status === 'offiziell' ? 0 : 2) + (r.namen_typ === 'Exonym' ? 1 : 0);
+    const rank = nameRank(r.status, r.namen_typ);
     const f = byUuid.get(r.uuid) ?? byUuid.set(r.uuid, { kind: r.objektart, names: [], geom: r.geom }).get(r.uuid)!;
     if (!f.names.some((n) => n.name === r.name)) f.names.push({ name: r.name, rank });
   }
@@ -94,8 +120,8 @@ export function matchAreaFeatures(features: AreaFeature[], name: string, kind?: 
 }
 
 /** The same name and kind within 150 m (e.g. a lift's top and bottom record) counts once. */
-function dedupe(places: Place[]): Place[] {
-  const seen = new Map<string, Place[]>();
+function dedupe<P extends Place>(places: P[]): P[] {
+  const seen = new Map<string, P[]>();
   return places.filter((p) => {
     const key = `${p.kind}:${p.name}`;
     const prev = seen.get(key) ?? [];
@@ -111,18 +137,21 @@ export const inBox = (p: { e: number; n: number }, [minE, minN, maxE, maxN]: BBo
 const fold = (s: string) => s.normalize('NFD').replace(/[̀-ͯ]/g, '').toLowerCase().replace(/[^a-z0-9]+/g, ' ').trim();
 
 /**
- * Resolves a free-text place name ("Wildhaus, Gamplüt", "Säntis") to a swissNAMES3D place.
- * Exact matches (quality 3) beat matches on a comma-separated part ("Schwägalp" ~ "Schwägalp,
- * Passhöhe", 2), which beat prefix matches (1); ties go to the place nearest `near`, then to the
- * highest priority. Matches below `minQuality` don't count.
+ * Resolves a free-text place name ("Wildhaus, Gamplüt", "Säntis") to a swissNAMES3D place, by any
+ * of its names. Exact matches (quality 3) beat matches on a comma-separated part ("Schwägalp" ~
+ * "Schwägalp, Passhöhe", 2), which beat prefix matches (1); ties go to the place nearest `near`,
+ * then to the highest priority. Matches below `minQuality` don't count.
  */
-export function resolvePlace(places: Place[], query: string, near: [number, number], kind?: Place['kind'], minQuality = 1): Place | undefined {
+export function resolvePlace(places: NamedPlace[], query: string, near: [number, number], kind?: Place['kind'], minQuality = 1): NamedPlace | undefined {
   const q = fold(query), qParts = query.split(',').map(fold);
-  let best: Place | undefined, bestQ = 0, bestS = Infinity;
+  const match = (text: string) => {
+    const name = fold(text), parts = text.split(',').map(fold);
+    return name === q ? 3 : parts.includes(q) || qParts.includes(name) ? 2 : name.startsWith(q + ' ') ? 1 : 0;
+  };
+  let best: NamedPlace | undefined, bestQ = 0, bestS = Infinity;
   for (const p of places) {
     if (kind && p.kind !== kind) continue;
-    const name = fold(p.name), parts = p.name.split(',').map(fold);
-    const quality = name === q ? 3 : parts.includes(q) || qParts.includes(name) ? 2 : name.startsWith(q + ' ') ? 1 : 0;
+    const quality = Math.max(match(p.name), ...(p.also ?? []).map(match));
     if (quality < minQuality) continue;
     const score = Math.hypot(p.e - near[0], p.n - near[1]) / 1000 - p.prio / 10;
     if (quality > bestQ || (quality === bestQ && score < bestS)) { best = p; bestQ = quality; bestS = score; }
@@ -142,7 +171,7 @@ const ABBREVIATIONS: [RegExp, string][] = [
  * name without spaces. Those must match a whole name (or one of its comma parts): a prefix match
  * of a generic word, the "Station" in "Glaris (Station)", would find any station.
  */
-export function resolveRouteEnd(places: Place[], name: string, near: [number, number]): Place | undefined {
+export function resolveRouteEnd(places: NamedPlace[], name: string, near: [number, number]): NamedPlace | undefined {
   const spelled = ABBREVIATIONS.reduce((s, [re, full]) => s.replace(re, full), name);
   const bracket = /^(.*?)\s*\((.*)\)\s*$/.exec(spelled);
   for (const [q, min] of [[name, 1], ...[spelled, ...(bracket ? [bracket[2], bracket[1]] : []), spelled.replace(/\s+/g, '')].map((v) => [v, 2])] as [string, number][]) {

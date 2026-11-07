@@ -1,4 +1,4 @@
-import { nextWaypoint, type RouteView } from '../data/load';
+import { nextWaypoint, waypointId, type RouteView } from '../data/load';
 import { TRAIL_CLASSES } from '../data/types';
 import { formatDuration } from '../geo/hikingTime';
 import { GLYPH } from '../hud/labels';
@@ -112,9 +112,9 @@ export function mountPreview(el: HTMLElement, c: Ctx) {
     q('km').textContent = r.km[i].toFixed(1);
     q('up').textContent = num(r.up[i]);
     q('time').textContent = hm(r.minutes[i]);
-    const next = r.waypoints[nextWaypoint(r, i)];
+    const nextAt = nextWaypoint(r, i), next = r.waypoints[nextAt];
     const p = next && c.region.places.get(next.place);
-    q('next').textContent = p ? `${c.waypointIds().get(next.place)} · ${p.name} · ${hm(Math.max(0, next.time - r.minutes[i]))}` : 'ARRIVED';
+    q('next').textContent = p ? `${waypointId(r, nextAt)} · ${p.name} · ${hm(Math.max(0, next.time - r.minutes[i]))}` : 'ARRIVED';
     q('rev').setAttribute('aria-pressed', String(s.reversed));
     q('rev').title = `Walk it the other way: ${r.to} → ${r.from}`;
     if (document.activeElement !== scrub) scrub.value = String(Math.round((s.minute / total) * 1000));
@@ -132,11 +132,10 @@ export function mountWaypoints(el: HTMLElement, c: Ctx) {
     if (built !== r) {
       built = r;
       meta.textContent = `SIGNPOST TIME · ${formatDuration(r.stats.time, true)}`;
-      const ids = c.waypointIds();
       body.innerHTML = `<table class="list"><thead><tr><th>ID</th><th>POINT</th><th class="num">KM</th><th class="num">ALT</th><th class="num">⌛</th></tr></thead><tbody>${r.waypoints
-        .map((w) => {
+        .map((w, k) => {
           const p = c.region.places.get(w.place)!;
-          return `<tr><td>${ids.get(w.place)}</td><td class="name" title="${esc(p.name)}"><span class="glyph">${GLYPH[p.kind]}</span>${esc(p.name)}</td><td class="num">${w.km.toFixed(1)}</td><td class="num">${w.alt}</td><td class="num">${formatDuration(w.time, true)}</td></tr>`;
+          return `<tr><td>${waypointId(r, k)}</td><td class="name" title="${esc(p.name)}"><span class="glyph">${GLYPH[p.kind]}</span>${esc(p.name)}</td><td class="num">${w.km.toFixed(1)}</td><td class="num">${w.alt}</td><td class="num">${formatDuration(w.time, true)}</td></tr>`;
         }).join('')}</tbody></table>`;
       rows = [...body.querySelectorAll('tbody tr')] as HTMLTableRowElement[];
     }

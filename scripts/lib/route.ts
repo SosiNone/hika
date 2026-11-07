@@ -72,9 +72,11 @@ export async function finishRoute(meta: RouteMeta, line: XY[], ctx: RouteContext
 
 /**
  * Places a hiker passes: summits, passes, inns, stops, viewpoints and lakes near the route,
- * thinned so that within 250 m along the route only the most important one is kept.
+ * thinned so that within 250 m along the route only the most important one is kept. Each place
+ * counts once, where the route comes nearest it, so a place comes twice only as an end of the
+ * route: a loop starts and ends at one.
  */
-function waypointsAlong(pts: XY[], alt: number[], minutes: Float64Array, viaIds: string[], meta: Pick<Route, 'id' | 'from' | 'to'>, places: Place[]): Waypoint[] {
+export function waypointsAlong(pts: XY[], alt: number[], minutes: Float64Array, viaIds: string[], meta: Pick<Route, 'id' | 'from' | 'to'>, places: Place[]): Waypoint[] {
   const reach: Partial<Record<Place['kind'], number>> = { summit: 60, pass: 60, inn: 80, stop: 80, lift: 80, view: 60, lake: 350, water: 60, cave: 40, village: 120 };
   const hits: { p: Place; i: number }[] = [];
   for (const p of places) {
@@ -122,5 +124,8 @@ export function routeProblems(r: Pick<Route, 'e' | 'n' | 'alt' | 'cls' | 'surf' 
   const { up, down } = routeClimb(r.alt);
   if (Math.abs(up[n - 1] - r.stats.up) > 1 || Math.abs(down[n - 1] - r.stats.down) > 1) problems.push(`climb ↑${r.stats.up} ↓${r.stats.down} drifts from routeClimb`);
   if (r.waypoints.length < 2) problems.push('fewer than 2 waypoints');
+  // A place can come twice, as the two ends of a loop, but not twice at one point of the route.
+  const twice = r.waypoints.find((w, k) => r.waypoints.some((o, j) => j < k && o.place === w.place && o.km === w.km));
+  if (twice) problems.push(`waypoint ${twice.place} twice at km ${twice.km}`);
   return problems;
 }

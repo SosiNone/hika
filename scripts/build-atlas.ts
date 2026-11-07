@@ -20,7 +20,7 @@ import { buildPartition, RANGES } from './lib/areas';
 import { TrailGraph } from './lib/graph';
 import { mapLimit } from './lib/http';
 import { buildLocator, CH_BBOX, loadBoundaries, swissGround } from './lib/locator';
-import { inBox, loadPlaces, resolvePlace, resolveRouteEnd } from './lib/names';
+import { inBox, loadPlaces, resolvePlace, resolveRouteEnd, type NamedPlace } from './lib/names';
 import { cellAt, listing, reach, ringPoints, routeShares } from './lib/partition';
 import { formatIndex, regionIndex, summariseRegion, type RegionFacts, type RegionShape } from './lib/regions';
 import { finishRoute, round1, STEP, type RouteMeta } from './lib/route';
@@ -383,8 +383,8 @@ function swissShare(line: XY[]): number {
 
 function pad(b: BBox, m: number): BBox { return [b[0] - m, b[1] - m, b[2] + m, b[3] + m]; }
 
-/** Places are stored to the whole metre. */
-function roundPlace(p: Place): Place { return { ...p, e: Math.round(p.e), n: Math.round(p.n) }; }
+/** Places are stored to the whole metre, under one name. */
+function roundPlace({ also: _, ...p }: NamedPlace): Place { return { ...p, e: Math.round(p.e), n: Math.round(p.n) }; }
 
 /** A JSON array with one item per line, so a change to one item is a one-line diff. */
 function lines(items: unknown[], open: string, close: string): string {

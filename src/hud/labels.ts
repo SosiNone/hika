@@ -1,4 +1,4 @@
-import { nextWaypoint, type Region, type RouteView, type TerrainWindow } from '../data/load';
+import { nextWaypoint, waypointPins, type Region, type RouteView, type TerrainWindow } from '../data/load';
 import { insideFlat } from '../data/shapes';
 import type { Place, PlaceKind } from '../data/types';
 import { project } from '../gl/glkit';
@@ -73,7 +73,7 @@ export class LabelLayer {
   }
 
   /** `t` is the frame time in seconds; it only drives the marker animation. */
-  draw(info: RenderInfo, t: number, route: RouteView | null, hikerIndex: number | null, hoverIndex: number | null, waypointIds: Map<string, string>) {
+  draw(info: RenderInfo, t: number, route: RouteView | null, hikerIndex: number | null, hoverIndex: number | null) {
     const { ctx, canvas } = this;
     const dpr = Math.min(window.devicePixelRatio || 1, 2);
     const W = canvas.clientWidth, H = canvas.clientHeight;
@@ -95,13 +95,13 @@ export class LabelLayer {
     // Route waypoints first: they win every collision.
     if (route) {
       const now = hikerIndex === null ? 0 : route.minutes[hikerIndex];
-      route.waypoints.forEach((wp, k) => {
+      for (const { k, id } of waypointPins(route)) {
+        const wp = route.waypoints[k];
         const p = this.region.places.get(wp.place);
-        if (!p) return;
+        if (!p) continue;
         const i = Math.min(route.e.length - 1, Math.round((wp.km * 1000) / route.step));
         const s = at(route.e[i], route.n[i], route.alt[i]);
-        if (s.w <= 0) return;
-        const id = waypointIds.get(wp.place) ?? '';
+        if (s.w <= 0) continue;
         const state: WaypointState = next < 0 || k < next ? 'passed' : k === next ? 'next' : 'ahead';
         const end = k === 0 || k === route.waypoints.length - 1;
         const sub = state === 'passed' ? `✓ T+${hm(wp.time)}`
@@ -111,7 +111,7 @@ export class LabelLayer {
         this.ring(at, route.e[i], route.n[i], route.alt[i], info.eye, tone(state).stroke, breathe * info.markers);
         // A waypoint label that would collide shrinks to its ID instead of disappearing.
         if (!this.waypoint(s.x, s.y, 34, id, p.name.toUpperCase(), sub, state, end, info.markers, taken, W)) this.waypoint(s.x, s.y, 16, id, '', '', state, end, info.markers, taken, W, true);
-      });
+      }
     }
     for (const p of this.labelled()) {
       const s = at(p.e, p.n, p.alt || this.view.heightAt(p.e, p.n));

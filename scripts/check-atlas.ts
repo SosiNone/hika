@@ -62,6 +62,7 @@ for (const [dir, ext] of [['terrain', '.bin'], ['trails', '.bin'], ['places', '.
 const heights = new Map<string, Uint16Array>();
 let cells = 0, emptyInside = 0, trailLines = 0, placeCount = 0;
 const bad: string[] = [], holes: string[] = [];
+const placeIds = new Set<string>();
 for (const key of manifest.tiles) {
   const [e, n] = key.split('_').map((v) => +v * 1000);
   try {
@@ -90,11 +91,16 @@ for (const key of manifest.tiles) {
     placeCount += places.length;
     const off = places.find((p) => tileKey(...tileOf(p.e, p.n)) !== key);
     if (off) bad.push(`${key}: place ${off.name} lies outside`);
+    // One id, one place, or labels would depend on which row loaded last.
+    for (const p of places) {
+      if (placeIds.has(p.id)) bad.push(`${key}: place ${p.id} (${p.name}) is listed twice`);
+      placeIds.add(p.id);
+    }
   } catch (err) {
     bad.push(`${key}: ${(err as Error).message}`);
   }
 }
-check(!bad.length, `tiles decode, lines and places sit in their tiles (${trailLines} trail lines, ${placeCount} places)${bad.length ? `: ${bad.slice(0, 5).join('; ')}` : ''}`);
+check(!bad.length, `tiles decode, lines and places sit in their tiles, no place twice (${trailLines} trail lines, ${placeCount} places)${bad.length ? `: ${bad.slice(0, 5).join('; ')}` : ''}`);
 // Allow 1 % for the 400 m simplification of the border.
 check(emptyInside / cells < 0.01, `${emptyInside} empty cells inside Switzerland (${((emptyInside / cells) * 100).toFixed(2)} %)`);
 check(!holes.length, `no 1 km block missing inside Switzerland${holes.length ? `: ${holes.slice(0, 5).join(', ')}` : ''}`);
@@ -129,6 +135,7 @@ for (const entry of catalogue.routes) {
     problems.push(...routeProblems(r));
     const named = new Set(r.places.map((p) => p.id));
     if (r.waypoints.some((w) => !named.has(w.place))) problems.push('a waypoint names a place the file lacks');
+    if (named.size < r.places.length) problems.push('the file lists a place twice');
     const [minE, minN, maxE, maxN] = entry.bbox;
     if (!r.e.every((e, i) => e >= minE && e <= maxE && r.n[i] >= minN && r.n[i] <= maxN)) problems.push('samples outside its bbox');
     // The terrain under every sample in Switzerland is in the atlas. A tile left out has no data at

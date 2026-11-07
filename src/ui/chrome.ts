@@ -1,4 +1,4 @@
-import type { Region, RouteView } from '../data/load';
+import { waypointId, type Region, type RouteView } from '../data/load';
 import type { RangeSummary, RegionSummary } from '../data/types';
 import { lv95ToWgs84 } from '../geo/lv95';
 import { esc, num } from '../panels/common';
@@ -85,7 +85,7 @@ function sunTimes(day: Date, lat: number, lon: number): { rise: Date | null; set
 }
 
 /** Top ticker: the route at a glance; footer ticker: waypoint altitudes, scrolling. */
-export function renderTickers(region: Region, r: RouteView, ids: Map<string, string>) {
+export function renderTickers(region: Region, r: RouteView) {
   const top = document.getElementById('top-ticker')!, foot = document.getElementById('foot-ticker')!;
   const s = r.stats;
   top.innerHTML = [
@@ -94,6 +94,6 @@ export function renderTickers(region: Region, r: RouteView, ids: Map<string, str
     `<b>${s.km.toFixed(1)}</b> KM`, `<b>↑${num(s.up)}</b> M`, `<b>↓${num(s.down)}</b> M`,
     `<b>${Math.floor(s.time / 60)}:${String(s.time % 60).padStart(2, '0')}</b> H · BACK ${Math.floor(s.timeBack / 60)}:${String(s.timeBack % 60).padStart(2, '0')} H`,
   ].map((x) => `<span>${x}</span>`).join('');
-  const items = r.waypoints.map((w) => `<span><i>${ids.get(w.place)}</i>${esc((region.places.get(w.place)?.name ?? '').toUpperCase())} ${w.alt}</span>`).join('');
+  const items = r.waypoints.map((w, k) => `<span><i>${waypointId(r, k)}</i>${esc((region.places.get(w.place)?.name ?? '').toUpperCase())} ${w.alt}</span>`).join('');
   foot.innerHTML = `<span class="track">${items}${items}</span>`;
 }
