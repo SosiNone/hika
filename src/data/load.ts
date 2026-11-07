@@ -249,6 +249,25 @@ export function reverseRoute(r: Route): RouteView {
   return view;
 }
 
+/**
+ * The short label of waypoint `k`: DEP, P1 … Pn, ARR. It goes by position, not by place, as a
+ * place can be named twice: a loop starts and ends at one.
+ */
+export function waypointId(r: Pick<Route, 'waypoints'>, k: number): string {
+  return k === 0 ? 'DEP' : k === r.waypoints.length - 1 ? 'ARR' : `P${k}`;
+}
+
+/**
+ * The pins a route has on the map: each waypoint's index and label. The two ends of a loop name one
+ * place and would draw over each other, so they share a pin, at the finish, which is still ahead.
+ */
+export function waypointPins(r: Pick<Route, 'waypoints'>): { k: number; id: string }[] {
+  const pins = r.waypoints.map((_, k) => ({ k, id: waypointId(r, k) }));
+  const last = pins.length - 1;
+  if (last < 1 || r.waypoints[0].place !== r.waypoints[last].place) return pins;
+  return [...pins.slice(1, last), { k: last, id: 'DEP/ARR' }];
+}
+
 /** Index of the first waypoint still ahead of sample `i`, or -1 once the hiker has arrived. */
 export function nextWaypoint(r: Pick<Route, 'waypoints' | 'step'>, i: number): number {
   return r.waypoints.findIndex((w) => w.km * 1000 > i * r.step + 1);

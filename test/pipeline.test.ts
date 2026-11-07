@@ -1,9 +1,10 @@
 import { describe, expect, it } from 'vitest';
 import { clipToBox, type XY } from '../src/geo/track';
-import type { BBox, Place } from '../src/data/types';
+import type { BBox, Place, Waypoint } from '../src/data/types';
 import { emptyCells } from '../scripts/lib/coverage';
 import { TrailGraph } from '../scripts/lib/graph';
-import { resolveRouteEnd } from '../scripts/lib/names';
+import { mergeNames, resolvePlace, resolveRouteEnd, type PlaceRow } from '../scripts/lib/names';
+import { routeProblems, waypointsAlong } from '../scripts/lib/route';
 import { chain } from '../scripts/lib/wanderland';
 
 describe('chain', () => {
@@ -78,6 +79,76 @@ describe('resolveRouteEnd', () => {
   });
   it('finds nothing for an unknown place', () => expect(id('Atlantis')).toBeUndefined());
 });
+
+describe('mergeNames', () => {
+  // rank: 0 official endonym, 1 official exonym, 2 customary or informal endonym, 3 their exonym.
+  const row = (id: string, name: string, rank: number, e = 2746884): PlaceRow => ({ id, name, kind: 'pass', e, n: 1233503, alt: 2011, prio: 60, rank });
+
+  it('leaves a place with one name as it is, with no field beyond a stored place', () => {
+    expect(mergeNames([row('a', 'Hohe Winde', 0)])).toEqual([{ id: 'a', name: 'Hohe Winde', kind: 'pass', e: 2746884, n: 1233503, alt: 2011, prio: 60 }]);
+  });
+  it('makes one place of the rows of one id, in the order they first came', () => {
+    const merged = mergeNames([row('a', 'Zwinglipass', 0), row('b', 'Other', 0, 2700000), row('a', 'Chreialppass', 0)]);
+    expect(merged.map((p) => p.id)).toEqual(['a', 'b']);
+  });
+  it('takes the first of equally good names, and keeps the others', () => {
+    const [p] = mergeNames([row('a', 'Zwinglipass', 0), row('a', 'Chreialppass', 0)]);
+    expect(p.name).toBe('Zwinglipass');
+    expect(p.also).toEqual(['Chreialppass']);
+  });
+  it('prefers the better name, wherever the file lists it', () => {
+    const [p] = mergeNames([row('a', 'Ginevra', 3), row('a', 'Genf', 3), row('a', 'Genève', 0)]);
+    expect(p.name).toBe('Genève');
+    expect(p.also).toEqual(['Ginevra', 'Genf']);
+  });
+  it('still finds a place by a name it does not go by', () => {
+    const places = mergeNames([row('a', 'Zwinglipass', 0), row('a', 'Chreialppass', 0)]);
+    expect(resolvePlace(places, 'Chreialppass', [2746884, 1233503])?.name).toBe('Zwinglipass');
+    expect(resolvePlace(places, 'Zwinglipass', [2746884, 1233503])?.id).toBe('a');
+  });
+});
+
+describe('waypointsAlong', () => {
+  const STEP = 10, meta = { id: 'r', from: 'A', to: 'B' };
+  /** A line east along n = 0, every 10 m. */
+  const walk = (metres: number) => Array.from({ length: metres / STEP + 1 }, (_, i): XY => [i * STEP, 0]);
+  const along = (pts: XY[], via: string[], places: Place[]) =>
+    waypointsAlong(pts, pts.map(() => 1000), Float64Array.from(pts, (_, i) => i), via, meta, places);
+  const place = (id: string, name: string, e: number, n = 0): Place => ({ id, name, kind: 'pass', e, n, alt: 1000, prio: 60 });
+
+  it('names a via place with two names once, under one name', () => {
+    const rows = [{ ...place('p', 'Zwinglipass', 500), rank: 0 }, { ...place('p', 'Chreialppass', 500), rank: 0 }];
+    const places = [place('a', 'A', 0), ...mergeNames(rows), place('b', 'B', 1000)];
+    const w = along(walk(1000), ['a', 'p', 'b'], places);
+    expect(w.map((x) => x.place)).toEqual(['a', 'p', 'b']);
+    expect(routeProblems(stored(w))).toEqual([]);
+  });
+  it('names the start of a loop at both ends, 11 km apart', () => {
+    // Out 5.5 km along n = 0, back along n = 20: the start lies nearest both ends of the line.
+    const out = walk(5500), back = [...walk(5500)].reverse().map(([e]): XY => [e, 20]);
+    const w = along([...out, ...back], [], [place('home', 'Home', 0, 10)]);
+    expect(w.map((x) => x.place)).toEqual(['home', 'home']);
+    expect(w.map((x) => x.km)).toEqual([0, 11]);
+    expect(routeProblems(stored(w))).toEqual([]);
+  });
+});
+
+describe('routeProblems', () => {
+  it('flags a place twice at one km', () => {
+    const w = [{ place: 'a', km: 0, alt: 1000, time: 0 }, { place: 'p', km: 0.5, alt: 1000, time: 6 }, { place: 'p', km: 0.5, alt: 1000, time: 6 }, { place: 'b', km: 1, alt: 1000, time: 12 }];
+    expect(routeProblems(stored(w))).toEqual(['waypoint p twice at km 0.5']);
+  });
+  it('takes a place at two points of the route', () => {
+    const w = [{ place: 'home', km: 0, alt: 1000, time: 0 }, { place: 'hut', km: 0.5, alt: 1000, time: 6 }, { place: 'home', km: 1, alt: 1000, time: 12 }];
+    expect(routeProblems(stored(w))).toEqual([]);
+  });
+});
+
+/** A flat 1 km route that passes every other check of `routeProblems`, with these waypoints. */
+function stored(waypoints: Waypoint[]) {
+  const zeros = Array.from({ length: 101 }, () => 0);
+  return { e: zeros, n: zeros, alt: zeros.map(() => 1000), cls: zeros, surf: zeros, step: 10, waypoints, stats: { km: 1, up: 0, down: 0, time: 14, timeBack: 14, minAlt: 1000, maxAlt: 1000, classKm: [1, 0, 0, 0] as [number, number, number, number], hardKm: 0, steepKm: 0 } };
+}
 
 describe('emptyCells', () => {
   // 4 × 2 cells of 10 m over [0, 0, 40, 20]; the border runs down the middle (x = 20).

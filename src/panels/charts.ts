@@ -1,3 +1,4 @@
+import { waypointId } from '../data/load';
 import { OFF_NETWORK } from '../data/types';
 import { pointer } from '../hud/pointer';
 import { chart, COLORS, FONT, frame, hm, num, type Ctx } from './common';
@@ -63,15 +64,14 @@ export function mountProfile(el: HTMLElement, c: Ctx) {
     // Waypoint ticks.
     ctx.font = FONT(8);
     ctx.textAlign = 'center';
-    const ids = c.waypointIds();
-    for (const wp of r.waypoints) {
+    r.waypoints.forEach((wp, w) => {
       const k = Math.min(n - 1, Math.round((wp.km * 1000) / r.step));
       const x = X(k);
       ctx.strokeStyle = COLORS.line2;
       ctx.beginPath(); ctx.moveTo(x + 0.5, Y(r.alt[k]) - 3); ctx.lineTo(x + 0.5, h - PAD.b + 3); ctx.stroke();
       ctx.fillStyle = COLORS.text3;
-      ctx.fillText(ids.get(wp.place) ?? '', x, h - 4);
-    }
+      ctx.fillText(waypointId(r, w), x, h - 4);
+    });
     cursor(ctx, X(i), Y(r.alt[i]), heading(X, Y, r.alt, i), PAD.t - 8, h - PAD.b, COLORS.accent, 'HIKA', true);
     if (hover !== null && hover < n) cursor(ctx, X(hover), Y(r.alt[hover]), heading(X, Y, r.alt, hover), PAD.t - 8, h - PAD.b, COLORS.text, `${r.km[hover].toFixed(1)}`, false);
     ctx.textAlign = 'left';

@@ -78,7 +78,6 @@ function start(atlas: Atlas, region: Region, routeId: string, reversed: boolean)
     if (!reversedById.has(routeId)) reversedById.set(routeId, reverseRoute(byId.get(routeId)!));
     return reversedById.get(routeId)!;
   };
-  let ids = waypointIds(route());
   const playlist = new Playlist(region.routes);
   /** When the preview, held at the finish, moves on (0 = not holding). */
   let holdUntil = 0;
@@ -108,7 +107,7 @@ function start(atlas: Atlas, region: Region, routeId: string, reversed: boolean)
   const locator = document.getElementById('p-locator')!, sway = new Sway();
   const browser = mountRegionBrowser(atlas, region, view, goToRegion, openRoute, locator, sway);
   const openRegions = (range?: string) => browser.open(range);
-  const ctx: Ctx = { atlas, region, regions: atlas.regions, goToRegion, openRegions, store, view, route, hikerIndex: () => indexAtMinute(route(), store.state.minute), waypointIds: () => ids, playlist, skip };
+  const ctx: Ctx = { atlas, region, regions: atlas.regions, goToRegion, openRegions, store, view, route, hikerIndex: () => indexAtMinute(route(), store.state.minute), playlist, skip };
   mountRegionPicker(document.getElementById('brand-sub')!, atlas.regions, atlas.ranges, region.summary, () => openRegions());
   const overlay = mountStageOverlay(region, store, view);
 
@@ -147,10 +146,9 @@ function start(atlas: Atlas, region: Region, routeId: string, reversed: boolean)
   };
 
   const selectRoute = (r: RouteView, fly = true) => {
-    ids = waypointIds(r);
     showWindowFor(r);
     view.setRoute(r);
-    renderTickers(region, r, ids);
+    renderTickers(region, r);
     if (fly && !(autoAdvance && view.camera.framed)) flyToRoute(view, r);
     history.replaceState(null, '', `#route=${r.id}${store.state.reversed ? '&reverse=1' : ''}`);
   };
@@ -246,7 +244,7 @@ function start(atlas: Atlas, region: Region, routeId: string, reversed: boolean)
     const info = view.render(t, dt);
     lastVp = info.vp;
     picker.frame(now, view.camera.flying);
-    labels.draw(info, t, r, hiker, store.state.hoverIndex, ids);
+    labels.draw(info, t, r, hiker, store.state.hoverIndex);
     overlay(info, r, hiker);
     if (now - lastPanels > 50) {
       lastPanels = now;
@@ -255,13 +253,6 @@ function start(atlas: Atlas, region: Region, routeId: string, reversed: boolean)
     requestAnimationFrame(loop);
   };
   requestAnimationFrame(loop);
-}
-
-/** DEP, P1 … Pn, ARR for the waypoints of a route. */
-function waypointIds(r: RouteView): Map<string, string> {
-  const m = new Map<string, string>();
-  r.waypoints.forEach((w, i) => m.set(w.place, i === 0 ? 'DEP' : i === r.waypoints.length - 1 ? 'ARR' : `P${i}`));
-  return m;
 }
 
 function flyToRoute(view: TerrainView, r: RouteView) {
