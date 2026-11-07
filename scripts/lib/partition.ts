@@ -17,7 +17,7 @@ export interface Raster { bbox: BBox; cell: number; cols: number; rows: number }
 export const raster = (bbox: BBox, cell: number): Raster => ({ bbox, cell, cols: Math.round((bbox[2] - bbox[0]) / cell), rows: Math.round((bbox[3] - bbox[1]) / cell) });
 
 /** Crossing a lake costs this many times walking the same distance on the flat shore: borders run through lakes, not along their shores. */
-export const LAKE_FACTOR = 4;
+const LAKE_FACTOR = 4;
 /** Pieces of an area smaller than this many km² go to the neighbour they share the most border with. */
 export const MIN_PIECE_KM2 = 2;
 

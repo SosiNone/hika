@@ -18,7 +18,7 @@ export function rangeOf(ranges: RangeSummary[], region: Pick<RegionSummary, 'ran
 }
 
 /** Canton names by code, in their official languages and English, for the region filter. */
-export const CANTON_NAMES: Record<string, string> = {
+const CANTON_NAMES: Record<string, string> = {
   AG: 'Aargau Argovie', AI: 'Appenzell Innerrhoden', AR: 'Appenzell Ausserrhoden', BE: 'Bern Berne',
   BL: 'Basel-Landschaft Bâle-Campagne', BS: 'Basel-Stadt Bâle-Ville', FR: 'Fribourg Freiburg', GE: 'Genève Genf Geneva',
   GL: 'Glarus Glaris', GR: 'Graubünden Grisons Grigioni Grischun', JU: 'Jura', LU: 'Luzern Lucerne',

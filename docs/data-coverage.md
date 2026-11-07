@@ -11,17 +11,17 @@ field, a panel or a source, update the matching row.
 
 ## 1. In the atlas
 
-### Terrain and imagery
+### Terrain
 
 | Data | Source | Atlas | Shown | Where | Unused / ideas |
 |---|---|---|---|---|---|
 | Height grid, 20 m (5 km tiles, stitched into windows) | swissALTI3D | `terrain/<key>.bin` | ✅ | Point cloud, contours (worker), trail draping, slope aspect rose (I) | No height or slope readout under the cursor; no slope shading of the cloud |
-| No-data cells beyond the border (`0`) | swissALTI3D (Switzerland only) | `terrain.bin` | ◐ | Left empty: no points or contours (Zermatt, Aletsch) | The Italian side of the Matterhorn is blank; a coarse foreign DEM could fill it |
+| No-data cells beyond the border (`0`) | swissALTI3D (Switzerland only) | `terrain/<key>.bin` | ◐ | Left empty: no points or contours (Zermatt, Aletsch) | The Italian side of the Matterhorn is blank; a coarse foreign DEM could fill it |
 | Area relief, 100 m (each area plus 4 km) | swissALTI3D, averaged from the 20 m tiles (`coarseGrid`) | `relief/<id>.bin`, `manifest.relief` | ✅ | Point cloud and contours around the window, cross-fading with it; the home view (double-click) shows all of it | No place labels or trails beyond the window |
 | Grid min / max altitude | swissALTI3D | `grid.minAlt`, `grid.maxAlt` | ◐ | Exaggeration base, hiker drop line | Not shown as numbers |
 | National relief, 2 km | Profile service (DTM2) | `switzerland.u16` | ✅ | Locator (G) and region browser, which drape the borders and the ranges and areas on it | — |
 | National relief, 1 km | swissALTI3D, averaged from the partition's 200 m terrain model | `switzerland-1km.u16` (`locator.detail`) | ✅ | Region browser, fetched when it opens: the relief it zooms into a range on | — |
-| National border, canton borders | swissBOUNDARIES3D | `locator.border`, `locator.cantons` | ✅ | Locator (G), region browser | Canton borders are not drawn on the 3D terrain (the region spans AI, AR and SG) |
+| National border, canton borders | swissBOUNDARIES3D | `locator.border`, `locator.cantons` | ✅ | Locator (G), region browser | Canton borders are not drawn on the 3D terrain (Alpstein spans AI, AR and SG) |
 | Lakes | Derived in the app from the flat cells of `switzerland.u16` (`lakeCells`) | — | ✅ | Locator (G), region browser | At 2 km cells only the larger lakes show (two or more flat cells); no lake names |
 | Mountain ranges and areas: outlines, shared borders | swissNAMES3D (Grossregion, Landschaftsname, Haupttal, Huegelzug, Massiv polygons), grown over the terrain by hiking time (`scripts/lib/partition.ts`) | `regions.json` `ranges`, `regions[].rings`, `arcs` | ✅ | Locator (G) and region browser: a range glows under the pointer, the browser zooms into it, the current area is lit. 3D terrain: the current area's border is draped on it, and the ground beyond recedes | — |
 
@@ -30,9 +30,9 @@ field, a panel or a source, update the matching row.
 | Data | Source | Atlas | Shown | Where | Unused / ideas |
 |---|---|---|---|---|---|
 | Geometry of every signposted trail (6159 lines in Alpstein) | swissTLM3D Wanderwege | `trails/<key>.bin` | ✅ | 3D network with casing; in TRAILS AUTO only the trails within walking reach of the selected route | Not clickable: clicking selects routes only |
-| Class per line (Wanderweg / Berg / Alpin) | swissTLM3D Wanderwege | `trails.bin` | ✅ | Network colour | — |
-| Hard surface per line | swissTLM3D Wanderwege | `trails.bin` | ✗ | Decoded on load, never drawn | Dashed or dimmed asphalt on the map |
-| Network km per class, hard km | derived | `trails.km`, `trails.hardKm` | ✅ | Trail class (C): network total and ghost markers | — |
+| Class per line (Wanderweg / Berg / Alpin) | swissTLM3D Wanderwege | `trails/<key>.bin` | ✅ | Network colour | — |
+| Hard surface per line | swissTLM3D Wanderwege | `trails/<key>.bin` | ✗ | Decoded on load, never drawn | Dashed or dimmed asphalt on the map |
+| Network km per class, hard km | derived | `regions.json` `trailKm`, `hardKm` | ✅ | Trail class (C): network total and ghost markers | — |
 
 ### Places (swissNAMES3D)
 
@@ -133,8 +133,8 @@ them would be baked into the atlas at build time.
 | swissTLM3D (full model) | `ch.swisstopo.swisstlm3d` (STAC) | Land cover (forest, rock, scree, glacier) to tint the point cloud; waters; cableway lines; buildings | Large download |
 | swissSURFACE3D raster | `ch.swisstopo.swisssurface3d-raster` (STAC) | Surface minus terrain gives forest height: forest vs open ground along a route | Large download |
 | swissBUILDINGS3D 3.0 | `ch.swisstopo.swissbuildings3d_3_0` (STAC) | Huts and summit buildings in 3D | |
-| Slopes over 30° | `ch.swisstopo.hangneigung-ueber_30` (WMTS) | Steep-terrain overlay | Can also be computed from `terrain.bin` with no new data |
-| Relief shading | `ch.swisstopo.swissalti3d-reliefschattierung` (WMTS) | Hillshade texture for the light scheme | Can also be computed from `terrain.bin` |
+| Slopes over 30° | `ch.swisstopo.hangneigung-ueber_30` (WMTS) | Steep-terrain overlay | Can also be computed from the terrain tiles with no new data |
+| Relief shading | `ch.swisstopo.swissalti3d-reliefschattierung` (WMTS) | Hillshade texture for the light scheme | Can also be computed from the terrain tiles |
 | National map | `ch.swisstopo.pixelkarte-farbe` (WMTS) | A second colour mode next to MONO | |
 | SWISSIMAGE orthophoto | `ch.swisstopo.swissimage` (WMTS) | Was a point colour mode until 0.12 | Dropped in 0.13: about 95 MB for all of Switzerland, for a mode few used |
 | Snowshoe and ski touring routes | `ch.swisstopo-karto.schneeschuhrouten`, `ch.swisstopo-karto.skitouren` | Winter routes | Outside hiking scope; owner decision |

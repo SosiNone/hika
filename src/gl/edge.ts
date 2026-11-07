@@ -17,10 +17,10 @@ import { WINDOW_MARGIN } from '../data/tiles';
 /** Radius (m) the window's corners are rounded to. */
 export const CORNER = 2000;
 /** Width (m) over which the terrain fades out. */
-export const FADE = 500;
+const FADE = 500;
 /** How far (m) noise and the relief move the outline in and out: ridges reach out, valleys recede. */
-export const FRAY = 500;
-export const RELIEF = 250;
+const FRAY = 500;
+const RELIEF = 250;
 /** Wavelength (m) of the noise's coarsest octave. */
 const GRAIN = 2600;
 /** Summed octaves of value noise keep near their mean; this stretches them over the whole of `FRAY`. */
@@ -61,7 +61,7 @@ float edgeMask(vec2 xz, float alt, vec2 size, vec2 altRange) {
 /** Cell (m) of the area's mask: its border is simplified to 150 m (`traceArcs`). */
 export const AREA_CELL = 100;
 /** How much of the terrain beyond the area's border is drawn: points, contours and trails thin out or dim to it. */
-export const OUTSIDE = 0.3;
+const OUTSIDE = 0.3;
 
 /**
  * GLSL for `areaKeep(xz)`: how much of the terrain to draw at world `xz`, 1 in the page's area and

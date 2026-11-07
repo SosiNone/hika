@@ -1,6 +1,6 @@
 import { DatabaseSync } from 'node:sqlite';
-import type { BBox, RouteCategory } from '../../src/data/types';
-import { clipToBox, polylineLength, type XY } from '../../src/geo/track';
+import type { RouteCategory } from '../../src/data/types';
+import { polylineLength, type XY } from '../../src/geo/track';
 import { downloadFile } from './download';
 import { parseGpkgLines } from './gpkg';
 import { latestItem } from './stac';
@@ -117,18 +117,4 @@ export function chain(parts: XY[][]): { line: XY[]; gaps: number; dropped: numbe
   }
   const lengths = pieces.map(polylineLength), longest = lengths.indexOf(Math.max(...lengths));
   return { line: pieces[longest], gaps, dropped: lengths.reduce((s, l) => s + l, 0) - lengths[longest] };
-}
-
-/** The longest piece of `line` inside `bbox`, with flags for whether it was cut at either end. */
-export function clipRoute(line: XY[], bbox: BBox): { piece: XY[]; clipped: [boolean, boolean]; insideShare: number } {
-  const pieces = clipToBox(line, bbox);
-  if (!pieces.length) return { piece: [], clipped: [true, true], insideShare: 0 };
-  const lens = pieces.map(polylineLength);
-  const piece = pieces[lens.indexOf(Math.max(...lens))];
-  const same = (a: XY, b: XY) => Math.hypot(a[0] - b[0], a[1] - b[1]) < 1;
-  return {
-    piece,
-    clipped: [!same(piece[0], line[0]), !same(piece[piece.length - 1], line[line.length - 1])],
-    insideShare: lens.reduce((s, l) => s + l, 0) / polylineLength(line),
-  };
 }

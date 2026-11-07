@@ -47,7 +47,7 @@ export function climb(alt: ArrayLike<number>, threshold = 3): { up: number; down
 }
 
 /** Cumulative ascent / descent per sample (same hysteresis as `climb`). */
-export function cumulativeClimb(alt: ArrayLike<number>, threshold = 3): { up: Float64Array; down: Float64Array } {
+function cumulativeClimb(alt: ArrayLike<number>, threshold = 3): { up: Float64Array; down: Float64Array } {
   const up = new Float64Array(alt.length), down = new Float64Array(alt.length);
   let ref = alt[0];
   for (let i = 1; i < alt.length; i++) {

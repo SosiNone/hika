@@ -28,10 +28,10 @@ export async function withSlot<T>(fn: () => Promise<T>): Promise<T> {
   }
 }
 
-export interface RequestInit2 { method?: string; body?: string; headers?: Record<string, string> }
+interface FetchOptions { method?: string; body?: string; headers?: Record<string, string> }
 
 /** Fetches `url` through an on-disk cache keyed by URL and body, retrying transient failures. */
-export async function fetchCached(url: string, init: RequestInit2 = {}): Promise<Buffer> {
+export async function fetchCached(url: string, init: FetchOptions = {}): Promise<Buffer> {
   const key = createHash('sha1').update(url).update(init.body ?? '').digest('hex');
   const file = join(CACHE_DIR, key.slice(0, 2), key);
   if (existsSync(file)) return readFileSync(file);
@@ -41,7 +41,7 @@ export async function fetchCached(url: string, init: RequestInit2 = {}): Promise
   return buf;
 }
 
-export async function fetchJson<T>(url: string, init?: RequestInit2): Promise<T> {
+export async function fetchJson<T>(url: string, init?: FetchOptions): Promise<T> {
   return JSON.parse((await fetchCached(url, init)).toString('utf8')) as T;
 }
 
@@ -53,7 +53,7 @@ async function pace(url: string) {
   if (at > now) await new Promise((r) => setTimeout(r, at - now));
 }
 
-async function fetchRetry(url: string, init: RequestInit2, attempt = 0): Promise<Buffer> {
+async function fetchRetry(url: string, init: FetchOptions, attempt = 0): Promise<Buffer> {
   await pace(url);
   try {
     const res = await fetch(url, init);

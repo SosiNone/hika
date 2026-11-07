@@ -17,7 +17,7 @@ import { encodeU16, nationalDem, type Grid } from './terrain';
 /** Cell of the partition raster (m). */
 export const AREA_CELL = 200;
 /** Area borders are simplified to this (m); diagonal steps of the 200 m raster are under it, so they straighten. */
-export const ARC_TOLERANCE = 150;
+const ARC_TOLERANCE = 150;
 /** A place or point seeds a disc this wide (m) unless it says otherwise. */
 const SEED_RADIUS = 1500;
 /** Flat groups of fewer 200 m cells than this (1 km²) are plains, not lakes. */
