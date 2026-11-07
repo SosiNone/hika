@@ -255,7 +255,7 @@ const MARKER_SHRINK = [4000, 40000];
 const MARKER_FAR = 0.45;
 
 /** Scale factor that eases (smoothstep) from 1 at camera distance `near` down to `floor` at `far`. */
-export function zoomScale(dist: number, [near, far]: number[], floor: number): number {
+function zoomScale(dist: number, [near, far]: number[], floor: number): number {
   const s = Math.min(1, Math.max(0, (dist - near) / (far - near)));
   return 1 - (1 - floor) * s * s * (3 - 2 * s);
 }

@@ -222,7 +222,7 @@ async function fetchOk(rel: string): Promise<Response> {
 const json = async <T>(rel: string) => (await (await fetchOk(rel)).json()) as T;
 const binary = async (rel: string) => (await fetchOk(rel)).arrayBuffer();
 
-export function deriveRoute(r: Route): RouteView {
+function deriveRoute(r: Route): RouteView {
   const km = Float64Array.from(r.alt, (_, i) => (i * r.step) / 1000);
   const { up, down } = routeClimb(r.alt);
   return { ...r, km, minutes: cumulativeMinutes(r.alt, r.step), up, down };

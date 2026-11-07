@@ -1,4 +1,3 @@
 * text=auto eol=lf
-*.u16 binary
-*.bin binary
-*.jpg binary
+*.webp binary
+package-lock.json linguist-generated

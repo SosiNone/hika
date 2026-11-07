@@ -1,6 +1,6 @@
 /**
- * Byte layouts of the atlas files (format 3): terrain and trail tiles and route files. Shared by
- * the pipeline (encode) and the app (decode) so the two cannot drift apart.
+ * Byte layouts of the atlas files: terrain and trail tiles and route files. Shared by the pipeline
+ * (encode) and the app (decode) so the two cannot drift apart.
  *
  * All of them store 16-bit values as residuals from a predictor, modulo 2^16, with all low bytes before
  * all high bytes. The residuals are small and the high-byte plane is nearly constant, so git's
@@ -30,7 +30,7 @@ function predict(h: Uint16Array, i: number, cols: number): number {
   return h[i - 1] + h[i - cols] - h[i - cols - 1];
 }
 
-/** terrain.bin from a row-major Uint16 grid. */
+/** A terrain tile (`terrain/<key>.bin`) from a row-major Uint16 grid. */
 export function encodeGrid(h: Uint16Array, cols: number): Uint8Array {
   const r = new Uint16Array(h.length);
   for (let i = 0; i < h.length; i++) r[i] = (h[i] - predict(h, i, cols)) & 0xffff;
@@ -45,9 +45,9 @@ export function decodeGrid(bytes: Uint8Array, cols: number, rows: number): Uint1
 }
 
 /**
- * trails.bin: 'HKT2', line and vertex counts (Uint32), vertex offsets per line (Uint32), class and
- * surface bytes padded to 4, then the (e, n) pairs as deltas from the line's previous vertex (the
- * first vertex as is), in byte planes.
+ * A trail tile (`trails/<key>.bin`): 'HKT2', line and vertex counts (Uint32), vertex offsets per
+ * line (Uint32), class and surface bytes padded to 4, then the (e, n) pairs as deltas from the
+ * line's previous vertex (the first vertex as is), in byte planes.
  */
 export function encodeTrails({ offsets, cls, hard, xy }: Trails): Uint8Array {
   const nLines = cls.length, nVerts = xy.length / 2, meta = Math.ceil((nLines * 2) / 4) * 4;

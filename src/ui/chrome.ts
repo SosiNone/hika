@@ -68,7 +68,7 @@ export function startClock(region: Region) {
 }
 
 /** NOAA sunrise equation (±1 min), good enough for a status line. */
-export function sunTimes(day: Date, lat: number, lon: number): { rise: Date | null; set: Date | null } {
+function sunTimes(day: Date, lat: number, lon: number): { rise: Date | null; set: Date | null } {
   const rad = Math.PI / 180;
   const n = Math.floor(Date.UTC(day.getUTCFullYear(), day.getUTCMonth(), day.getUTCDate()) / 86400000 - 10957.5) + 0.0008;
   const jStar = n - lon / 360;

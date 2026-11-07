@@ -9,7 +9,7 @@ export interface StacItem { id: string; bbox: number[]; properties: { datetime: 
 interface StacPage { features: StacItem[]; links: { rel: string; href: string }[] }
 
 /** WGS84 bbox that encloses an LV95 bbox (the projection's grid is slightly rotated). */
-export function wgs84Bounds([minE, minN, maxE, maxN]: BBox): [number, number, number, number] {
+function wgs84Bounds([minE, minN, maxE, maxN]: BBox): [number, number, number, number] {
   const corners = [lv95ToWgs84(minE, minN), lv95ToWgs84(minE, maxN), lv95ToWgs84(maxE, minN), lv95ToWgs84(maxE, maxN)];
   const lons = corners.map((c) => c[0]), lats = corners.map((c) => c[1]);
   return [Math.min(...lons), Math.min(...lats), Math.max(...lons), Math.max(...lats)];

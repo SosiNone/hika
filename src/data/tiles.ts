@@ -1,7 +1,7 @@
 /**
- * The atlas tile grid (format 3, see AGENTS.md): square LV95 tiles keyed by their south-west
- * corner in km (`2735_1225`). Shared by the pipeline, which writes tiles, and the app, which
- * stitches the tiles around a route into one window.
+ * The atlas tile grid (see AGENTS.md): square LV95 tiles keyed by their south-west corner in km
+ * (`2735_1225`). Shared by the pipeline, which writes tiles, and the app, which stitches the tiles
+ * around a route into one window.
  */
 import type { BBox } from './types';
 
@@ -22,7 +22,7 @@ export const WINDOW_MARGIN = 2000;
  * region alone, which keeps every window within check-atlas's budget. Regions don't sit on the
  * tile grid, so a cap on area would let a 27 × 27 km window take 7 × 7 tiles.
  */
-export const WINDOW_MAX_TILES = 36;
+const WINDOW_MAX_TILES = 36;
 
 /** Key of the tile whose south-west corner is (e, n). */
 export const tileKey = (e: number, n: number) => `${e / 1000}_${n / 1000}`;
